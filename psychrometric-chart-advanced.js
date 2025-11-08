@@ -136,12 +136,134 @@ class PsychrometricChartEnhanced extends HTMLElement {
                 moldRiskHigh: 'High',
                 moldRiskVeryHigh: 'Very high',
                 moldRiskCritical: 'Critical'
+            },
+            es: {
+                // Error messages
+                noPointsConfigured: '¡No hay puntos o entidades configuradas en la tarjeta!',
+                noValidEntity: '¡No se encontraron entidades válidas!',
+                noDataAvailable: 'No hay datos disponibles',
+
+                // Main labels
+                temperature: 'Temperatura',
+                humidity: 'Humedad',
+                dewPoint: 'Punto de rocío',
+                wetBulbTemp: 'Temp. húmeda',
+                enthalpy: 'Entalpía',
+                waterContent: 'Contenido agua',
+                absoluteHumidity: 'Humedad abs.',
+                specificVolume: 'Vol. específico',
+                pmvIndex: 'Índice PMV',
+                moldRisk: 'Moho',
+
+                // Actions
+                action: 'Acción',
+                totalPower: 'Potencia total',
+                heating: 'Calefacción',
+                cooling: 'Refrigeración',
+                humidification: 'Humidificación',
+                dehumidification: 'Deshumidificación',
+                idealSetpoint: 'Consigna ideal',
+
+                // Comfort
+                optimalComfort: 'Confort óptimo',
+                outsideComfort: 'Fuera de confort',
+                comfortZone: 'Zona de confort',
+
+                // Legend and UI
+                legend: 'Leyenda',
+                minimum: 'Mínimo',
+                average: 'Promedio',
+                maximum: 'Máximo',
+                clickToViewHistory: 'Haz clic para ver el historial',
+
+                // Action texts
+                warm: 'Calentar',
+                cool: 'Enfriar',
+                andHumidify: 'y Humidificar',
+                andDehumidify: 'y Deshumidificar',
+                historyLast24h: 'Historial de las últimas 24 horas',
+                dataPoints: 'puntos de datos',
+
+                // Mold risk levels
+                moldRiskNone: 'Sin riesgo',
+                moldRiskVeryLow: 'Muy bajo',
+                moldRiskLow: 'Bajo',
+                moldRiskModerate: 'Moderado',
+                moldRiskHigh: 'Alto',
+                moldRiskVeryHigh: 'Muy alto',
+                moldRiskCritical: 'Crítico'
+            },
+            de: {
+                // Error messages
+                noPointsConfigured: 'Keine Punkte oder Entitäten in der Karte konfiguriert!',
+                noValidEntity: 'Keine gültigen Entitäten gefunden!',
+                noDataAvailable: 'Keine Daten verfügbar',
+
+                // Main labels
+                temperature: 'Temperatur',
+                humidity: 'Luftfeuchtigkeit',
+                dewPoint: 'Taupunkt',
+                wetBulbTemp: 'Feuchtkugeltemp.',
+                enthalpy: 'Enthalpie',
+                waterContent: 'Wassergehalt',
+                absoluteHumidity: 'Abs. Feuchtigkeit',
+                specificVolume: 'Spez. Volumen',
+                pmvIndex: 'PMV-Index',
+                moldRisk: 'Schimmel',
+
+                // Actions
+                action: 'Aktion',
+                totalPower: 'Gesamtleistung',
+                heating: 'Heizung',
+                cooling: 'Kühlung',
+                humidification: 'Befeuchtung',
+                dehumidification: 'Entfeuchtung',
+                idealSetpoint: 'Idealer Sollwert',
+
+                // Comfort
+                optimalComfort: 'Optimaler Komfort',
+                outsideComfort: 'Außerhalb Komfort',
+                comfortZone: 'Komfortzone',
+
+                // Legend and UI
+                legend: 'Legende',
+                minimum: 'Minimum',
+                average: 'Durchschnitt',
+                maximum: 'Maximum',
+                clickToViewHistory: 'Klicken Sie, um den Verlauf anzuzeigen',
+
+                // Action texts
+                warm: 'Erwärmen',
+                cool: 'Abkühlen',
+                andHumidify: 'und Befeuchten',
+                andDehumidify: 'und Entfeuchten',
+                historyLast24h: 'Verlauf der letzten 24 Stunden',
+                dataPoints: 'Datenpunkte',
+
+                // Mold risk levels
+                moldRiskNone: 'Kein Risiko',
+                moldRiskVeryLow: 'Sehr niedrig',
+                moldRiskLow: 'Niedrig',
+                moldRiskModerate: 'Mäßig',
+                moldRiskHigh: 'Hoch',
+                moldRiskVeryHigh: 'Sehr hoch',
+                moldRiskCritical: 'Kritisch'
             }
         };
     }
 
     // Translation helper method
     t(key) {
+        // Protection against access before complete initialization
+        if (!this.translations || !this._language) {
+            return key; // Return raw key if not yet initialized
+        }
+
+        // Protection against invalid language
+        if (!this.translations[this._language]) {
+            return this.translations['fr'] ? this.translations['fr'][key] || key : key;
+        }
+
         return this.translations[this._language][key] || this.translations['fr'][key] || key;
     }
 

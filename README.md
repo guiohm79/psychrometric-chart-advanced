@@ -7,7 +7,7 @@
   [![GitHub release](https://img.shields.io/github/release/guiohm79/psychrometric-chart-advanced.svg)](https://github.com/guiohm79/psychrometric-chart-advanced/releases)
   [![License](https://img.shields.io/github/license/guiohm79/psychrometric-chart-advanced.svg)](LICENSE)
 
-  **Language:** [🇬🇧 English](README.md) | [🇫🇷 Français](README.fr.md)
+  **Language:** [🇬🇧 English](README.md) | [🇫🇷 Français](README.fr.md) | [🇪🇸 Español](README.es.md) | [🇩🇪 Deutsch](README.de.md)
 </div>
 
 <img width="589" alt="image" src="https://github.com/guiohm79/psychrometric-chart-advanced/blob/main/Capture.png">
@@ -67,7 +67,7 @@ This project provides a custom card for **Home Assistant**, allowing you to visu
 - Adjustable mass flow rate for precise power calculations
 
 ### 🌍 Multilingual
-- **English** and **French** interface
+- **English**, **French**, **Spanish**, and **German** interface
 - Configurable via `language` parameter
 - All labels and messages translated
 
@@ -114,7 +114,7 @@ Add this YAML configuration to your dashboard in **Home Assistant**:
 
 ```yaml
 type: custom:psychrometric-chart-enhanced
-language: en  # 'en' for English, 'fr' for French (default: 'fr')
+language: en  # 'en' for English, 'fr' for French, 'es' for Spanish, 'de' for German (default: 'fr')
 points:
   - temp: sensor.bme680_temperature
     humidity: sensor.bme680_humidity
@@ -163,7 +163,7 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `type` | string | **Yes** | - | Must be `custom:psychrometric-chart-enhanced` |
-| `language` | string | No | `fr` | Interface language: `en` (English) or `fr` (French) |
+| `language` | string | No | `fr` | Interface language: `en` (English), `fr` (French), `es` (Spanish), or `de` (German) |
 | `points` | list | **Yes** | - | List of sensor points to display |
 | `points[].temp` | string | **Yes** | - | Temperature sensor entity ID |
 | `points[].humidity` | string | **Yes** | - | Humidity sensor entity ID |
