@@ -82,7 +82,8 @@ This project provides a custom card for **Home Assistant**, allowing you to visu
 
 ### Via HACS (recommended)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=guiohm79&repository=psychrometric-chart-advanced=plugin)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=guiohm79&repository=psychrometric-chart-advanced&category=plugin)
+
 
 1. Make sure you have [HACS](https://hacs.xyz/) installed in Home Assistant
 2. Open HACS in Home Assistant
