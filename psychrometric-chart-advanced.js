@@ -254,16 +254,6 @@ class PsychrometricChartEnhanced extends HTMLElement {
 
     // Translation helper method
     t(key) {
-        // Protection against access before complete initialization
-        if (!this.translations || !this._language) {
-            return key; // Return raw key if not yet initialized
-        }
-
-        // Protection against invalid language
-        if (!this.translations[this._language]) {
-            return this.translations['fr'] ? this.translations['fr'][key] || key : key;
-        }
-
         return this.translations[this._language][key] || this.translations['fr'][key] || key;
     }
 
