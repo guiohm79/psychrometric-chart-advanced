@@ -3,46 +3,42 @@
  * Version 2.0.0 - Modular TypeScript Architecture
  */
 
-// Import styles
+// Import styles (will be injected into the bundle)
 import './styles/card-styles.css';
 import './styles/data-cards.css';
 import './styles/modal-styles.css';
 
-// Import calculations (to verify they compile)
-import * as calculations from './calculations/psychrometrics';
-
-// Import i18n
-import { createI18nHelper } from './i18n/i18n-helper';
+// Import main component
+import { PsychrometricCard } from './psychrometric-card';
 
 // Import constants
-import * as constants from './utils/constants';
-
-// Import helpers
-import * as helpers from './utils/helpers';
-
-// Import coordinate system
-import { createCoordinateSystem } from './rendering/coordinate-system';
-
-// Import types
-import type {
-    PsychrometricCardConfig,
-    Hass,
-    ProcessedPoint
-} from './types/config';
-
-console.log('Psychrometric Chart Card v2.0.0 - Modular architecture loaded');
-console.log('Modules available:', {
-    calculations,
-    i18n: createI18nHelper,
-    constants,
-    helpers,
-    coordinateSystem: createCoordinateSystem
-});
+import { CARD_VERSION, CARD_NAME } from './utils/constants';
 
 // Export version info
-export const VERSION = constants.CARD_VERSION;
-export const CARD_NAME = constants.CARD_NAME;
+export const VERSION = CARD_VERSION;
+export const NAME = CARD_NAME;
 
-// NOTE: This is a minimal entry point for testing compilation
-// The full implementation will include the main PsychrometricCard class
-// and web component registration
+// Register the custom element
+customElements.define('psychrometric-chart-enhanced', PsychrometricCard);
+
+// Log successful initialization
+console.info(
+    `%c🌡️ Psychrometric Chart Card v${VERSION} %c
+Modular TypeScript architecture
+Loaded successfully!`,
+    'color: #4CAF50; font-weight: bold; font-size: 14px;',
+    'color: #666; font-size: 12px;'
+);
+
+// Register with Home Assistant's custom card registry
+(window as any).customCards = (window as any).customCards || [];
+(window as any).customCards.push({
+    type: 'psychrometric-chart-enhanced',
+    name: 'Psychrometric Chart',
+    description: 'Advanced psychrometric chart for HVAC monitoring',
+    preview: false,
+    documentationURL: 'https://github.com/guiohm79/diagram-psychro'
+});
+
+// Export the card class for potential external use
+export { PsychrometricCard };
