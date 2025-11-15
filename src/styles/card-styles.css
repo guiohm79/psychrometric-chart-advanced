@@ -1,0 +1,141 @@
+/**
+ * Main Card Styles
+ * Core styling for the psychrometric chart card
+ */
+
+/* Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Card container */
+.psychro-card {
+    text-align: center;
+    padding: 16px;
+}
+
+.psychro-card h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+/* Chart container */
+.chart-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#psychroChart {
+    max-width: 100%;
+    height: auto;
+    cursor: crosshair;
+    transition: all 0.3s ease;
+}
+
+/* Legend */
+.legend-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 12px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 12px;
+    max-width: 200px;
+    backdrop-filter: blur(10px);
+    z-index: 10;
+}
+
+.legend-container.dark {
+    background: rgba(45, 45, 45, 0.95);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin: 6px 0;
+    gap: 8px;
+}
+
+.legend-color {
+    width: 20px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+/* Tooltip */
+.chart-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.chart-tooltip.dark {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .psychro-card {
+        padding: 12px;
+    }
+
+    .psychro-card h2 {
+        font-size: 18px;
+    }
+
+    .legend-container {
+        position: static;
+        margin: 10px auto;
+        max-width: 100%;
+    }
+
+    #psychroChart {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .psychro-card {
+        padding: 8px;
+    }
+
+    .legend-container {
+        font-size: 11px;
+        padding: 8px;
+    }
+}

@@ -1,0 +1,191 @@
+/**
+ * Data Cards Styles
+ * Styling for calculated data display cards
+ */
+
+/* Data container */
+.psychro-data {
+    margin-top: 20px;
+    text-align: left;
+    font-size: 14px;
+    max-width: 100%;
+    padding: 0 20px;
+    margin-left: auto;
+    margin-right: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 20px;
+}
+
+/* Individual point data card */
+.psychro-point-data {
+    padding: 15px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.psychro-point-data.light {
+    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+}
+
+.psychro-point-data.dark {
+    background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.psychro-point-data:hover {
+    transform: translateY(-5px);
+}
+
+.psychro-point-data.light:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.psychro-point-data.dark:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+}
+
+/* Background gradient overlay */
+.psychro-point-data::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at top right, currentColor, transparent);
+    opacity: 0.05;
+    pointer-events: none;
+}
+
+/* Card header */
+.psychro-point-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.psychro-point-header ha-icon {
+    margin-right: 8px;
+}
+
+.psychro-point-label {
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.psychro-comfort-badge {
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 11px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    color: white;
+}
+
+.psychro-comfort-badge.optimal {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+}
+
+.psychro-comfort-badge.outside {
+    background: linear-gradient(135deg, #FF9800, #f57c00);
+}
+
+/* Card content */
+.psychro-point-content {
+    position: relative;
+    z-index: 1;
+}
+
+.psychro-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.psychro-data-item {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 5px;
+    transition: background 0.2s;
+}
+
+.psychro-data-item.clickable {
+    cursor: pointer;
+}
+
+.psychro-data-item.clickable:hover {
+    transform: scale(1.02);
+}
+
+.psychro-data-item.clickable.light:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.psychro-data-item.clickable.dark:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.psychro-data-item strong {
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.psychro-data-value {
+    font-weight: 600;
+}
+
+/* Action section */
+.psychro-action-section {
+    margin-top: 15px;
+    padding-top: 10px;
+}
+
+.psychro-action-section.light {
+    border-top: 1px solid #ddd;
+}
+
+.psychro-action-section.dark {
+    border-top: 1px solid #555;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .psychro-data {
+        grid-template-columns: 1fr;
+        padding: 0 10px;
+    }
+
+    .psychro-data-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .psychro-point-data {
+        padding: 12px;
+    }
+
+    .psychro-point-label {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .psychro-data {
+        gap: 15px;
+    }
+
+    .psychro-point-data {
+        padding: 10px;
+    }
+
+    .psychro-data-item {
+        font-size: 13px;
+    }
+}

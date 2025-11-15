@@ -3,6 +3,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.claude/
 
 # Claude Code local settings
 .claude/settings.local.json
@@ -27,6 +28,11 @@ Desktop.ini
 # Build outputs
 dist/
 build/
+*.map
+*.tsbuildinfo
+
+# TypeScript cache
+*.tsbuildinfo
 
 # Environment variables
 .env
