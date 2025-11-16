@@ -26,13 +26,13 @@ Desktop.ini
 *.log
 
 # Build outputs
-dist/
-build/
+# Note: psychrometric-chart-advanced.js is NOT ignored (needed for HACS)
 *.map
 *.tsbuildinfo
 
-# TypeScript cache
-*.tsbuildinfo
+# TypeScript declarations (generated but not needed)
+src/**/*.d.ts
+src/**/*.d.ts.map
 
 # Environment variables
 .env
