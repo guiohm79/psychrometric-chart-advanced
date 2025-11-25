@@ -252,6 +252,137 @@ class PsychrometricChartEnhanced extends HTMLElement {
         };
     }
 
+<<<<<<< HEAD
+=======
+// ========================================
+    // RANDOM COLOR GENERATION
+    // ========================================
+    
+    /**
+     * Generate a random bright color for points without specified colors
+     * Uses HSL color space to ensure vibrant, saturated colors
+     */
+    generateRandomBrightColor() {
+        // Generate bright, vibrant colors using HSL
+        const hue = Math.floor(Math.random() * 360); // Random hue (0-360)
+        const saturation = 80 + Math.floor(Math.random() * 20); // 80-100% saturation
+        const lightness = 50 + Math.floor(Math.random() * 15); // 50-65% lightness
+        
+        // Convert HSL to hex
+        const h = hue / 360;
+        const s = saturation / 100;
+        const l = lightness / 100;
+        
+        const hslToRgb = (h, s, l) => {
+            let r, g, b;
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        };
+        
+        const [r, g, b] = hslToRgb(h, s, l);
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+    }
+
+    // ========================================
+    // TEMPERATURE CONVERSION UTILITIES
+    // ========================================
+    
+    /**
+     * Convert Fahrenheit to Celsius
+     */
+    fahrenheitToCelsius(tempF) {
+        return (tempF - 32) * 5 / 9;
+    }
+
+    /**
+     * Convert Celsius to Fahrenheit
+     */
+    celsiusToFahrenheit(tempC) {
+        return (tempC * 9 / 5) + 32;
+    }
+
+    /**
+     * Get the temperature unit symbol
+     */
+    getTempUnit() {
+        return this._temperatureUnit === '°F' ? '°F' : '°C';
+    }
+
+    /**
+     * Format temperature for display (with proper unit)
+     */
+    formatTemp(tempC, decimals = 1) {
+        if (this._temperatureUnit === '°F') {
+            return this.celsiusToFahrenheit(tempC).toFixed(decimals) + '°F';
+        }
+        return tempC.toFixed(decimals) + '°C';
+    }
+
+    /**
+     * Convert user-provided temperature to Celsius (internal format)
+     * Handles both config values and sensor readings
+     */
+    toInternalTemp(temp) {
+        if (this._temperatureUnit === '°F') {
+            return this.fahrenheitToCelsius(temp);
+        }
+        return temp;
+    }
+
+    /**
+     * Convert internal Celsius temperature to display unit
+     */
+    toDisplayTemp(tempC) {
+        if (this._temperatureUnit === '°F') {
+            return this.celsiusToFahrenheit(tempC);
+        }
+        return tempC;
+    }
+
+    /**
+     * Detect temperature unit from Home Assistant or config
+     */
+    detectTemperatureUnit(hass) {
+        // 1. Check if manually set in config
+        if (this.config && this.config.temperatureUnit) {
+            const configUnit = this.config.temperatureUnit.toLowerCase();
+            if (configUnit === 'f' || configUnit === 'fahrenheit' || configUnit === '°f') {
+                return '°F';
+            }
+            if (configUnit === 'c' || configUnit === 'celsius' || configUnit === '°c') {
+                return '°C';
+            }
+        }
+
+        // 2. Auto-detect from Home Assistant unit system
+        if (hass && hass.config && hass.config.unit_system) {
+            const tempUnit = hass.config.unit_system.temperature;
+            if (tempUnit === '°F') {
+                return '°F';
+            }
+        }
+
+        // 3. Default to Celsius
+        return '°C';
+    }
+
+>>>>>>> e0c0542 (Update psychrometric-chart-advanced.js)
     // Translation helper method
     t(key) {
         return this.translations[this._language][key] || this.translations['fr'][key] || key;
@@ -451,7 +582,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
                 moldRisk,
                 pmv,
                 idealSetpoint,
-                color: point.color || "#ff0000",
+                color: point.color || this.generateRandomBrightColor(),
                 label: point.label || `${point.temp} & ${point.humidity}`,
                 icon: point.icon || "mdi:thermometer",
                 inComfortZone: this.isInComfortZone(temp, humidity, comfortRange),
