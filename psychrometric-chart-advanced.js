@@ -260,6 +260,9 @@ class PsychrometricChartEnhanced extends LitElement {
                 dewPoint: 'Point de rosée',
                 enthalpy: 'Enthalpie',
                 absHumidity: 'Humidité abs.',
+                waterContent: 'Teneur en eau',
+                specificVolume: 'Volume spécifique',
+                pmvIndex: 'Indice PMV',
                 wetBulb: 'Temp. humide',
                 moldRisk: 'Moisissure',
                 action: 'Action',
@@ -277,7 +280,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Hors confort',
                 comfortZone: 'Zone de confort',
                 legend: 'Légende',
-                clickToViewHistory: 'Cliquer pour voir l\'historique',
+                clickToViewHistory: '',
                 warm: 'Réchauffer',
                 cool: 'Refroidir',
                 andHumidify: 'et Humidifier',
@@ -299,6 +302,9 @@ class PsychrometricChartEnhanced extends LitElement {
                 dewPoint: 'Dew point',
                 enthalpy: 'Enthalpy',
                 absHumidity: 'Abs. humidity',
+                waterContent: 'Water content',
+                specificVolume: 'Specific volume',
+                pmvIndex: 'PMV Index',
                 wetBulb: 'Wet bulb',
                 moldRisk: 'Mold risk',
                 action: 'Action',
@@ -338,6 +344,9 @@ class PsychrometricChartEnhanced extends LitElement {
                 dewPoint: 'Punto de rocío',
                 enthalpy: 'Entalpía',
                 absHumidity: 'Humedad abs.',
+                waterContent: 'Contenido de agua',
+                specificVolume: 'Volumen específico',
+                pmvIndex: 'Índice PMV',
                 wetBulb: 'Temp. húmeda',
                 moldRisk: 'Moho',
                 action: 'Acción',
@@ -377,6 +386,9 @@ class PsychrometricChartEnhanced extends LitElement {
                 dewPoint: 'Taupunkt',
                 enthalpy: 'Enthalpie',
                 absHumidity: 'Abs. Feuchtigkeit',
+                waterContent: 'Wassergehalt',
+                specificVolume: 'Spezifisches Volumen',
+                pmvIndex: 'PMV-Index',
                 wetBulb: 'Feuchtkugeltemp.',
                 moldRisk: 'Schimmel',
                 action: 'Aktion',
@@ -690,7 +702,7 @@ class PsychrometricChartEnhanced extends LitElement {
             return {
                 temp, humidity, action, power, heatingPower, coolingPower, humidificationPower, dehumidificationPower,
                 dewPoint, waterContent, enthalpy, absoluteHumidity, wetBulbTemp, specificVolume, moldRisk, pmv, idealSetpoint,
-                color: point.color || PsychrometricCalculations.generateRandomBrightColor(),
+                color: point.color || PsychrometricCalculations.generateColorFromHash(`${point.temp}_${point.humidity}`),
                 label: point.label || `${point.temp} & ${point.humidity}`,
                 icon: point.icon || "mdi:thermometer",
                 inComfortZone: this.isInComfortZone(temp, humidity, comfortRange),
@@ -1362,6 +1374,9 @@ class PsychrometricChartEnhanced extends LitElement {
 
                                         ${displayMode === "advanced" ? html`
                                             <div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>
+                                            <div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>
+                                            <div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>
+                                            <div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>
                                             <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
                                                 <span>🍄 ${this.t('moldRisk')}:</span>
                                                 <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
