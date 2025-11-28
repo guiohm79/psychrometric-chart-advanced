@@ -280,7 +280,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Hors confort',
                 comfortZone: 'Zone de confort',
                 legend: 'Légende',
-                clickToViewHistory: '',
+                clickToViewHistory: '.',
                 warm: 'Réchauffer',
                 cool: 'Refroidir',
                 andHumidify: 'et Humidifier',
@@ -322,7 +322,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Out of comfort',
                 comfortZone: 'Comfort zone',
                 legend: 'Legend',
-                clickToViewHistory: 'Click to view history',
+                clickToViewHistory: '.',
                 warm: 'Warm up',
                 cool: 'Cool down',
                 andHumidify: 'and Humidify',
@@ -364,7 +364,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Fuera de confort',
                 comfortZone: 'Zona de confort',
                 legend: 'Leyenda',
-                clickToViewHistory: 'Haz clic para ver el historial',
+                clickToViewHistory: '.',
                 warm: 'Calentar',
                 cool: 'Enfriar',
                 andHumidify: 'y Humidificar',
@@ -406,7 +406,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Außerhalb Komfort',
                 comfortZone: 'Komfortzone',
                 legend: 'Legende',
-                clickToViewHistory: 'Klicken Sie, um den Verlauf anzuzeigen',
+                clickToViewHistory: '.',
                 warm: 'Erwärmen',
                 cool: 'Abkühlen',
                 andHumidify: 'und Befeuchten',
@@ -638,6 +638,9 @@ class PsychrometricChartEnhanced extends LitElement {
     _calculatePoints() {
         if (!this.hass || !this.config || !this.config.points) return [];
 
+        // Debug logging for config
+        // console.log("Chart Config Points:", JSON.stringify(this.config.points));
+
         if (this._temperatureUnit === null) {
             this._temperatureUnit = this.detectTemperatureUnit(this.hass);
         }
@@ -707,7 +710,8 @@ class PsychrometricChartEnhanced extends LitElement {
                 icon: point.icon || "mdi:thermometer",
                 inComfortZone: this.isInComfortZone(temp, humidity, comfortRange),
                 tempEntityId: point.temp,
-                humidityEntityId: point.humidity
+                humidityEntityId: point.humidity,
+                details: point.details // Pass through details config
             };
         }).filter(p => p !== null);
     }
@@ -1276,6 +1280,36 @@ class PsychrometricChartEnhanced extends LitElement {
      * Main render method.
      * @returns {TemplateResult} HTML template
      */
+    /**
+     * Determine if a field should be shown for a point.
+     * @param {Object} point - Point data
+     * @param {string} field - Field name
+     * @param {string} displayMode - Global display mode
+     * @returns {boolean}
+     */
+    _shouldShowField(point, field, displayMode) {
+        // Debug logging
+        console.log(`Checking field ${field} for point ${point.label}`, point.details, displayMode);
+
+        // If point has specific details configured, use them
+        // Fix: check if details is an array, even if empty. 
+        // If it is an array, it means the user has explicitly configured this point.
+        if (point.details && Array.isArray(point.details)) {
+            return point.details.includes(field);
+        }
+
+        // Otherwise fallback to global displayMode
+        if (displayMode === 'minimal') return false;
+
+        if (displayMode === 'standard') {
+            const standardFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+            return standardFields.includes(field);
+        }
+
+        // Advanced shows everything
+        return true;
+    }
+
     render() {
         if (!this.config || !this.hass) return html``;
 
@@ -1366,17 +1400,15 @@ class PsychrometricChartEnhanced extends LitElement {
                                             <span>💧 ${this.t('humidity')}: <span style="color: ${point.color}; font-weight: 600;">${point.humidity.toFixed(1)}%</span></span>
                                         </div>
                                         
-                                        ${displayMode === "standard" || displayMode === "advanced" ? html`
-                                            <div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>
-                                            <div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>
-                                            <div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>
-                                        ` : ''}
-
-                                        ${displayMode === "advanced" ? html`
-                                            <div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>
-                                            <div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>
-                                            <div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>
-                                            <div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>
+                                        ${this._shouldShowField(point, 'dewPoint', displayMode) ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'wetBulb', displayMode) ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'enthalpy', displayMode) ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'absHumidity', displayMode) ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
+                                        ${this._shouldShowField(point, 'waterContent', displayMode) ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'specificVolume', displayMode) ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'pmvIndex', displayMode) ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
+                                        
+                                        ${this._shouldShowField(point, 'moldRisk', displayMode) ? html`
                                             <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
                                                 <span>🍄 ${this.t('moldRisk')}:</span>
                                                 <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
@@ -1386,7 +1418,7 @@ class PsychrometricChartEnhanced extends LitElement {
                                         ` : ''}
                                     </div>
 
-                                    ${(point.action || point.power > 0) && displayMode === 'advanced' ? html`
+                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action', displayMode) ? html`
                                         <div class="action-box" style="border-top-color: ${darkMode ? '#555' : '#ddd'}">
                                             ${point.action ? html`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
                                             ${point.power > 0 ? html`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}

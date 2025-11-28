@@ -194,6 +194,21 @@ export class PsychrometricChartEditor extends HTMLElement {
                                     <label>Icône</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
+
+                                <details>
+                                    <summary>Affichage personnalisé</summary>
+                                    <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
+                                        ${this._renderDetailCheckbox(index, point, 'dewPoint', 'Point de rosée')}
+                                        ${this._renderDetailCheckbox(index, point, 'wetBulb', 'Temp. humide')}
+                                        ${this._renderDetailCheckbox(index, point, 'enthalpy', 'Enthalpie')}
+                                        ${this._renderDetailCheckbox(index, point, 'absHumidity', 'Humidité abs.')}
+                                        ${this._renderDetailCheckbox(index, point, 'waterContent', 'Teneur en eau')}
+                                        ${this._renderDetailCheckbox(index, point, 'specificVolume', 'Vol. spécifique')}
+                                        ${this._renderDetailCheckbox(index, point, 'pmvIndex', 'Indice PMV')}
+                                        ${this._renderDetailCheckbox(index, point, 'moldRisk', 'Moisissure')}
+                                        ${this._renderDetailCheckbox(index, point, 'action', 'Action/Puissance')}
+                                    </div>
+                                </details>
                             </div>
                         `).join('')}
                     </div>
@@ -292,6 +307,25 @@ export class PsychrometricChartEditor extends HTMLElement {
         `;
 
         this._addEventListeners();
+
+        // Delete buttons
+        this.shadowRoot.querySelectorAll('.delete').forEach(btn => {
+            btn.addEventListener('click', this._deletePoint.bind(this));
+        });
+    }
+
+    _renderDetailCheckbox(index, point, field, label) {
+        const isChecked = point.details && point.details.includes(field);
+        return `
+            <label style="display: flex; align-items: center; font-size: 0.9em;">
+                <input type="checkbox" 
+                       class="point-detail-checkbox" 
+                       data-index="${index}" 
+                       data-value="${field}" 
+                       ${isChecked ? 'checked' : ''}>
+                ${label}
+            </label>
+        `;
     }
 
     /**
@@ -333,16 +367,44 @@ export class PsychrometricChartEditor extends HTMLElement {
             input.addEventListener('change', this._pointChanged.bind(this));
         });
 
+        // Point details checkboxes
+        this.shadowRoot.querySelectorAll('.point-detail-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', this._pointDetailChanged.bind(this));
+        });
+
         // Delete buttons
         this.shadowRoot.querySelectorAll('.delete').forEach(btn => {
             btn.addEventListener('click', this._deletePoint.bind(this));
         });
     }
 
-    /**
-     * Handle global config value changes.
-     * @param {Event} e - Change event
-     */
+    _pointDetailChanged(e) {
+        const index = parseInt(e.target.dataset.index);
+        const value = e.target.dataset.value;
+        const checked = e.target.checked;
+
+        // Deep clone points array to ensure immutability
+        const points = this._points.map(p => ({ ...p }));
+
+        if (!points[index].details) {
+            points[index].details = [];
+        } else {
+            // Clone details array
+            points[index].details = [...points[index].details];
+        }
+
+        if (checked) {
+            if (!points[index].details.includes(value)) {
+                points[index].details.push(value);
+            }
+        } else {
+            points[index].details = points[index].details.filter(v => v !== value);
+        }
+
+        this._config = { ...this._config, points };
+        fireEvent(this, 'config-changed', { config: this._config });
+    }
+
     _valueChanged(e) {
         if (!this._config) return;
         const target = e.target;
