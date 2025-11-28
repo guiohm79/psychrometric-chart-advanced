@@ -1,3 +1,6 @@
+import { PsychrometricCalculations } from "./psychrometric-helpers.js";
+import "./psychrometric-chart-editor.js";
+
 class PsychrometricChartEnhanced extends HTMLElement {
     constructor() {
         super();
@@ -252,68 +255,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
             }
         };
     }
-    // ========================================
-    // RANDOM COLOR GENERATION
-    // ========================================
-    
-    /**
-     * Generate a random bright color for points without specified colors
-     * Uses HSL color space to ensure vibrant, saturated colors
-     */
-    generateRandomBrightColor() {
-        // Generate bright, vibrant colors using HSL
-        const hue = Math.floor(Math.random() * 360); // Random hue (0-360)
-        const saturation = 80 + Math.floor(Math.random() * 20); // 80-100% saturation
-        const lightness = 50 + Math.floor(Math.random() * 15); // 50-65% lightness
-        
-        // Convert HSL to hex
-        const h = hue / 360;
-        const s = saturation / 100;
-        const l = lightness / 100;
-        
-        const hslToRgb = (h, s, l) => {
-            let r, g, b;
-            if (s === 0) {
-                r = g = b = l;
-            } else {
-                const hue2rgb = (p, q, t) => {
-                    if (t < 0) t += 1;
-                    if (t > 1) t -= 1;
-                    if (t < 1/6) return p + (q - p) * 6 * t;
-                    if (t < 1/2) return q;
-                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-                    return p;
-                };
-                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-                const p = 2 * l - q;
-                r = hue2rgb(p, q, h + 1/3);
-                g = hue2rgb(p, q, h);
-                b = hue2rgb(p, q, h - 1/3);
-            }
-            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-        };
-        
-        const [r, g, b] = hslToRgb(h, s, l);
-        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-    }
 
-    // ========================================
-    // TEMPERATURE CONVERSION UTILITIES
-    // ========================================
-    
-    /**
-     * Convert Fahrenheit to Celsius
-     */
-    fahrenheitToCelsius(tempF) {
-        return (tempF - 32) * 5 / 9;
-    }
-
-    /**
-     * Convert Celsius to Fahrenheit
-     */
-    celsiusToFahrenheit(tempC) {
-        return (tempC * 9 / 5) + 32;
-    }
 
     /**
      * Get the temperature unit symbol
@@ -327,7 +269,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
      */
     formatTemp(tempC, decimals = 1) {
         if (this._temperatureUnit === '°F') {
-            return this.celsiusToFahrenheit(tempC).toFixed(decimals) + '°F';
+            return PsychrometricCalculations.celsiusToFahrenheit(tempC).toFixed(decimals) + '°F';
         }
         return tempC.toFixed(decimals) + '°C';
     }
@@ -338,7 +280,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
      */
     toInternalTemp(temp) {
         if (this._temperatureUnit === '°F') {
-            return this.fahrenheitToCelsius(temp);
+            return PsychrometricCalculations.fahrenheitToCelsius(temp);
         }
         return temp;
     }
@@ -348,7 +290,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
      */
     toDisplayTemp(tempC) {
         if (this._temperatureUnit === '°F') {
-            return this.celsiusToFahrenheit(tempC);
+            return PsychrometricCalculations.celsiusToFahrenheit(tempC);
         }
         return tempC;
     }
@@ -541,41 +483,41 @@ class PsychrometricChartEnhanced extends HTMLElement {
 
             if (temp < comfortRange.tempMin) {
                 action = this.t('warm');
-                heatingPower = this.calculateHeatingPower(temp, comfortRange.tempMin, massFlowRate);
+                heatingPower = PsychrometricCalculations.calculateHeatingPower(temp, comfortRange.tempMin, massFlowRate);
                 power += heatingPower;
             } else if (temp > comfortRange.tempMax) {
                 action = this.t('cool');
-                coolingPower = this.calculateCoolingPower(temp, comfortRange.tempMax, massFlowRate);
+                coolingPower = PsychrometricCalculations.calculateCoolingPower(temp, comfortRange.tempMax, massFlowRate);
                 power += coolingPower;
             }
 
             if (humidity < comfortRange.rhMin) {
                 action = action ? action + " " + this.t('andHumidify') : this.t('humidification');
-                humidificationPower = this.calculateHumidityPower(temp, humidity, comfortRange.rhMin, massFlowRate);
+                humidificationPower = PsychrometricCalculations.calculateHumidityPower(temp, humidity, comfortRange.rhMin, massFlowRate);
                 power += humidificationPower;
             } else if (humidity > comfortRange.rhMax) {
                 action = action ? action + " " + this.t('andDehumidify') : this.t('dehumidification');
-                dehumidificationPower = this.calculateHumidityPower(temp, humidity, comfortRange.rhMax, massFlowRate);
+                dehumidificationPower = PsychrometricCalculations.calculateHumidityPower(temp, humidity, comfortRange.rhMax, massFlowRate);
                 power += dehumidificationPower;
             }
 
             // Calculs supplémentaires (all in Celsius internally)
-            const dewPoint = this.calculateDewPoint(temp, humidity);
-            const waterContent = this.calculateWaterContent(temp, humidity);
-            const enthalpy = this.calculateEnthalpy(temp, waterContent);
-            const absoluteHumidity = this.calculateAbsoluteHumidity(temp, humidity);
-            const wetBulbTemp = this.calculateWetBulbTemp(temp, humidity);
-            const vaporPressure = this.calculateVaporPressure(temp, humidity);
-            const specificVolume = this.calculateSpecificVolume(temp, humidity);
-            
+            const dewPoint = PsychrometricCalculations.calculateDewPoint(temp, humidity);
+            const waterContent = PsychrometricCalculations.calculateWaterContent(temp, humidity);
+            const enthalpy = PsychrometricCalculations.calculateEnthalpy(temp, waterContent);
+            const absoluteHumidity = PsychrometricCalculations.calculateAbsoluteHumidity(temp, humidity);
+            const wetBulbTemp = PsychrometricCalculations.calculateWetBulbTemp(temp, humidity);
+            const vaporPressure = PsychrometricCalculations.calculateVaporPressure(temp, humidity);
+            const specificVolume = PsychrometricCalculations.calculateSpecificVolume(temp, humidity);
+
             // Calcul du risque de moisissure
-            const moldRisk = this.calculateMoldRisk(temp, humidity);
-            
+            const moldRisk = PsychrometricCalculations.calculateMoldRisk(temp, humidity);
+
             // Calcul de l'indice de confort thermique PMV
-            const pmv = this.calculatePMV(temp, humidity);
-            
+            const pmv = PsychrometricCalculations.calculatePMV(temp, humidity);
+
             // Calcul du point de consigne idéal pour économie d'énergie
-            const idealSetpoint = this.calculateIdealSetpoint(temp, humidity, comfortRange);
+            const idealSetpoint = PsychrometricCalculations.calculateIdealSetpoint(temp, humidity, comfortRange);
 
             return {
                 temp, // Internal (Celsius)
@@ -596,7 +538,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
                 moldRisk,
                 pmv,
                 idealSetpoint,
-                color: point.color || this.generateRandomBrightColor(),
+                color: point.color || PsychrometricCalculations.generateRandomBrightColor(),
                 label: point.label || `${point.temp} & ${point.humidity}`,
                 icon: point.icon || "mdi:thermometer",
                 inComfortZone: this.isInComfortZone(temp, humidity, comfortRange),
@@ -687,8 +629,8 @@ class PsychrometricChartEnhanced extends HTMLElement {
                 grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
                 gap: 20px;">
                 ${validPoints
-                    .map(
-                        (p, index) => `
+                .map(
+                    (p, index) => `
                     <div class="psychro-point-data"
                          data-point-index="${index}"
                          style="
@@ -718,9 +660,9 @@ class PsychrometricChartEnhanced extends HTMLElement {
                                     ${p.label}
                                 </span>
                                 ${p.inComfortZone ?
-                                    `<span style="margin-left: auto; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 4px 10px; border-radius: 15px; font-size: 11px; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('optimalComfort')}</span>` :
-                                    `<span style="margin-left: auto; background: linear-gradient(135deg, #FF9800, #f57c00); color: white; padding: 4px 10px; border-radius: 15px; font-size: 11px; box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t('outsideComfort')}</span>`
-                                }
+                            `<span style="margin-left: auto; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 4px 10px; border-radius: 15px; font-size: 11px; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('optimalComfort')}</span>` :
+                            `<span style="margin-left: auto; background: linear-gradient(135deg, #FF9800, #f57c00); color: white; padding: 4px 10px; border-radius: 15px; font-size: 11px; box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t('outsideComfort')}</span>`
+                        }
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -764,8 +706,8 @@ class PsychrometricChartEnhanced extends HTMLElement {
                         </div>
                     </div>
                 `
-                    )
-                    .join("")}
+                )
+                .join("")}
             </div>`
             : "";
 
@@ -1367,9 +1309,9 @@ class PsychrometricChartEnhanced extends HTMLElement {
     isInComfortZone(temp, humidity, comfortRange) {
         // temp and comfortRange are in Celsius (internal format)
         return (
-            temp >= comfortRange.tempMin && 
-            temp <= comfortRange.tempMax && 
-            humidity >= comfortRange.rhMin && 
+            temp >= comfortRange.tempMin &&
+            temp <= comfortRange.tempMax &&
+            humidity >= comfortRange.rhMin &&
             humidity <= comfortRange.rhMax
         );
     }
@@ -1411,7 +1353,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
         ];
         return this.t(keys[Math.min(Math.floor(riskLevel), 6)]);
     }
-    
+
     drawFullPsychrometricChart(points, options) {
         const canvas = this.querySelector("#psychroChart");
         if (!canvas) return;
@@ -1536,7 +1478,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
                     if (rh >= 10 && rh <= 100) {
                         const x = this.tempToX(t);
                         const y = this.humidityToY(t, rh);
-                        enthalpy_points.push({x, y, t, rh});
+                        enthalpy_points.push({ x, y, t, rh });
                     }
                 }
 
@@ -1562,7 +1504,7 @@ class PsychrometricChartEnhanced extends HTMLElement {
                     ctx.fillStyle = darkMode ? "rgba(255, 165, 0, 0.9)" : "rgba(255, 99, 71, 0.9)";
                     enthalpy_points.sort((a, b) => b.x - a.x);
 
-                    let labelPoint = enthalpy_points.find(p => 
+                    let labelPoint = enthalpy_points.find(p =>
                         p.y > 70 * scaleY && p.y < 500 * scaleY && p.x > 400 * scaleX
                     ) || enthalpy_points.find(p => p.y > 70 * scaleY && p.y < 500 * scaleY);
 
@@ -1582,6 +1524,77 @@ class PsychrometricChartEnhanced extends HTMLElement {
                         ctx.restore();
                     }
                 }
+            }
+            ctx.setLineDash([]);
+        }
+
+        // Draw Wet Bulb lines
+        if (showWetBulb && displayMode !== "minimal") {
+            ctx.setLineDash([1 * scale, 4 * scale]);
+            ctx.strokeStyle = darkMode ? "rgba(0, 255, 255, 0.4)" : "rgba(0, 100, 255, 0.4)";
+
+            for (let tw = -5; tw <= 35; tw += 5) {
+                let wet_bulb_points = [];
+
+                // Iterate through dry bulb temperatures to find corresponding humidity for constant wet bulb
+                for (let t = tw; t <= 50; t += 0.5) {
+                    // This is an approximation or requires an inverse function.
+                    // For simplicity and performance, we can iterate to find the RH that gives this Tw
+                    // Or we can use the property that lines of constant wet bulb are nearly straight lines
+                    // connecting saturation point (t=Tw, rh=100%) with specific enthalpy.
+                    // A better approach for visualization:
+                    // Start at saturation curve where T_dry = T_wet
+
+                    // Inverse calculation is complex. Let's use a simplified approach:
+                    // Wet bulb lines are lines of constant enthalpy (approximately).
+                    // Actually, they are lines of constant adiabatic saturation temperature.
+                    // Let's use the helper to find points.
+
+                    // We need to find RH for a given T_dry and T_wet.
+                    // Since we don't have an inverse function in the helper yet, let's skip complex calculation
+                    // and just draw lines from saturation curve with a fixed slope? No, that's inaccurate.
+
+                    // Let's iterate RH and check Tw
+                    // This is expensive.
+
+                    // Alternative: Use the fact that at saturation, Tw = Tdry.
+                    // So we start at (Tw, 100%).
+                    // Then we can trace down.
+                }
+
+                // Let's use a simpler approach: Draw lines from saturation curve
+                // At saturation: T_dry = T_wet
+                const startX = this.tempToX(tw);
+                const startY = this.humidityToY(tw, 100);
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+
+                // Slope of wet bulb lines is roughly -0.4 to -0.5 °C/g/kg (very roughly)
+                // Let's use a few points to draw a straight-ish line
+                // We know that at 0% RH, the wet bulb depression is max.
+
+                // Let's try to find the point at RH=10% that has this wet bulb temp
+                // We can binary search or just scan.
+                // Scanning is safer.
+
+                let foundEnd = false;
+                for (let t_search = tw; t_search < 60; t_search += 0.5) {
+                    for (let rh_search = 100; rh_search > 0; rh_search -= 5) {
+                        const calculatedTw = PsychrometricCalculations.calculateWetBulbTemp(t_search, rh_search);
+                        if (Math.abs(calculatedTw - tw) < 0.2) {
+                            const x = this.tempToX(t_search);
+                            const y = this.humidityToY(t_search, rh_search);
+                            ctx.lineTo(x, y);
+                            break; // Move to next temp step
+                        }
+                    }
+                }
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = darkMode ? "rgba(0, 255, 255, 0.6)" : "rgba(0, 100, 255, 0.6)";
+                ctx.fillText(`${tw}°wb`, startX - 15 * scaleX, startY - 5 * scaleY);
             }
             ctx.setLineDash([]);
         }
@@ -1707,170 +1720,8 @@ class PsychrometricChartEnhanced extends HTMLElement {
         });
     }
 
-    // ========================================
-    // PSYCHROMETRIC CALCULATION METHODS
-    // All calculations work in Celsius internally
-    // ========================================
 
-    calculateDewPoint(temp, humidity) {
-        const A = 17.27;
-        const B = 237.3;
-        const alpha = ((A * temp) / (B + temp)) + Math.log(humidity / 100);
-        return (B * alpha) / (A - alpha);
-    }
 
-    calculateWaterContent(temp, humidity) {
-        const P = 101.325;
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v = (humidity / 100) * P_sat;
-        return 0.622 * (P_v / (P - P_v));
-    }
-
-    calculateEnthalpy(temp, waterContent) {
-        return 1.006 * temp + waterContent * (2501 + 1.84 * temp);
-    }
-
-    calculateAbsoluteHumidity(temp, rh) {
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v = (rh / 100) * P_sat;
-        const P_v_Pa = P_v * 1000;
-        const absHumidity_kg = P_v_Pa / (461.5 * (temp + 273.15));
-        return absHumidity_kg * 1000;
-    }
-
-    calculateWetBulbTemp(temp, rh) {
-        const tw = temp * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5)) 
-                + Math.atan(temp + rh) - Math.atan(rh - 1.676331) 
-                + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
-        return tw;
-    }
-
-    calculateVaporPressure(temp, rh) {
-        return 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3)) * (rh / 100);
-    }
-
-    calculateSpecificVolume(temp, rh) {
-        const P = 101.325;
-        const Rd = 287.058;
-        const T = temp + 273.15;
-        const P_v = this.calculateVaporPressure(temp, rh);
-        const W = this.calculateWaterContent(temp, rh);
-        return (Rd * T) / (P - P_v) * (1 + 1.608 * W);
-    }
-
-    calculateMoldRisk(temp, humidity) {
-        let risk = 0;
-        
-        if (temp < 5) {
-            risk += 0;
-        } else if (temp >= 5 && temp < 15) {
-            risk += 1;
-        } else if (temp >= 15 && temp < 20) {
-            risk += 2;
-        } else if (temp >= 20 && temp < 25) {
-            risk += 3;
-        } else if (temp >= 25) {
-            risk += 2.5;
-        }
-        
-        if (humidity < 60) {
-            risk += 0;
-        } else if (humidity >= 60 && humidity < 70) {
-            risk += 1;
-        } else if (humidity >= 70 && humidity < 80) {
-            risk += 2;
-        } else if (humidity >= 80 && humidity < 90) {
-            risk += 2.5;
-        } else if (humidity >= 90) {
-            risk += 3;
-        }
-        
-        const dewPoint = this.calculateDewPoint(temp, humidity);
-        if (dewPoint > 12) {
-            risk += 0.5;
-        }
-        
-        return Math.min(risk, 6);
-    }
-
-    calculatePMV(temp, humidity) {
-        const ta = temp;
-        const tr = temp;
-        const vel = 0.1;
-        const rh_fraction = humidity / 100;
-        const clo = 0.7;
-        const met = 1.2;
-        const M = met * 58.15;
-
-        const pa = rh_fraction * 10 * Math.exp(16.6536 - 4030.183 / (ta + 235));
-
-        let pmv = 0.303 * Math.exp(-0.036 * M) + 0.028;
-        pmv *= (M - 58.15) - 0.42 * (M - 50) - 0.0173 * M * (5.87 - pa)
-             - 0.0014 * M * (34 - ta) - 3.96 * Math.pow(10, -8) * 0.7 * (Math.pow(tr + 273, 4) - Math.pow(ta + 273, 4))
-             - 0.072 * 0.7 * (34 - ta) - 0.054 * (5.87 - pa);
-
-        if (vel > 0.1) {
-            pmv -= 0.2223 * (1 - Math.exp(-1.387 * vel));
-        }
-
-        return Math.max(-3, Math.min(3, pmv));
-    }
-
-    calculateIdealSetpoint(temp, humidity, comfortRange) {
-        let idealTemp = temp;
-        let idealHumidity = humidity;
-        
-        if (temp < comfortRange.tempMin) {
-            idealTemp = comfortRange.tempMin;
-        } else if (temp > comfortRange.tempMax) {
-            idealTemp = comfortRange.tempMax;
-        }
-        
-        if (humidity < comfortRange.rhMin) {
-            idealHumidity = comfortRange.rhMin;
-        } else if (humidity > comfortRange.rhMax) {
-            idealHumidity = comfortRange.rhMax;
-        }
-        
-        const isSummer = temp > 23;
-        
-        if (idealTemp === temp && idealHumidity === humidity) {
-            if (isSummer) {
-                idealTemp = Math.min(temp, comfortRange.tempMax);
-                idealHumidity = Math.max(comfortRange.rhMin, Math.min(humidity, comfortRange.rhMin + 5));
-            } else {
-                idealTemp = Math.max(temp, comfortRange.tempMin);
-                idealHumidity = Math.min(comfortRange.rhMax, Math.max(humidity, comfortRange.rhMax - 5));
-            }
-        }
-        
-        return { temp: idealTemp, humidity: idealHumidity };
-    }
-
-    calculateHeatingPower(temp, targetTemp, massFlowRate) {
-        const cp = 1.006;
-        return massFlowRate * cp * (targetTemp - temp) * 1000;
-    }
-
-    calculateCoolingPower(temp, targetTemp, massFlowRate) {
-        return Math.abs(this.calculateHeatingPower(temp, targetTemp, massFlowRate));
-    }
-
-    calculateHumidityPower(temp, humidity, targetHumidity, massFlowRate) {
-        const P = 101.325;
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v_actual = (humidity / 100) * P_sat;
-        const W_actual = 0.622 * (P_v_actual / (P - P_v_actual));
-
-        const P_v_target = (targetHumidity / 100) * P_sat;
-        const W_target = 0.622 * (P_v_target / (P - P_v_target));
-
-        const deltaW = W_target - W_actual;
-        const latentHeat = 2501;
-
-        return Math.abs(deltaW * massFlowRate * latentHeat * 1000);
-    }
-    
     setConfig(config) {
         if (!config.points || config.points.length === 0) {
             throw new Error("La configuration doit contenir des points !");
@@ -1878,6 +1729,22 @@ class PsychrometricChartEnhanced extends HTMLElement {
         this.config = config;
         this._language = this.getLanguage();
         // Temperature unit will be detected when hass is set
+    }
+
+    static getConfigElement() {
+        return document.createElement("psychrometric-chart-editor");
+    }
+
+    static getStubConfig() {
+        return {
+            chartTitle: "Diagramme Psychrométrique",
+            points: [],
+            showEnthalpy: true,
+            showDewPoint: true,
+            showWetBulb: true,
+            darkMode: false,
+            textColor: "#333333"
+        };
     }
 
     getCardSize() {
