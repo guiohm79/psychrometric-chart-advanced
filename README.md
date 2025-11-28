@@ -212,6 +212,23 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | `zoom_humidity_min` | number | No | `null` | Minimum humidity to display (%) - optional vertical centering |
 | `zoom_humidity_max` | number | No | `null` | Maximum humidity to display (%) - must be > zoom_humidity_min |
 
+### 🎨 Custom Point Display
+
+You can customize exactly which data fields are displayed for each point, overriding the global `displayMode`. This is configured in the visual editor by expanding the "Affichage personnalisé" (Custom Display) section for each point.
+
+Available fields:
+- Dew Point
+- Wet Bulb
+- Enthalpy
+- Absolute Humidity
+- Water Content
+- Specific Volume
+- PMV Index
+- Mold Risk
+- Action/Power
+
+If you select specific fields for a point, **only** those fields (plus Temperature and Humidity) will be shown for that point. If you uncheck all fields, only Temperature and Humidity will be shown.
+
 ---
 
 ## Display Modes

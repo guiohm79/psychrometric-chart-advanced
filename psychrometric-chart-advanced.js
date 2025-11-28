@@ -638,9 +638,6 @@ class PsychrometricChartEnhanced extends LitElement {
     _calculatePoints() {
         if (!this.hass || !this.config || !this.config.points) return [];
 
-        // Debug logging for config
-        // console.log("Chart Config Points:", JSON.stringify(this.config.points));
-
         if (this._temperatureUnit === null) {
             this._temperatureUnit = this.detectTemperatureUnit(this.hass);
         }
@@ -1288,9 +1285,6 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {boolean}
      */
     _shouldShowField(point, field, displayMode) {
-        // Debug logging
-        console.log(`Checking field ${field} for point ${point.label}`, point.details, displayMode);
-
         // If point has specific details configured, use them
         // Fix: check if details is an array, even if empty. 
         // If it is an array, it means the user has explicitly configured this point.
