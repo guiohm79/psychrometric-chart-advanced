@@ -74,6 +74,7 @@ This project provides a custom card for **Home Assistant**, allowing you to visu
 - Relative humidity curves (10% to 100%)
 - Optional enthalpy curves
 - Visualized dew points
+- **Configurable vapor pressure** (vertical grid lines)
 - Dotted lines to axes
 - Animated and customizable legend
 - Adjustable mass flow rate for precise power calculations
@@ -160,7 +161,10 @@ chartTitle: Psychrometric Chart
 darkMode: true
 showMoldRisk: true
 displayMode: standard
+showMoldRisk: true
+displayMode: standard
 showEnthalpy: true
+showVaporPressure: true
 showLegend: false
 showPointLabels: true
 
@@ -200,6 +204,7 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | `showMoldRisk` | boolean | No | `true` | Display mold risk indicator |
 | `displayMode` | string | No | `standard` | Display mode: `minimal`, `standard`, or `advanced` |
 | `showEnthalpy` | boolean | No | `false` | Show enthalpy curves |
+| `showVaporPressure` | boolean | No | `true` | Show vapor pressure vertical grid lines (kPa) |
 | `showLegend` | boolean | No | `true` | Show legend |
 | `showPointLabels` | boolean | No | `true` | Show point labels on chart |
 | `zoom_temp_min` | number | No | `null` | Minimum temperature to display (°C) - enables auto zoom |
