@@ -154,6 +154,15 @@ export class PsychrometricChartEditor extends HTMLElement {
                         <label>Titre</label>
                         <input type="text" id="chartTitle" value="${this._title}">
                     </div>
+                    <div class="form-row">
+                        <label>Langue</label>
+                        <select id="language" class="select-input">
+                            <option value="fr" ${this._config.language === 'fr' ? 'selected' : ''}>Français</option>
+                            <option value="en" ${this._config.language === 'en' ? 'selected' : ''}>English</option>
+                            <option value="es" ${this._config.language === 'es' ? 'selected' : ''}>Español</option>
+                            <option value="de" ${this._config.language === 'de' ? 'selected' : ''}>Deutsch</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="section">
@@ -230,6 +239,10 @@ export class PsychrometricChartEditor extends HTMLElement {
                         <input type="checkbox" id="showEnthalpy" ${this._config.showEnthalpy !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
+                        <label>Afficher Pression Vapeur</label>
+                        <input type="checkbox" id="showVaporPressure" ${this._config.showVaporPressure !== false ? 'checked' : ''}>
+                    </div>
+                    <div class="form-row">
                         <label>Afficher Point de Rosée</label>
                         <input type="checkbox" id="showDewPoint" ${this._config.showDewPoint !== false ? 'checked' : ''}>
                     </div>
@@ -287,6 +300,7 @@ export class PsychrometricChartEditor extends HTMLElement {
     _addEventListeners() {
         // Global inputs
         this.shadowRoot.getElementById('chartTitle').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('language').addEventListener('change', this._valueChanged.bind(this));
 
         // Appearance
         this.shadowRoot.getElementById('displayMode').addEventListener('change', this._valueChanged.bind(this));
@@ -297,6 +311,7 @@ export class PsychrometricChartEditor extends HTMLElement {
         this.shadowRoot.getElementById('comfortColor').addEventListener('change', this._valueChanged.bind(this));
 
         this.shadowRoot.getElementById('showEnthalpy').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showVaporPressure').addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('showDewPoint').addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('showWetBulb').addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('showMoldRisk').addEventListener('change', this._valueChanged.bind(this));

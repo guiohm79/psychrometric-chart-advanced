@@ -459,6 +459,7 @@ class PsychrometricChartEnhanced extends LitElement {
             showEnthalpy: true,
             showDewPoint: true,
             showWetBulb: true,
+            showVaporPressure: true,
             darkMode: false,
             textColor: "#333333"
         };
@@ -725,6 +726,7 @@ class PsychrometricChartEnhanced extends LitElement {
             showEnthalpy = true,
             showWetBulb = true,
             showDewPoint = true,
+            showVaporPressure = true,
             darkMode = false,
             showPointLabels = true,
             displayMode = "standard"
@@ -764,19 +766,21 @@ class PsychrometricChartEnhanced extends LitElement {
         ctx.setLineDash([5 * scale, 5 * scale]);
 
         // Vertical grid (vapor pressure)
-        ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
-        for (let i = 0; i <= 4; i += 0.5) {
-            const refTemp = 20;
-            const P_sat = 0.61078 * Math.exp((17.27 * refTemp) / (refTemp + 237.3));
-            const rh = (i / P_sat) * 100;
-            const y = this.humidityToY(refTemp, rh);
+        if (showVaporPressure !== false) {
+            ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
+            for (let i = 0; i <= 4; i += 0.5) {
+                const refTemp = 20;
+                const P_sat = 0.61078 * Math.exp((17.27 * refTemp) / (refTemp + 237.3));
+                const rh = (i / P_sat) * 100;
+                const y = this.humidityToY(refTemp, rh);
 
-            ctx.beginPath();
-            ctx.moveTo(leftPadding, y);
-            ctx.lineTo(rightEdge, y);
-            ctx.stroke();
-            ctx.fillStyle = actualTextColor;
-            ctx.fillText(`${i.toFixed(1)} kPa`, 10 * scaleX, y + 5 * scaleY);
+                ctx.beginPath();
+                ctx.moveTo(leftPadding, y);
+                ctx.lineTo(rightEdge, y);
+                ctx.stroke();
+                ctx.fillStyle = actualTextColor;
+                ctx.fillText(`${i.toFixed(1)} kPa`, 10 * scaleX, y + 5 * scaleY);
+            }
         }
 
         // Horizontal grid (temperature)
