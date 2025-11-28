@@ -1,35 +1,62 @@
+/**
+ * Fire a custom event.
+ * @param {HTMLElement} node - The element to dispatch the event from
+ * @param {string} type - The event type
+ * @param {Object} detail - The event detail
+ * @param {Object} options - Event options
+ * @returns {Event} The dispatched event
+ */
 const fireEvent = (node, type, detail, options) => {
     options = options || {};
     detail = detail === null || detail === undefined ? {} : detail;
-    const event = new Event(type, {
+    const event = new CustomEvent(type, {
         bubbles: options.bubbles === undefined ? true : options.bubbles,
         cancelable: Boolean(options.cancelable),
         composed: options.composed === undefined ? true : options.composed,
+        detail: detail,
     });
-    event.detail = detail;
     node.dispatchEvent(event);
     return event;
 };
 
+/**
+ * Psychrometric Chart Editor
+ * Visual editor for the Psychrometric Chart card.
+ */
 export class PsychrometricChartEditor extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
     }
 
+    /**
+     * Set the configuration for the editor.
+     * @param {Object} config - The configuration object
+     */
     setConfig(config) {
         this._config = config;
         this.render();
     }
 
+    /**
+     * Get the chart title from config.
+     * @returns {string} The chart title
+     */
     get _title() {
         return this._config?.chartTitle || 'Diagramme Psychrométrique';
     }
 
+    /**
+     * Get the points from config.
+     * @returns {Array} List of points
+     */
     get _points() {
         return this._config?.points || [];
     }
 
+    /**
+     * Render the editor UI.
+     */
     render() {
         if (!this._config) return;
 
@@ -254,6 +281,9 @@ export class PsychrometricChartEditor extends HTMLElement {
         this._addEventListeners();
     }
 
+    /**
+     * Add event listeners to form elements.
+     */
     _addEventListeners() {
         // Global inputs
         this.shadowRoot.getElementById('chartTitle').addEventListener('change', this._valueChanged.bind(this));
@@ -294,6 +324,10 @@ export class PsychrometricChartEditor extends HTMLElement {
         });
     }
 
+    /**
+     * Handle global config value changes.
+     * @param {Event} e - Change event
+     */
     _valueChanged(e) {
         if (!this._config) return;
         const target = e.target;
@@ -308,6 +342,10 @@ export class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
+    /**
+     * Handle point config value changes.
+     * @param {Event} e - Change event
+     */
     _pointChanged(e) {
         if (!this._config) return;
         const target = e.target;
@@ -331,6 +369,9 @@ export class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
+    /**
+     * Add a new point to the configuration.
+     */
     _addPoint() {
         const newPoints = [...(this._config.points || [])];
         newPoints.push({
@@ -348,6 +389,10 @@ export class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
+    /**
+     * Delete a point from the configuration.
+     * @param {Event} e - Click event
+     */
     _deletePoint(e) {
         const index = parseInt(e.target.dataset.index);
         const newPoints = [...(this._config.points || [])];

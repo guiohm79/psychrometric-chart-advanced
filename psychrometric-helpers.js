@@ -10,8 +10,9 @@ export class PsychrometricCalculations {
     // ========================================
 
     /**
-     * Generate a random bright color for points without specified colors
-     * Uses HSL color space to ensure vibrant, saturated colors
+     * Generate a random bright color for points without specified colors.
+     * Uses HSL color space to ensure vibrant, saturated colors.
+     * @returns {string} Hex color code (e.g., "#ff0000")
      */
     static generateRandomBrightColor() {
         // Generate bright, vibrant colors using HSL
@@ -56,6 +57,8 @@ export class PsychrometricCalculations {
 
     /**
      * Convert Fahrenheit to Celsius
+     * @param {number} tempF - Temperature in Fahrenheit
+     * @returns {number} Temperature in Celsius
      */
     static fahrenheitToCelsius(tempF) {
         return (tempF - 32) * 5 / 9;
@@ -63,6 +66,8 @@ export class PsychrometricCalculations {
 
     /**
      * Convert Celsius to Fahrenheit
+     * @param {number} tempC - Temperature in Celsius
+     * @returns {number} Temperature in Fahrenheit
      */
     static celsiusToFahrenheit(tempC) {
         return (tempC * 9 / 5) + 32;
@@ -73,6 +78,12 @@ export class PsychrometricCalculations {
     // All calculations work in Celsius internally
     // ========================================
 
+    /**
+     * Calculate Dew Point temperature.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} humidity - Relative humidity in %
+     * @returns {number} Dew point temperature in Celsius
+     */
     static calculateDewPoint(temp, humidity) {
         const A = 17.27;
         const B = 237.3;
@@ -80,6 +91,12 @@ export class PsychrometricCalculations {
         return (B * alpha) / (A - alpha);
     }
 
+    /**
+     * Calculate Water Content (Mixing Ratio).
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} humidity - Relative humidity in %
+     * @returns {number} Water content in kg/kg (dry air)
+     */
     static calculateWaterContent(temp, humidity) {
         const P = 101.325;
         const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
@@ -87,10 +104,22 @@ export class PsychrometricCalculations {
         return 0.622 * (P_v / (P - P_v));
     }
 
+    /**
+     * Calculate Enthalpy.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} waterContent - Water content in kg/kg
+     * @returns {number} Enthalpy in kJ/kg
+     */
     static calculateEnthalpy(temp, waterContent) {
         return 1.006 * temp + waterContent * (2501 + 1.84 * temp);
     }
 
+    /**
+     * Calculate Absolute Humidity.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} rh - Relative humidity in %
+     * @returns {number} Absolute humidity in g/m³
+     */
     static calculateAbsoluteHumidity(temp, rh) {
         const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
         const P_v = (rh / 100) * P_sat;
@@ -99,6 +128,12 @@ export class PsychrometricCalculations {
         return absHumidity_kg * 1000;
     }
 
+    /**
+     * Calculate Wet Bulb Temperature (Stull's formula).
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} rh - Relative humidity in %
+     * @returns {number} Wet bulb temperature in Celsius
+     */
     static calculateWetBulbTemp(temp, rh) {
         const tw = temp * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5))
             + Math.atan(temp + rh) - Math.atan(rh - 1.676331)
@@ -106,10 +141,22 @@ export class PsychrometricCalculations {
         return tw;
     }
 
+    /**
+     * Calculate Vapor Pressure.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} rh - Relative humidity in %
+     * @returns {number} Vapor pressure in kPa
+     */
     static calculateVaporPressure(temp, rh) {
         return 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3)) * (rh / 100);
     }
 
+    /**
+     * Calculate Specific Volume.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} rh - Relative humidity in %
+     * @returns {number} Specific volume in m³/kg
+     */
     static calculateSpecificVolume(temp, rh) {
         const P = 101.325;
         const Rd = 287.058;
@@ -119,6 +166,12 @@ export class PsychrometricCalculations {
         return (Rd * T) / (P - P_v) * (1 + 1.608 * W);
     }
 
+    /**
+     * Calculate Mold Risk based on temperature and humidity.
+     * @param {number} temp - Temperature in Celsius
+     * @param {number} humidity - Relative humidity in %
+     * @returns {number} Risk level (0-6)
+     */
     static calculateMoldRisk(temp, humidity) {
         let risk = 0;
 
@@ -154,6 +207,12 @@ export class PsychrometricCalculations {
         return Math.min(risk, 6);
     }
 
+    /**
+     * Calculate PMV (Predicted Mean Vote) thermal comfort index.
+     * @param {number} temp - Temperature in Celsius
+     * @param {number} humidity - Relative humidity in %
+     * @returns {number} PMV index (-3 to +3)
+     */
     static calculatePMV(temp, humidity) {
         const ta = temp;
         const tr = temp;
@@ -177,6 +236,13 @@ export class PsychrometricCalculations {
         return Math.max(-3, Math.min(3, pmv));
     }
 
+    /**
+     * Calculate ideal setpoint to reach comfort zone with minimal energy.
+     * @param {number} temp - Current temperature in Celsius
+     * @param {number} humidity - Current humidity in %
+     * @param {Object} comfortRange - Comfort range definition
+     * @returns {Object} Ideal setpoint {temp, humidity}
+     */
     static calculateIdealSetpoint(temp, humidity, comfortRange) {
         let idealTemp = temp;
         let idealHumidity = humidity;
@@ -208,15 +274,37 @@ export class PsychrometricCalculations {
         return { temp: idealTemp, humidity: idealHumidity };
     }
 
+    /**
+     * Calculate heating power required.
+     * @param {number} temp - Current temperature
+     * @param {number} targetTemp - Target temperature
+     * @param {number} massFlowRate - Air mass flow rate
+     * @returns {number} Power in Watts
+     */
     static calculateHeatingPower(temp, targetTemp, massFlowRate) {
         const cp = 1.006;
         return massFlowRate * cp * (targetTemp - temp) * 1000;
     }
 
+    /**
+     * Calculate cooling power required.
+     * @param {number} temp - Current temperature
+     * @param {number} targetTemp - Target temperature
+     * @param {number} massFlowRate - Air mass flow rate
+     * @returns {number} Power in Watts
+     */
     static calculateCoolingPower(temp, targetTemp, massFlowRate) {
         return Math.abs(this.calculateHeatingPower(temp, targetTemp, massFlowRate));
     }
 
+    /**
+     * Calculate power required for humidification/dehumidification.
+     * @param {number} temp - Current temperature
+     * @param {number} humidity - Current humidity
+     * @param {number} targetHumidity - Target humidity
+     * @param {number} massFlowRate - Air mass flow rate
+     * @returns {number} Power in Watts
+     */
     static calculateHumidityPower(temp, humidity, targetHumidity, massFlowRate) {
         const P = 101.325;
         const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
