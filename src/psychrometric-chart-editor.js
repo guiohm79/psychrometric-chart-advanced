@@ -19,6 +19,205 @@ const fireEvent = (node, type, detail, options) => {
     return event;
 };
 
+const editorTranslations = {
+    fr: {
+        general: "Général",
+        title: "Titre",
+        language: "Langue",
+        measurementPoints: "Points de mesure",
+        point: "Point",
+        delete: "Supprimer",
+        label: "Label",
+        tempEntity: "Température (Entity ID)",
+        humEntity: "Humidité (Entity ID)",
+        color: "Couleur",
+        icon: "Icône",
+        customDisplay: "Affichage personnalisé",
+        dewPoint: "Point de rosée",
+        wetBulb: "Temp. humide",
+        enthalpy: "Enthalpie",
+        absHumidity: "Humidité abs.",
+        waterContent: "Teneur en eau",
+        specificVolume: "Vol. spécifique",
+        pmvIndex: "Indice PMV",
+        moldRisk: "Moisissure",
+        action: "Action/Puissance",
+        addPoint: "Ajouter un point",
+        appearance: "Apparence",
+        displayMode: "Mode d'affichage",
+        standard: "Standard",
+        minimal: "Minimal",
+        advanced: "Avancé",
+        bgColor: "Couleur de fond",
+        textColor: "Couleur du texte",
+        gridColor: "Couleur de la grille",
+        curveColor: "Couleur des courbes",
+        comfortColor: "Couleur zone confort",
+        displayOptions: "Options d'affichage",
+        showEnthalpy: "Afficher Enthalpie",
+        showVaporPressure: "Afficher Pression Vapeur",
+        showDewPoint: "Afficher Point de Rosée",
+        showWetBulb: "Afficher Temp. Humide",
+        showMoldRisk: "Afficher Risque Moisissure",
+        showLegend: "Afficher Légende",
+        showCalculatedData: "Afficher Données Calculées",
+        forceDarkMode: "Mode Sombre Forcé",
+        darkModeHelp: "Si décoché, suit le thème de Home Assistant.",
+        zoomPan: "Zoom & Panoramique (Optionnel)",
+        minTemp: "Température Min",
+        maxTemp: "Température Max",
+        minHum: "Humidité Min",
+        maxHum: "Humidité Max"
+    },
+    en: {
+        general: "General",
+        title: "Title",
+        language: "Language",
+        measurementPoints: "Measurement Points",
+        point: "Point",
+        delete: "Delete",
+        label: "Label",
+        tempEntity: "Temperature (Entity ID)",
+        humEntity: "Humidity (Entity ID)",
+        color: "Color",
+        icon: "Icon",
+        customDisplay: "Custom Display",
+        dewPoint: "Dew Point",
+        wetBulb: "Wet Bulb",
+        enthalpy: "Enthalpy",
+        absHumidity: "Abs. Humidity",
+        waterContent: "Water Content",
+        specificVolume: "Specific Vol.",
+        pmvIndex: "PMV Index",
+        moldRisk: "Mold Risk",
+        action: "Action/Power",
+        addPoint: "Add Point",
+        appearance: "Appearance",
+        displayMode: "Display Mode",
+        standard: "Standard",
+        minimal: "Minimal",
+        advanced: "Advanced",
+        bgColor: "Background Color",
+        textColor: "Text Color",
+        gridColor: "Grid Color",
+        curveColor: "Curve Color",
+        comfortColor: "Comfort Zone Color",
+        displayOptions: "Display Options",
+        showEnthalpy: "Show Enthalpy",
+        showVaporPressure: "Show Vapor Pressure",
+        showDewPoint: "Show Dew Point",
+        showWetBulb: "Show Wet Bulb",
+        showMoldRisk: "Show Mold Risk",
+        showLegend: "Show Legend",
+        showCalculatedData: "Show Calculated Data",
+        forceDarkMode: "Force Dark Mode",
+        darkModeHelp: "If unchecked, follows Home Assistant theme.",
+        zoomPan: "Zoom & Pan (Optional)",
+        minTemp: "Min Temperature",
+        maxTemp: "Max Temperature",
+        minHum: "Min Humidity",
+        maxHum: "Max Humidity"
+    },
+    es: {
+        general: "General",
+        title: "Título",
+        language: "Idioma",
+        measurementPoints: "Puntos de medición",
+        point: "Punto",
+        delete: "Eliminar",
+        label: "Etiqueta",
+        tempEntity: "Temperatura (Entity ID)",
+        humEntity: "Humedad (Entity ID)",
+        color: "Color",
+        icon: "Icono",
+        customDisplay: "Visualización personalizada",
+        dewPoint: "Punto de rocío",
+        wetBulb: "Temp. húmeda",
+        enthalpy: "Entalpía",
+        absHumidity: "Humedad abs.",
+        waterContent: "Contenido de agua",
+        specificVolume: "Vol. específico",
+        pmvIndex: "Índice PMV",
+        moldRisk: "Riesgo de moho",
+        action: "Acción/Potencia",
+        addPoint: "Añadir punto",
+        appearance: "Apariencia",
+        displayMode: "Modo de visualización",
+        standard: "Estándar",
+        minimal: "Mínimo",
+        advanced: "Avanzado",
+        bgColor: "Color de fondo",
+        textColor: "Color del texto",
+        gridColor: "Color de la cuadrícula",
+        curveColor: "Color de las curvas",
+        comfortColor: "Color zona confort",
+        displayOptions: "Opciones de visualización",
+        showEnthalpy: "Mostrar Entalpía",
+        showVaporPressure: "Mostrar Presión de Vapor",
+        showDewPoint: "Mostrar Punto de Rocío",
+        showWetBulb: "Mostrar Temp. Húmeda",
+        showMoldRisk: "Mostrar Riesgo Moho",
+        showLegend: "Mostrar Leyenda",
+        showCalculatedData: "Mostrar Datos Calculados",
+        forceDarkMode: "Modo Oscuro Forzado",
+        darkModeHelp: "Si está desmarcado, sigue el tema de Home Assistant.",
+        zoomPan: "Zoom y Panorámica (Opcional)",
+        minTemp: "Temp. Mín",
+        maxTemp: "Temp. Máx",
+        minHum: "Humedad Mín",
+        maxHum: "Humedad Máx"
+    },
+    de: {
+        general: "Allgemein",
+        title: "Titel",
+        language: "Sprache",
+        measurementPoints: "Messpunkte",
+        point: "Punkt",
+        delete: "Löschen",
+        label: "Beschriftung",
+        tempEntity: "Temperatur (Entity ID)",
+        humEntity: "Feuchtigkeit (Entity ID)",
+        color: "Farbe",
+        icon: "Symbol",
+        customDisplay: "Benutzerdefinierte Anzeige",
+        dewPoint: "Taupunkt",
+        wetBulb: "Feuchtkugeltemp.",
+        enthalpy: "Enthalpie",
+        absHumidity: "Abs. Feuchtigkeit",
+        waterContent: "Wassergehalt",
+        specificVolume: "Spezifisches Vol.",
+        pmvIndex: "PMV-Index",
+        moldRisk: "Schimmelrisiko",
+        action: "Aktion/Leistung",
+        addPoint: "Punkt hinzufügen",
+        appearance: "Aussehen",
+        displayMode: "Anzeigemodus",
+        standard: "Standard",
+        minimal: "Minimal",
+        advanced: "Erweitert",
+        bgColor: "Hintergrundfarbe",
+        textColor: "Textfarbe",
+        gridColor: "Gitterfarbe",
+        curveColor: "Kurvenfarbe",
+        comfortColor: "Komfortzonenfarbe",
+        displayOptions: "Anzeigeoptionen",
+        showEnthalpy: "Enthalpie anzeigen",
+        showVaporPressure: "Dampfdruck anzeigen",
+        showDewPoint: "Taupunkt anzeigen",
+        showWetBulb: "Feuchtkugeltemp. anzeigen",
+        showMoldRisk: "Schimmelrisiko anzeigen",
+        showLegend: "Legende anzeigen",
+        showCalculatedData: "Berechnete Daten anzeigen",
+        forceDarkMode: "Dunkelmodus erzwingen",
+        darkModeHelp: "Wenn deaktiviert, folgt dem Home Assistant Thema.",
+        zoomPan: "Zoom & Schwenken (Optional)",
+        minTemp: "Min Temperatur",
+        maxTemp: "Max Temperatur",
+        minHum: "Min Feuchtigkeit",
+        maxHum: "Max Feuchtigkeit"
+    }
+};
+
 /**
  * Psychrometric Chart Editor
  * Visual editor for the Psychrometric Chart card.
@@ -52,6 +251,16 @@ export class PsychrometricChartEditor extends HTMLElement {
      */
     get _points() {
         return this._config?.points || [];
+    }
+
+    /**
+     * Get translation for key
+     * @param {string} key 
+     * @returns {string}
+     */
+    t(key) {
+        const lang = this._config?.language || 'fr';
+        return editorTranslations[lang]?.[key] || editorTranslations['fr'][key] || key;
     }
 
     /**
@@ -149,13 +358,13 @@ export class PsychrometricChartEditor extends HTMLElement {
             </style>
             <div class="card-config">
                 <div class="section">
-                    <span class="section-title">Général</span>
+                    <span class="section-title">${this.t('general')}</span>
                     <div class="form-row">
-                        <label>Titre</label>
+                        <label>${this.t('title')}</label>
                         <input type="text" id="chartTitle" value="${this._title}">
                     </div>
                     <div class="form-row">
-                        <label>Langue</label>
+                        <label>${this.t('language')}</label>
                         <select id="language" class="select-input">
                             <option value="fr" ${this._config.language === 'fr' ? 'selected' : ''}>Français</option>
                             <option value="en" ${this._config.language === 'en' ? 'selected' : ''}>English</option>
@@ -166,140 +375,140 @@ export class PsychrometricChartEditor extends HTMLElement {
                 </div>
 
                 <div class="section">
-                    <span class="section-title">Points de mesure</span>
+                    <span class="section-title">${this.t('measurementPoints')}</span>
                     <div id="points-container">
                         ${this._points.map((point, index) => `
                             <div class="point-row">
                                 <div class="point-header">
-                                    <strong>Point ${index + 1}</strong>
-                                    <button class="delete" data-index="${index}">Supprimer</button>
+                                    <strong>${this.t('point')} ${index + 1}</strong>
+                                    <button class="delete" data-index="${index}">${this.t('delete')}</button>
                                 </div>
                                 <div class="form-row">
-                                    <label>Label</label>
+                                    <label>${this.t('label')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="label" value="${point.label || ''}" placeholder="Ex: Salon">
                                 </div>
                                 <div class="form-row">
-                                    <label>Température (Entity ID)</label>
+                                    <label>${this.t('tempEntity')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="temp" value="${point.temp || ''}" placeholder="sensor.temp_salon">
                                 </div>
                                 <div class="form-row">
-                                    <label>Humidité (Entity ID)</label>
+                                    <label>${this.t('humEntity')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="humidity" value="${point.humidity || ''}" placeholder="sensor.hum_salon">
                                 </div>
                                 <div class="form-row">
-                                    <label>Couleur</label>
+                                    <label>${this.t('color')}</label>
                                     <input type="color" class="point-input" data-index="${index}" data-field="color" value="${point.color || '#000000'}">
                                 </div>
                                 <div class="form-row">
-                                    <label>Icône</label>
+                                    <label>${this.t('icon')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
 
                                 <details>
-                                    <summary>Affichage personnalisé</summary>
+                                    <summary>${this.t('customDisplay')}</summary>
                                     <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
-                                        ${this._renderDetailCheckbox(index, point, 'dewPoint', 'Point de rosée')}
-                                        ${this._renderDetailCheckbox(index, point, 'wetBulb', 'Temp. humide')}
-                                        ${this._renderDetailCheckbox(index, point, 'enthalpy', 'Enthalpie')}
-                                        ${this._renderDetailCheckbox(index, point, 'absHumidity', 'Humidité abs.')}
-                                        ${this._renderDetailCheckbox(index, point, 'waterContent', 'Teneur en eau')}
-                                        ${this._renderDetailCheckbox(index, point, 'specificVolume', 'Vol. spécifique')}
-                                        ${this._renderDetailCheckbox(index, point, 'pmvIndex', 'Indice PMV')}
-                                        ${this._renderDetailCheckbox(index, point, 'moldRisk', 'Moisissure')}
-                                        ${this._renderDetailCheckbox(index, point, 'action', 'Action/Puissance')}
+                                        ${this._renderDetailCheckbox(index, point, 'dewPoint', this.t('dewPoint'))}
+                                        ${this._renderDetailCheckbox(index, point, 'wetBulb', this.t('wetBulb'))}
+                                        ${this._renderDetailCheckbox(index, point, 'enthalpy', this.t('enthalpy'))}
+                                        ${this._renderDetailCheckbox(index, point, 'absHumidity', this.t('absHumidity'))}
+                                        ${this._renderDetailCheckbox(index, point, 'waterContent', this.t('waterContent'))}
+                                        ${this._renderDetailCheckbox(index, point, 'specificVolume', this.t('specificVolume'))}
+                                        ${this._renderDetailCheckbox(index, point, 'pmvIndex', this.t('pmvIndex'))}
+                                        ${this._renderDetailCheckbox(index, point, 'moldRisk', this.t('moldRisk'))}
+                                        ${this._renderDetailCheckbox(index, point, 'action', this.t('action'))}
                                     </div>
                                 </details>
                             </div>
                         `).join('')}
                     </div>
-                    <button class="add" id="addPoint">Ajouter un point</button>
+                    <button class="add" id="addPoint">${this.t('addPoint')}</button>
                 </div>
 
                 <div class="section">
-                    <span class="section-title">Apparence</span>
+                    <span class="section-title">${this.t('appearance')}</span>
                     <div class="form-row">
-                        <label>Mode d'affichage</label>
+                        <label>${this.t('displayMode')}</label>
                         <select id="displayMode" class="select-input">
-                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>Standard</option>
-                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>Minimal</option>
-                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>Avancé</option>
+                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>${this.t('standard')}</option>
+                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>${this.t('minimal')}</option>
+                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
                         </select>
                     </div>
                     <div class="form-row">
-                        <label>Couleur de fond</label>
+                        <label>${this.t('bgColor')}</label>
                         <input type="color" id="bgColor" value="${this._config.bgColor || '#ffffff'}">
                     </div>
                     <div class="form-row">
-                        <label>Couleur du texte</label>
+                        <label>${this.t('textColor')}</label>
                         <input type="color" id="textColor" value="${this._config.textColor || '#333333'}">
                     </div>
                     <div class="form-row">
-                        <label>Couleur de la grille</label>
+                        <label>${this.t('gridColor')}</label>
                         <input type="color" id="gridColor" value="${this._config.gridColor || '#e0e0e0'}">
                     </div>
                     <div class="form-row">
-                        <label>Couleur des courbes</label>
+                        <label>${this.t('curveColor')}</label>
                         <input type="color" id="curveColor" value="${this._config.curveColor || '#e0e0e0'}">
                     </div>
                     <div class="form-row">
-                        <label>Couleur zone confort</label>
+                        <label>${this.t('comfortColor')}</label>
                         <input type="color" id="comfortColor" value="${this._config.comfortColor || 'rgba(100, 180, 100, 0.3)'}">
                     </div>
                 </div>
 
                 <div class="section">
-                    <span class="section-title">Options d'affichage</span>
+                    <span class="section-title">${this.t('displayOptions')}</span>
                     <div class="form-row">
-                        <label>Afficher Enthalpie</label>
+                        <label>${this.t('showEnthalpy')}</label>
                         <input type="checkbox" id="showEnthalpy" ${this._config.showEnthalpy !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Pression Vapeur</label>
+                        <label>${this.t('showVaporPressure')}</label>
                         <input type="checkbox" id="showVaporPressure" ${this._config.showVaporPressure !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Point de Rosée</label>
+                        <label>${this.t('showDewPoint')}</label>
                         <input type="checkbox" id="showDewPoint" ${this._config.showDewPoint !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Temp. Humide</label>
+                        <label>${this.t('showWetBulb')}</label>
                         <input type="checkbox" id="showWetBulb" ${this._config.showWetBulb !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Risque Moisissure</label>
+                        <label>${this.t('showMoldRisk')}</label>
                         <input type="checkbox" id="showMoldRisk" ${this._config.showMoldRisk !== false ? 'checked' : ''}>
                     </div>
                      <div class="form-row">
-                        <label>Afficher Légende</label>
+                        <label>${this.t('showLegend')}</label>
                         <input type="checkbox" id="showLegend" ${this._config.showLegend !== false ? 'checked' : ''}>
                     </div>
                      <div class="form-row">
-                        <label>Afficher Données Calculées</label>
+                        <label>${this.t('showCalculatedData')}</label>
                         <input type="checkbox" id="showCalculatedData" ${this._config.showCalculatedData !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Mode Sombre Forcé</label>
+                        <label>${this.t('forceDarkMode')}</label>
                         <input type="checkbox" id="darkMode" ${this._config.darkMode ? 'checked' : ''}>
                     </div>
-                    <div class="help-text">Si décoché, suit le thème de Home Assistant.</div>
+                    <div class="help-text">${this.t('darkModeHelp')}</div>
                 </div>
 
                  <div class="section">
-                    <span class="section-title">Zoom & Panoramique (Optionnel)</span>
+                    <span class="section-title">${this.t('zoomPan')}</span>
                     <div class="form-row">
-                        <label>Température Min</label>
+                        <label>${this.t('minTemp')}</label>
                         <input type="number" id="zoom_temp_min" value="${this._config.zoom_temp_min || ''}" placeholder="Ex: 15">
                     </div>
                     <div class="form-row">
-                        <label>Température Max</label>
+                        <label>${this.t('maxTemp')}</label>
                         <input type="number" id="zoom_temp_max" value="${this._config.zoom_temp_max || ''}" placeholder="Ex: 30">
                     </div>
                     <div class="form-row">
-                        <label>Humidité Min</label>
+                        <label>${this.t('minHum')}</label>
                         <input type="number" id="zoom_humidity_min" value="${this._config.zoom_humidity_min || ''}" placeholder="Ex: 30">
                     </div>
                     <div class="form-row">
-                        <label>Humidité Max</label>
+                        <label>${this.t('maxHum')}</label>
                         <input type="number" id="zoom_humidity_max" value="${this._config.zoom_humidity_max || ''}" placeholder="Ex: 70">
                     </div>
                 </div>
