@@ -52,6 +52,8 @@ const editorTranslations = {
         textColor: "Couleur du texte",
         gridColor: "Couleur de la grille",
         curveColor: "Couleur des courbes",
+        curveColor: "Couleur des courbes",
+        enthalpyColor: "Couleur des enthalpies",
         comfortColor: "Couleur zone confort",
         displayOptions: "Options d'affichage",
         showEnthalpy: "Afficher Enthalpie",
@@ -101,6 +103,8 @@ const editorTranslations = {
         textColor: "Text Color",
         gridColor: "Grid Color",
         curveColor: "Curve Color",
+        curveColor: "Curve Color",
+        enthalpyColor: "Enthalpy Color",
         comfortColor: "Comfort Zone Color",
         displayOptions: "Display Options",
         showEnthalpy: "Show Enthalpy",
@@ -150,6 +154,8 @@ const editorTranslations = {
         textColor: "Color del texto",
         gridColor: "Color de la cuadrícula",
         curveColor: "Color de las curvas",
+        curveColor: "Color de las curvas",
+        enthalpyColor: "Color de las entalpías",
         comfortColor: "Color zona confort",
         displayOptions: "Opciones de visualización",
         showEnthalpy: "Mostrar Entalpía",
@@ -199,6 +205,8 @@ const editorTranslations = {
         textColor: "Textfarbe",
         gridColor: "Gitterfarbe",
         curveColor: "Kurvenfarbe",
+        curveColor: "Kurvenfarbe",
+        enthalpyColor: "Enthalpiefarbe",
         comfortColor: "Komfortzonenfarbe",
         displayOptions: "Anzeigeoptionen",
         showEnthalpy: "Enthalpie anzeigen",
@@ -261,6 +269,64 @@ export class PsychrometricChartEditor extends HTMLElement {
     t(key) {
         const lang = this._config?.language || 'fr';
         return editorTranslations[lang]?.[key] || editorTranslations['fr'][key] || key;
+    }
+
+    _getHexFromColor(color) {
+        if (!color) return '#000000';
+        if (color.startsWith('#')) {
+            return color.substring(0, 7);
+        }
+        if (color.startsWith('rgb')) {
+            const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
+            if (match) {
+                const [_, r, g, b] = match;
+                return "#" +
+                    (1 << 24 | parseInt(r) << 16 | parseInt(g) << 8 | parseInt(b))
+                        .toString(16).slice(1);
+            }
+        }
+        return '#000000';
+    }
+
+    _getAlphaFromColor(color) {
+        if (!color) return 1;
+        if (color.startsWith('#') && color.length > 7) {
+            return parseInt(color.substring(7, 9), 16) / 255;
+        }
+        if (color.startsWith('rgba')) {
+            const match = color.match(/[\d.]+\)$/); // Match last number before )
+            if (match) {
+                // This is a bit weak, let's do better regex
+                const parts = color.split(',');
+                if (parts.length === 4) {
+                    return parseFloat(parts[3]);
+                }
+            }
+        }
+        return 1;
+    }
+
+    _combineColor(hex, alpha) {
+        if (alpha >= 1) return hex;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    _renderColorInput(label, id, value) {
+        const hex = this._getHexFromColor(value);
+        const alpha = Math.round(this._getAlphaFromColor(value) * 100);
+        return `
+            <div class="form-row">
+                <label>${label}</label>
+                <div style="display: flex; gap: 8px; flex: 2; align-items: center;">
+                    <input type="color" id="${id}_hex" value="${hex}" data-base-id="${id}" class="color-hex-input" style="flex: 1; height: 30px; padding: 0;">
+                    <input type="range" id="${id}_alpha" min="0" max="100" value="${alpha}" data-base-id="${id}" class="color-alpha-input" style="flex: 1;" title="Opacité: ${alpha}%">
+                    <span style="width: 35px; text-align: right; font-size: 0.8em;" id="${id}_alpha_display">${alpha}%</span>
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -397,7 +463,22 @@ export class PsychrometricChartEditor extends HTMLElement {
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('color')}</label>
-                                    <input type="color" class="point-input" data-index="${index}" data-field="color" value="${point.color || '#000000'}">
+                                    <div style="display: flex; gap: 8px; flex: 2; align-items: center;">
+                                        <input type="color" 
+                                               class="point-color-hex" 
+                                               data-index="${index}" 
+                                               value="${this._getHexFromColor(point.color || '#000000')}"
+                                               style="flex: 1; height: 30px; padding: 0;">
+                                        <input type="range" 
+                                               class="point-color-alpha" 
+                                               data-index="${index}" 
+                                               min="0" max="100" 
+                                               value="${Math.round(this._getAlphaFromColor(point.color || '#000000') * 100)}"
+                                               style="flex: 1;">
+                                        <span style="width: 35px; text-align: right; font-size: 0.8em;">
+                                            ${Math.round(this._getAlphaFromColor(point.color || '#000000') * 100)}%
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('icon')}</label>
@@ -434,26 +515,12 @@ export class PsychrometricChartEditor extends HTMLElement {
                             <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
                         </select>
                     </div>
-                    <div class="form-row">
-                        <label>${this.t('bgColor')}</label>
-                        <input type="color" id="bgColor" value="${this._config.bgColor || '#ffffff'}">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('textColor')}</label>
-                        <input type="color" id="textColor" value="${this._config.textColor || '#333333'}">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('gridColor')}</label>
-                        <input type="color" id="gridColor" value="${this._config.gridColor || '#e0e0e0'}">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('curveColor')}</label>
-                        <input type="color" id="curveColor" value="${this._config.curveColor || '#e0e0e0'}">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('comfortColor')}</label>
-                        <input type="color" id="comfortColor" value="${this._config.comfortColor || 'rgba(100, 180, 100, 0.3)'}">
-                    </div>
+                    ${this._renderColorInput(this.t('bgColor'), 'bgColor', this._config.bgColor || '#ffffff')}
+                    ${this._renderColorInput(this.t('textColor'), 'textColor', this._config.textColor || '#333333')}
+                    ${this._renderColorInput(this.t('gridColor'), 'gridColor', this._config.gridColor || '#e0e0e0')}
+                    ${this._renderColorInput(this.t('curveColor'), 'curveColor', this._config.curveColor || '#e0e0e0')}
+                    ${this._renderColorInput(this.t('enthalpyColor'), 'enthalpyColor', this._config.enthalpyColor || '')}
+                    ${this._renderColorInput(this.t('comfortColor'), 'comfortColor', this._config.comfortColor || 'rgba(100, 180, 100, 0.3)')}
                 </div>
 
                 <div class="section">
@@ -547,11 +614,13 @@ export class PsychrometricChartEditor extends HTMLElement {
 
         // Appearance
         this.shadowRoot.getElementById('displayMode').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('bgColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('textColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('gridColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('curveColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('comfortColor').addEventListener('change', this._valueChanged.bind(this));
+        // Appearance - Colors
+        this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {
+            input.addEventListener('input', this._colorChanged.bind(this));
+        });
+        this.shadowRoot.querySelectorAll('.color-alpha-input').forEach(input => {
+            input.addEventListener('input', this._colorChanged.bind(this));
+        });
 
         this.shadowRoot.getElementById('showEnthalpy').addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('showVaporPressure').addEventListener('change', this._valueChanged.bind(this));
@@ -574,6 +643,11 @@ export class PsychrometricChartEditor extends HTMLElement {
         // Point inputs
         this.shadowRoot.querySelectorAll('.point-input').forEach(input => {
             input.addEventListener('change', this._pointChanged.bind(this));
+        });
+
+        // Point colors
+        this.shadowRoot.querySelectorAll('.point-color-hex, .point-color-alpha').forEach(input => {
+            input.addEventListener('input', this._pointColorChanged.bind(this));
         });
 
         // Point details checkboxes
@@ -611,6 +685,61 @@ export class PsychrometricChartEditor extends HTMLElement {
         }
 
         this._config = { ...this._config, points };
+        fireEvent(this, 'config-changed', { config: this._config });
+    }
+
+    _colorChanged(e) {
+        if (!this._config) return;
+        const target = e.target;
+        const baseId = target.dataset.baseId;
+
+        const hexInput = this.shadowRoot.getElementById(`${baseId}_hex`);
+        const alphaInput = this.shadowRoot.getElementById(`${baseId}_alpha`);
+        const alphaDisplay = this.shadowRoot.getElementById(`${baseId}_alpha_display`);
+
+        if (alphaDisplay) {
+            alphaDisplay.textContent = `${alphaInput.value}%`;
+        }
+
+        const color = this._combineColor(hexInput.value, parseInt(alphaInput.value) / 100);
+
+        this._config = {
+            ...this._config,
+            [baseId]: color
+        };
+
+        fireEvent(this, 'config-changed', { config: this._config });
+    }
+
+    _pointColorChanged(e) {
+        if (!this._config) return;
+        const target = e.target;
+        const index = parseInt(target.dataset.index);
+        const row = target.closest('.form-row');
+
+        const hexInput = row.querySelector('.point-color-hex');
+        const alphaInput = row.querySelector('.point-color-alpha');
+        const alphaDisplay = row.querySelector('span');
+
+        if (alphaDisplay) {
+            alphaDisplay.textContent = `${alphaInput.value}%`;
+        }
+
+        const color = this._combineColor(hexInput.value, parseInt(alphaInput.value) / 100);
+
+        const newPoints = [...(this._config.points || [])];
+        if (!newPoints[index]) newPoints[index] = {};
+
+        newPoints[index] = {
+            ...newPoints[index],
+            color: color
+        };
+
+        this._config = {
+            ...this._config,
+            points: newPoints
+        };
+
         fireEvent(this, 'config-changed', { config: this._config });
     }
 

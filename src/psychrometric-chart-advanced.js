@@ -773,7 +773,8 @@ class PsychrometricChartEnhanced extends LitElement {
             showVaporPressure = true,
             darkMode = false,
             showPointLabels = true,
-            displayMode = "standard"
+            displayMode = "standard",
+            enthalpyColor
         } = this.config;
 
         // Use configured colors or defaults based on mode
@@ -782,6 +783,7 @@ class PsychrometricChartEnhanced extends LitElement {
         const actualCurveColor = this.config.curveColor || (darkMode ? "#4fc3f7" : "#1f77b4");
         const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
         const actualComfortColor = this.config.comfortColor || (darkMode ? "rgba(100, 200, 100, 0.3)" : "rgba(144, 238, 144, 0.5)");
+        const actualEnthalpyColor = enthalpyColor || (darkMode ? "rgba(255, 165, 0, 0.7)" : "rgba(255, 99, 71, 0.7)");
 
         const comfortRange = this.config.comfortRange ? {
             tempMin: this.toInternalTemp(this.config.comfortRange.tempMin),
@@ -921,7 +923,7 @@ class PsychrometricChartEnhanced extends LitElement {
         // Draw enthalpy curves
         if (showEnthalpy && displayMode !== "minimal") {
             ctx.setLineDash([2 * scale, 3 * scale]);
-            ctx.strokeStyle = darkMode ? "rgba(255, 165, 0, 0.7)" : "rgba(255, 99, 71, 0.7)";
+            ctx.strokeStyle = actualEnthalpyColor;
 
             for (let h = 0; h <= 150; h += 10) {
                 let enthalpy_points = [];
