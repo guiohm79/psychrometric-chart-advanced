@@ -1,0 +1,15 @@
+{
+    "name": "psychrometric-chart-advanced",
+    "version": "1.0.0",
+    "description": "A custom card for Home Assistant to visualize psychrometric data",
+    "main": "psychrometric-chart-advanced.js",
+    "scripts": {
+        "build": "rollup -c"
+    },
+    "author": "Guillaume O.",
+    "license": "MIT",
+    "devDependencies": {
+        "rollup": "^4.9.0",
+        "@rollup/plugin-node-resolve": "^15.2.3"
+    }
+}
