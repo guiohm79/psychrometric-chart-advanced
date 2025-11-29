@@ -388,6 +388,213 @@ const fireEvent = (node, type, detail, options) => {
     return event;
 };
 
+const editorTranslations = {
+    fr: {
+        general: "Général",
+        title: "Titre",
+        language: "Langue",
+        measurementPoints: "Points de mesure",
+        point: "Point",
+        delete: "Supprimer",
+        label: "Label",
+        tempEntity: "Température (Entity ID)",
+        humEntity: "Humidité (Entity ID)",
+        color: "Couleur",
+        icon: "Icône",
+        customDisplay: "Affichage personnalisé",
+        dewPoint: "Point de rosée",
+        wetBulb: "Temp. humide",
+        enthalpy: "Enthalpie",
+        absHumidity: "Humidité abs.",
+        waterContent: "Teneur en eau",
+        specificVolume: "Vol. spécifique",
+        pmvIndex: "Indice PMV",
+        moldRisk: "Moisissure",
+        action: "Action/Puissance",
+        addPoint: "Ajouter un point",
+        appearance: "Apparence",
+        displayMode: "Mode d'affichage",
+        standard: "Standard",
+        minimal: "Minimal",
+        advanced: "Avancé",
+        bgColor: "Couleur de fond",
+        textColor: "Couleur du texte",
+        gridColor: "Couleur de la grille",
+        curveColor: "Couleur des courbes",
+        curveColor: "Couleur des courbes",
+        enthalpyColor: "Couleur des enthalpies",
+        comfortColor: "Couleur zone confort",
+        displayOptions: "Options d'affichage",
+        showEnthalpy: "Afficher Enthalpie",
+        showVaporPressure: "Afficher Pression Vapeur",
+        showDewPoint: "Afficher Point de Rosée",
+        showWetBulb: "Afficher Temp. Humide",
+        showMoldRisk: "Afficher Risque Moisissure",
+        showLegend: "Afficher Légende",
+        showCalculatedData: "Afficher Données Calculées",
+        forceDarkMode: "Mode Sombre Forcé",
+        darkModeHelp: "Si décoché, suit le thème de Home Assistant.",
+        zoomPan: "Zoom & Panoramique (Optionnel)",
+        minTemp: "Température Min",
+        maxTemp: "Température Max",
+        minHum: "Humidité Min",
+        maxHum: "Humidité Max"
+    },
+    en: {
+        general: "General",
+        title: "Title",
+        language: "Language",
+        measurementPoints: "Measurement Points",
+        point: "Point",
+        delete: "Delete",
+        label: "Label",
+        tempEntity: "Temperature (Entity ID)",
+        humEntity: "Humidity (Entity ID)",
+        color: "Color",
+        icon: "Icon",
+        customDisplay: "Custom Display",
+        dewPoint: "Dew Point",
+        wetBulb: "Wet Bulb",
+        enthalpy: "Enthalpy",
+        absHumidity: "Abs. Humidity",
+        waterContent: "Water Content",
+        specificVolume: "Specific Vol.",
+        pmvIndex: "PMV Index",
+        moldRisk: "Mold Risk",
+        action: "Action/Power",
+        addPoint: "Add Point",
+        appearance: "Appearance",
+        displayMode: "Display Mode",
+        standard: "Standard",
+        minimal: "Minimal",
+        advanced: "Advanced",
+        bgColor: "Background Color",
+        textColor: "Text Color",
+        gridColor: "Grid Color",
+        curveColor: "Curve Color",
+        curveColor: "Curve Color",
+        enthalpyColor: "Enthalpy Color",
+        comfortColor: "Comfort Zone Color",
+        displayOptions: "Display Options",
+        showEnthalpy: "Show Enthalpy",
+        showVaporPressure: "Show Vapor Pressure",
+        showDewPoint: "Show Dew Point",
+        showWetBulb: "Show Wet Bulb",
+        showMoldRisk: "Show Mold Risk",
+        showLegend: "Show Legend",
+        showCalculatedData: "Show Calculated Data",
+        forceDarkMode: "Force Dark Mode",
+        darkModeHelp: "If unchecked, follows Home Assistant theme.",
+        zoomPan: "Zoom & Pan (Optional)",
+        minTemp: "Min Temperature",
+        maxTemp: "Max Temperature",
+        minHum: "Min Humidity",
+        maxHum: "Max Humidity"
+    },
+    es: {
+        general: "General",
+        title: "Título",
+        language: "Idioma",
+        measurementPoints: "Puntos de medición",
+        point: "Punto",
+        delete: "Eliminar",
+        label: "Etiqueta",
+        tempEntity: "Temperatura (Entity ID)",
+        humEntity: "Humedad (Entity ID)",
+        color: "Color",
+        icon: "Icono",
+        customDisplay: "Visualización personalizada",
+        dewPoint: "Punto de rocío",
+        wetBulb: "Temp. húmeda",
+        enthalpy: "Entalpía",
+        absHumidity: "Humedad abs.",
+        waterContent: "Contenido de agua",
+        specificVolume: "Vol. específico",
+        pmvIndex: "Índice PMV",
+        moldRisk: "Riesgo de moho",
+        action: "Acción/Potencia",
+        addPoint: "Añadir punto",
+        appearance: "Apariencia",
+        displayMode: "Modo de visualización",
+        standard: "Estándar",
+        minimal: "Mínimo",
+        advanced: "Avanzado",
+        bgColor: "Color de fondo",
+        textColor: "Color del texto",
+        gridColor: "Color de la cuadrícula",
+        curveColor: "Color de las curvas",
+        curveColor: "Color de las curvas",
+        enthalpyColor: "Color de las entalpías",
+        comfortColor: "Color zona confort",
+        displayOptions: "Opciones de visualización",
+        showEnthalpy: "Mostrar Entalpía",
+        showVaporPressure: "Mostrar Presión de Vapor",
+        showDewPoint: "Mostrar Punto de Rocío",
+        showWetBulb: "Mostrar Temp. Húmeda",
+        showMoldRisk: "Mostrar Riesgo Moho",
+        showLegend: "Mostrar Leyenda",
+        showCalculatedData: "Mostrar Datos Calculados",
+        forceDarkMode: "Modo Oscuro Forzado",
+        darkModeHelp: "Si está desmarcado, sigue el tema de Home Assistant.",
+        zoomPan: "Zoom y Panorámica (Opcional)",
+        minTemp: "Temp. Mín",
+        maxTemp: "Temp. Máx",
+        minHum: "Humedad Mín",
+        maxHum: "Humedad Máx"
+    },
+    de: {
+        general: "Allgemein",
+        title: "Titel",
+        language: "Sprache",
+        measurementPoints: "Messpunkte",
+        point: "Punkt",
+        delete: "Löschen",
+        label: "Beschriftung",
+        tempEntity: "Temperatur (Entity ID)",
+        humEntity: "Feuchtigkeit (Entity ID)",
+        color: "Farbe",
+        icon: "Symbol",
+        customDisplay: "Benutzerdefinierte Anzeige",
+        dewPoint: "Taupunkt",
+        wetBulb: "Feuchtkugeltemp.",
+        enthalpy: "Enthalpie",
+        absHumidity: "Abs. Feuchtigkeit",
+        waterContent: "Wassergehalt",
+        specificVolume: "Spezifisches Vol.",
+        pmvIndex: "PMV-Index",
+        moldRisk: "Schimmelrisiko",
+        action: "Aktion/Leistung",
+        addPoint: "Punkt hinzufügen",
+        appearance: "Aussehen",
+        displayMode: "Anzeigemodus",
+        standard: "Standard",
+        minimal: "Minimal",
+        advanced: "Erweitert",
+        bgColor: "Hintergrundfarbe",
+        textColor: "Textfarbe",
+        gridColor: "Gitterfarbe",
+        curveColor: "Kurvenfarbe",
+        curveColor: "Kurvenfarbe",
+        enthalpyColor: "Enthalpiefarbe",
+        comfortColor: "Komfortzonenfarbe",
+        displayOptions: "Anzeigeoptionen",
+        showEnthalpy: "Enthalpie anzeigen",
+        showVaporPressure: "Dampfdruck anzeigen",
+        showDewPoint: "Taupunkt anzeigen",
+        showWetBulb: "Feuchtkugeltemp. anzeigen",
+        showMoldRisk: "Schimmelrisiko anzeigen",
+        showLegend: "Legende anzeigen",
+        showCalculatedData: "Berechnete Daten anzeigen",
+        forceDarkMode: "Dunkelmodus erzwingen",
+        darkModeHelp: "Wenn deaktiviert, folgt dem Home Assistant Thema.",
+        zoomPan: "Zoom & Schwenken (Optional)",
+        minTemp: "Min Temperatur",
+        maxTemp: "Max Temperatur",
+        minHum: "Min Feuchtigkeit",
+        maxHum: "Max Feuchtigkeit"
+    }
+};
+
 /**
  * Psychrometric Chart Editor
  * Visual editor for the Psychrometric Chart card.
@@ -421,6 +628,74 @@ class PsychrometricChartEditor extends HTMLElement {
      */
     get _points() {
         return this._config?.points || [];
+    }
+
+    /**
+     * Get translation for key
+     * @param {string} key 
+     * @returns {string}
+     */
+    t(key) {
+        const lang = this._config?.language || 'fr';
+        return editorTranslations[lang]?.[key] || editorTranslations['fr'][key] || key;
+    }
+
+    _getHexFromColor(color) {
+        if (!color) return '#000000';
+        if (color.startsWith('#')) {
+            return color.substring(0, 7);
+        }
+        if (color.startsWith('rgb')) {
+            const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
+            if (match) {
+                const [_, r, g, b] = match;
+                return "#" +
+                    (1 << 24 | parseInt(r) << 16 | parseInt(g) << 8 | parseInt(b))
+                        .toString(16).slice(1);
+            }
+        }
+        return '#000000';
+    }
+
+    _getAlphaFromColor(color) {
+        if (!color) return 1;
+        if (color.startsWith('#') && color.length > 7) {
+            return parseInt(color.substring(7, 9), 16) / 255;
+        }
+        if (color.startsWith('rgba')) {
+            const match = color.match(/[\d.]+\)$/); // Match last number before )
+            if (match) {
+                // This is a bit weak, let's do better regex
+                const parts = color.split(',');
+                if (parts.length === 4) {
+                    return parseFloat(parts[3]);
+                }
+            }
+        }
+        return 1;
+    }
+
+    _combineColor(hex, alpha) {
+        if (alpha >= 1) return hex;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    _renderColorInput(label, id, value) {
+        const hex = this._getHexFromColor(value);
+        const alpha = Math.round(this._getAlphaFromColor(value) * 100);
+        return `
+            <div class="form-row">
+                <label>${label}</label>
+                <div style="display: flex; gap: 8px; flex: 2; align-items: center;">
+                    <input type="color" id="${id}_hex" value="${hex}" data-base-id="${id}" class="color-hex-input" style="flex: 1; height: 30px; padding: 0;">
+                    <input type="range" id="${id}_alpha" min="0" max="100" value="${alpha}" data-base-id="${id}" class="color-alpha-input" style="flex: 1;" title="Opacité: ${alpha}%">
+                    <span style="width: 35px; text-align: right; font-size: 0.8em;" id="${id}_alpha_display">${alpha}%</span>
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -518,13 +793,13 @@ class PsychrometricChartEditor extends HTMLElement {
             </style>
             <div class="card-config">
                 <div class="section">
-                    <span class="section-title">Général</span>
+                    <span class="section-title">${this.t('general')}</span>
                     <div class="form-row">
-                        <label>Titre</label>
+                        <label>${this.t('title')}</label>
                         <input type="text" id="chartTitle" value="${this._title}">
                     </div>
                     <div class="form-row">
-                        <label>Langue</label>
+                        <label>${this.t('language')}</label>
                         <select id="language" class="select-input">
                             <option value="fr" ${this._config.language === 'fr' ? 'selected' : ''}>Français</option>
                             <option value="en" ${this._config.language === 'en' ? 'selected' : ''}>English</option>
@@ -535,140 +810,141 @@ class PsychrometricChartEditor extends HTMLElement {
                 </div>
 
                 <div class="section">
-                    <span class="section-title">Points de mesure</span>
+                    <span class="section-title">${this.t('measurementPoints')}</span>
                     <div id="points-container">
                         ${this._points.map((point, index) => `
                             <div class="point-row">
                                 <div class="point-header">
-                                    <strong>Point ${index + 1}</strong>
-                                    <button class="delete" data-index="${index}">Supprimer</button>
+                                    <strong>${this.t('point')} ${index + 1}</strong>
+                                    <button class="delete" data-index="${index}">${this.t('delete')}</button>
                                 </div>
                                 <div class="form-row">
-                                    <label>Label</label>
+                                    <label>${this.t('label')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="label" value="${point.label || ''}" placeholder="Ex: Salon">
                                 </div>
                                 <div class="form-row">
-                                    <label>Température (Entity ID)</label>
+                                    <label>${this.t('tempEntity')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="temp" value="${point.temp || ''}" placeholder="sensor.temp_salon">
                                 </div>
                                 <div class="form-row">
-                                    <label>Humidité (Entity ID)</label>
+                                    <label>${this.t('humEntity')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="humidity" value="${point.humidity || ''}" placeholder="sensor.hum_salon">
                                 </div>
                                 <div class="form-row">
-                                    <label>Couleur</label>
-                                    <input type="color" class="point-input" data-index="${index}" data-field="color" value="${point.color || '#000000'}">
+                                    <label>${this.t('color')}</label>
+                                    <div style="display: flex; gap: 8px; flex: 2; align-items: center;">
+                                        <input type="color" 
+                                               class="point-color-hex" 
+                                               data-index="${index}" 
+                                               value="${this._getHexFromColor(point.color || '#000000')}"
+                                               style="flex: 1; height: 30px; padding: 0;">
+                                        <input type="range" 
+                                               class="point-color-alpha" 
+                                               data-index="${index}" 
+                                               min="0" max="100" 
+                                               value="${Math.round(this._getAlphaFromColor(point.color || '#000000') * 100)}"
+                                               style="flex: 1;">
+                                        <span style="width: 35px; text-align: right; font-size: 0.8em;">
+                                            ${Math.round(this._getAlphaFromColor(point.color || '#000000') * 100)}%
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="form-row">
-                                    <label>Icône</label>
+                                    <label>${this.t('icon')}</label>
                                     <input type="text" class="point-input" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
 
                                 <details>
-                                    <summary>Affichage personnalisé</summary>
+                                    <summary>${this.t('customDisplay')}</summary>
                                     <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
-                                        ${this._renderDetailCheckbox(index, point, 'dewPoint', 'Point de rosée')}
-                                        ${this._renderDetailCheckbox(index, point, 'wetBulb', 'Temp. humide')}
-                                        ${this._renderDetailCheckbox(index, point, 'enthalpy', 'Enthalpie')}
-                                        ${this._renderDetailCheckbox(index, point, 'absHumidity', 'Humidité abs.')}
-                                        ${this._renderDetailCheckbox(index, point, 'waterContent', 'Teneur en eau')}
-                                        ${this._renderDetailCheckbox(index, point, 'specificVolume', 'Vol. spécifique')}
-                                        ${this._renderDetailCheckbox(index, point, 'pmvIndex', 'Indice PMV')}
-                                        ${this._renderDetailCheckbox(index, point, 'moldRisk', 'Moisissure')}
-                                        ${this._renderDetailCheckbox(index, point, 'action', 'Action/Puissance')}
+                                        ${this._renderDetailCheckbox(index, point, 'dewPoint', this.t('dewPoint'))}
+                                        ${this._renderDetailCheckbox(index, point, 'wetBulb', this.t('wetBulb'))}
+                                        ${this._renderDetailCheckbox(index, point, 'enthalpy', this.t('enthalpy'))}
+                                        ${this._renderDetailCheckbox(index, point, 'absHumidity', this.t('absHumidity'))}
+                                        ${this._renderDetailCheckbox(index, point, 'waterContent', this.t('waterContent'))}
+                                        ${this._renderDetailCheckbox(index, point, 'specificVolume', this.t('specificVolume'))}
+                                        ${this._renderDetailCheckbox(index, point, 'pmvIndex', this.t('pmvIndex'))}
+                                        ${this._renderDetailCheckbox(index, point, 'moldRisk', this.t('moldRisk'))}
+                                        ${this._renderDetailCheckbox(index, point, 'action', this.t('action'))}
                                     </div>
                                 </details>
                             </div>
                         `).join('')}
                     </div>
-                    <button class="add" id="addPoint">Ajouter un point</button>
+                    <button class="add" id="addPoint">${this.t('addPoint')}</button>
                 </div>
 
                 <div class="section">
-                    <span class="section-title">Apparence</span>
+                    <span class="section-title">${this.t('appearance')}</span>
                     <div class="form-row">
-                        <label>Mode d'affichage</label>
+                        <label>${this.t('displayMode')}</label>
                         <select id="displayMode" class="select-input">
-                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>Standard</option>
-                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>Minimal</option>
-                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>Avancé</option>
+                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>${this.t('standard')}</option>
+                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>${this.t('minimal')}</option>
+                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
                         </select>
                     </div>
-                    <div class="form-row">
-                        <label>Couleur de fond</label>
-                        <input type="color" id="bgColor" value="${this._config.bgColor || '#ffffff'}">
-                    </div>
-                    <div class="form-row">
-                        <label>Couleur du texte</label>
-                        <input type="color" id="textColor" value="${this._config.textColor || '#333333'}">
-                    </div>
-                    <div class="form-row">
-                        <label>Couleur de la grille</label>
-                        <input type="color" id="gridColor" value="${this._config.gridColor || '#e0e0e0'}">
-                    </div>
-                    <div class="form-row">
-                        <label>Couleur des courbes</label>
-                        <input type="color" id="curveColor" value="${this._config.curveColor || '#e0e0e0'}">
-                    </div>
-                    <div class="form-row">
-                        <label>Couleur zone confort</label>
-                        <input type="color" id="comfortColor" value="${this._config.comfortColor || 'rgba(100, 180, 100, 0.3)'}">
-                    </div>
+                    ${this._renderColorInput(this.t('bgColor'), 'bgColor', this._config.bgColor || '#ffffff')}
+                    ${this._renderColorInput(this.t('textColor'), 'textColor', this._config.textColor || '#333333')}
+                    ${this._renderColorInput(this.t('gridColor'), 'gridColor', this._config.gridColor || '#e0e0e0')}
+                    ${this._renderColorInput(this.t('curveColor'), 'curveColor', this._config.curveColor || '#e0e0e0')}
+                    ${this._renderColorInput(this.t('enthalpyColor'), 'enthalpyColor', this._config.enthalpyColor || '')}
+                    ${this._renderColorInput(this.t('comfortColor'), 'comfortColor', this._config.comfortColor || 'rgba(100, 180, 100, 0.3)')}
                 </div>
 
                 <div class="section">
-                    <span class="section-title">Options d'affichage</span>
+                    <span class="section-title">${this.t('displayOptions')}</span>
                     <div class="form-row">
-                        <label>Afficher Enthalpie</label>
+                        <label>${this.t('showEnthalpy')}</label>
                         <input type="checkbox" id="showEnthalpy" ${this._config.showEnthalpy !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Pression Vapeur</label>
+                        <label>${this.t('showVaporPressure')}</label>
                         <input type="checkbox" id="showVaporPressure" ${this._config.showVaporPressure !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Point de Rosée</label>
+                        <label>${this.t('showDewPoint')}</label>
                         <input type="checkbox" id="showDewPoint" ${this._config.showDewPoint !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Temp. Humide</label>
+                        <label>${this.t('showWetBulb')}</label>
                         <input type="checkbox" id="showWetBulb" ${this._config.showWetBulb !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Afficher Risque Moisissure</label>
+                        <label>${this.t('showMoldRisk')}</label>
                         <input type="checkbox" id="showMoldRisk" ${this._config.showMoldRisk !== false ? 'checked' : ''}>
                     </div>
                      <div class="form-row">
-                        <label>Afficher Légende</label>
+                        <label>${this.t('showLegend')}</label>
                         <input type="checkbox" id="showLegend" ${this._config.showLegend !== false ? 'checked' : ''}>
                     </div>
                      <div class="form-row">
-                        <label>Afficher Données Calculées</label>
+                        <label>${this.t('showCalculatedData')}</label>
                         <input type="checkbox" id="showCalculatedData" ${this._config.showCalculatedData !== false ? 'checked' : ''}>
                     </div>
                     <div class="form-row">
-                        <label>Mode Sombre Forcé</label>
+                        <label>${this.t('forceDarkMode')}</label>
                         <input type="checkbox" id="darkMode" ${this._config.darkMode ? 'checked' : ''}>
                     </div>
-                    <div class="help-text">Si décoché, suit le thème de Home Assistant.</div>
+                    <div class="help-text">${this.t('darkModeHelp')}</div>
                 </div>
 
                  <div class="section">
-                    <span class="section-title">Zoom & Panoramique (Optionnel)</span>
+                    <span class="section-title">${this.t('zoomPan')}</span>
                     <div class="form-row">
-                        <label>Température Min</label>
+                        <label>${this.t('minTemp')}</label>
                         <input type="number" id="zoom_temp_min" value="${this._config.zoom_temp_min || ''}" placeholder="Ex: 15">
                     </div>
                     <div class="form-row">
-                        <label>Température Max</label>
+                        <label>${this.t('maxTemp')}</label>
                         <input type="number" id="zoom_temp_max" value="${this._config.zoom_temp_max || ''}" placeholder="Ex: 30">
                     </div>
                     <div class="form-row">
-                        <label>Humidité Min</label>
+                        <label>${this.t('minHum')}</label>
                         <input type="number" id="zoom_humidity_min" value="${this._config.zoom_humidity_min || ''}" placeholder="Ex: 30">
                     </div>
                     <div class="form-row">
-                        <label>Humidité Max</label>
+                        <label>${this.t('maxHum')}</label>
                         <input type="number" id="zoom_humidity_max" value="${this._config.zoom_humidity_max || ''}" placeholder="Ex: 70">
                     </div>
                 </div>
@@ -707,11 +983,13 @@ class PsychrometricChartEditor extends HTMLElement {
 
         // Appearance
         this.shadowRoot.getElementById('displayMode').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('bgColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('textColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('gridColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('curveColor').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('comfortColor').addEventListener('change', this._valueChanged.bind(this));
+        // Appearance - Colors
+        this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {
+            input.addEventListener('input', this._colorChanged.bind(this));
+        });
+        this.shadowRoot.querySelectorAll('.color-alpha-input').forEach(input => {
+            input.addEventListener('input', this._colorChanged.bind(this));
+        });
 
         this.shadowRoot.getElementById('showEnthalpy').addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('showVaporPressure').addEventListener('change', this._valueChanged.bind(this));
@@ -734,6 +1012,11 @@ class PsychrometricChartEditor extends HTMLElement {
         // Point inputs
         this.shadowRoot.querySelectorAll('.point-input').forEach(input => {
             input.addEventListener('change', this._pointChanged.bind(this));
+        });
+
+        // Point colors
+        this.shadowRoot.querySelectorAll('.point-color-hex, .point-color-alpha').forEach(input => {
+            input.addEventListener('input', this._pointColorChanged.bind(this));
         });
 
         // Point details checkboxes
@@ -771,6 +1054,61 @@ class PsychrometricChartEditor extends HTMLElement {
         }
 
         this._config = { ...this._config, points };
+        fireEvent(this, 'config-changed', { config: this._config });
+    }
+
+    _colorChanged(e) {
+        if (!this._config) return;
+        const target = e.target;
+        const baseId = target.dataset.baseId;
+
+        const hexInput = this.shadowRoot.getElementById(`${baseId}_hex`);
+        const alphaInput = this.shadowRoot.getElementById(`${baseId}_alpha`);
+        const alphaDisplay = this.shadowRoot.getElementById(`${baseId}_alpha_display`);
+
+        if (alphaDisplay) {
+            alphaDisplay.textContent = `${alphaInput.value}%`;
+        }
+
+        const color = this._combineColor(hexInput.value, parseInt(alphaInput.value) / 100);
+
+        this._config = {
+            ...this._config,
+            [baseId]: color
+        };
+
+        fireEvent(this, 'config-changed', { config: this._config });
+    }
+
+    _pointColorChanged(e) {
+        if (!this._config) return;
+        const target = e.target;
+        const index = parseInt(target.dataset.index);
+        const row = target.closest('.form-row');
+
+        const hexInput = row.querySelector('.point-color-hex');
+        const alphaInput = row.querySelector('.point-color-alpha');
+        const alphaDisplay = row.querySelector('span');
+
+        if (alphaDisplay) {
+            alphaDisplay.textContent = `${alphaInput.value}%`;
+        }
+
+        const color = this._combineColor(hexInput.value, parseInt(alphaInput.value) / 100);
+
+        const newPoints = [...(this._config.points || [])];
+        if (!newPoints[index]) newPoints[index] = {};
+
+        newPoints[index] = {
+            ...newPoints[index],
+            color: color
+        };
+
+        this._config = {
+            ...this._config,
+            points: newPoints
+        };
+
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
@@ -1567,6 +1905,37 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
+     * Calculate chart boundaries based on config.
+     * @returns {Object} Bounds object { minTemp, maxTemp, minHum, maxHum, maxPv }
+     */
+    _calculateChartBounds() {
+        const defaultMinTemp = -10;
+        const defaultMaxTemp = 50;
+        const defaultMinHum = 0;
+        const defaultMaxHum = 100;
+
+        let minTemp = defaultMinTemp;
+        let maxTemp = defaultMaxTemp;
+        let minHum = defaultMinHum;
+        let maxHum = defaultMaxHum;
+
+        if (this.config) {
+            if (this.config.zoom_temp_min !== undefined && this.config.zoom_temp_min !== '') minTemp = parseFloat(this.config.zoom_temp_min);
+            if (this.config.zoom_temp_max !== undefined && this.config.zoom_temp_max !== '') maxTemp = parseFloat(this.config.zoom_temp_max);
+            if (this.config.zoom_humidity_min !== undefined && this.config.zoom_humidity_min !== '') minHum = parseFloat(this.config.zoom_humidity_min);
+            if (this.config.zoom_humidity_max !== undefined && this.config.zoom_humidity_max !== '') maxHum = parseFloat(this.config.zoom_humidity_max);
+        }
+
+        // Calculate max Vapor Pressure based on max Temp and max Humidity
+        // Saturation pressure at maxTemp
+        const P_sat_max = 0.61078 * Math.exp((17.27 * maxTemp) / (maxTemp + 237.3));
+        // Max vapor pressure to display
+        const maxPv = (maxHum / 100) * P_sat_max;
+
+        return { minTemp, maxTemp, minHum, maxHum, maxPv };
+    }
+
+    /**
      * Draw the psychrometric chart on the canvas.
      */
     _drawChart() {
@@ -1595,7 +1964,8 @@ class PsychrometricChartEnhanced extends LitElement {
             showVaporPressure = true,
             darkMode = false,
             showPointLabels = true,
-            displayMode = "standard"
+            displayMode = "standard",
+            enthalpyColor
         } = this.config;
 
         // Use configured colors or defaults based on mode
@@ -1604,6 +1974,7 @@ class PsychrometricChartEnhanced extends LitElement {
         const actualCurveColor = this.config.curveColor || (darkMode ? "#4fc3f7" : "#1f77b4");
         const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
         const actualComfortColor = this.config.comfortColor || (darkMode ? "rgba(100, 200, 100, 0.3)" : "rgba(144, 238, 144, 0.5)");
+        const actualEnthalpyColor = enthalpyColor || (darkMode ? "rgba(255, 165, 0, 0.7)" : "rgba(255, 99, 71, 0.7)");
 
         const comfortRange = this.config.comfortRange ? {
             tempMin: this.toInternalTemp(this.config.comfortRange.tempMin),
@@ -1611,6 +1982,9 @@ class PsychrometricChartEnhanced extends LitElement {
             rhMin: this.config.comfortRange.rhMin,
             rhMax: this.config.comfortRange.rhMax
         } : { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 };
+
+        const bounds = this._calculateChartBounds();
+        this._currentBounds = bounds; // Store for coordinate conversion
 
         // Scale factors
         const scaleX = width / 800;
@@ -1634,35 +2008,59 @@ class PsychrometricChartEnhanced extends LitElement {
         // Vertical grid (vapor pressure)
         if (showVaporPressure !== false) {
             ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
-            for (let i = 0; i <= 4; i += 0.5) {
-                const refTemp = 20;
-                const P_sat = 0.61078 * Math.exp((17.27 * refTemp) / (refTemp + 237.3));
-                const rh = (i / P_sat) * 100;
-                const y = this.humidityToY(refTemp, rh);
+            // Determine step size based on maxPv
+            let pvStep = 0.5;
+            if (bounds.maxPv < 1) pvStep = 0.1;
+            else if (bounds.maxPv > 5) pvStep = 1;
 
-                ctx.beginPath();
-                ctx.moveTo(leftPadding, y);
-                ctx.lineTo(rightEdge, y);
-                ctx.stroke();
-                ctx.fillStyle = actualTextColor;
-                ctx.fillText(`${i.toFixed(1)} kPa`, 10 * scaleX, y + 5 * scaleY);
+            for (let i = 0; i <= bounds.maxPv + pvStep; i += pvStep) {
+                // We need to find a Y coordinate for this Vapor Pressure
+                // Since Y is linear with Pv (mostly, in this simplified chart projection),
+                // we can map Pv directly to Y.
+                // However, humidityToY takes (temp, rh).
+                // Pv = rh * Psat(temp). So rh = Pv / Psat(temp).
+                // Let's pick a reference temp, say maxTemp.
+
+                const P_sat_ref = 0.61078 * Math.exp((17.27 * bounds.maxTemp) / (bounds.maxTemp + 237.3));
+                const rh = (i / P_sat_ref) * 100;
+
+                // If rh > 100, we might be off chart, but humidityToY handles scaling.
+                // Actually, humidityToY logic:
+                // const P_v = (humidity / 100) * P_sat;
+                // const baseY = 550 * scaleY - (P_v / 4) * 500 * scaleY;
+                // It seems the original chart hardcoded max Pv to ~4kPa (550 - 4/4*500 = 50).
+                // We need to adjust humidityToY to be dynamic first.
+
+                const y = this.humidityToY(bounds.maxTemp, rh);
+
+                if (y > topPadding && y < bottomEdge) {
+                    ctx.beginPath();
+                    ctx.moveTo(leftPadding, y);
+                    ctx.lineTo(rightEdge, y);
+                    ctx.stroke();
+                    ctx.fillStyle = actualTextColor;
+                    ctx.fillText(`${i.toFixed(1)} kPa`, 10 * scaleX, y + 5 * scaleY);
+                }
             }
         }
 
         // Horizontal grid (temperature)
         const tempStep = this._temperatureUnit === '°F' ? 9 : 5;
-        const tempStart = this._temperatureUnit === '°F' ? 14 : -10;
-        const tempEnd = this._temperatureUnit === '°F' ? 122 : 50;
+        // Adjust start/end to be multiples of step
+        const startT = Math.ceil(bounds.minTemp / tempStep) * tempStep;
+        const endT = Math.floor(bounds.maxTemp / tempStep) * tempStep;
 
-        for (let displayTemp = tempStart; displayTemp <= tempEnd; displayTemp += tempStep) {
+        for (let displayTemp = startT; displayTemp <= endT; displayTemp += tempStep) {
             const tempC = this.toInternalTemp(displayTemp);
             const x = this.tempToX(tempC);
-            ctx.beginPath();
-            ctx.moveTo(x, bottomEdge);
-            ctx.lineTo(x, topPadding);
-            ctx.stroke();
-            ctx.fillStyle = actualTextColor;
-            ctx.fillText(`${displayTemp}${this.getTempUnit()}`, x - 15 * scaleX, bottomEdge + 20 * scaleY);
+            if (x >= leftPadding && x <= rightEdge) {
+                ctx.beginPath();
+                ctx.moveTo(x, bottomEdge);
+                ctx.lineTo(x, topPadding);
+                ctx.stroke();
+                ctx.fillStyle = actualTextColor;
+                ctx.fillText(`${displayTemp}${this.getTempUnit()}`, x - 15 * scaleX, bottomEdge + 20 * scaleY);
+            }
         }
 
         // Draw relative humidity curves
@@ -1674,37 +2072,62 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.strokeStyle = rh === 100 ? "rgba(30, 144, 255, 0.8)" : actualCurveColor;
             ctx.lineWidth = (rh % 20 === 0 ? 1.5 : 0.8) * scale;
 
-            for (let t = -10; t <= 50; t++) {
+            let firstPoint = true;
+            for (let t = bounds.minTemp; t <= bounds.maxTemp; t += 0.5) {
                 const x = this.tempToX(t);
                 const y = this.humidityToY(t, rh);
-                if (t === -10) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+
+                // Clip to bounds
+                if (y < topPadding || y > bottomEdge) continue;
+
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
             }
             ctx.stroke();
 
             // Label
-            const labelTemp = 25;
-            const labelX = this.tempToX(labelTemp);
-            const labelY = this.humidityToY(labelTemp, rh);
-            ctx.fillStyle = actualTextColor;
-            ctx.fillText(`${rh}%`, labelX + 10 * scaleX, labelY - 5 * scaleY);
+            // Dynamic positioning: find the rightmost visible point
+            let labelX = -1;
+            let labelY = -1;
+
+            // Search from right to left (maxTemp to minTemp)
+            for (let t = bounds.maxTemp; t >= bounds.minTemp; t -= 0.5) {
+                const y = this.humidityToY(t, rh);
+                // Check if y is within visible bounds (with some padding)
+                if (y >= topPadding + 10 && y <= bottomEdge - 10) {
+                    labelX = this.tempToX(t);
+                    labelY = y;
+                    break; // Found the rightmost visible point
+                }
+            }
+
+            if (labelX !== -1 && labelY !== -1) {
+                ctx.fillStyle = actualTextColor;
+                ctx.fillText(`${rh}%`, labelX + 5 * scaleX, labelY - 2 * scaleY);
+            }
         }
 
         // Draw enthalpy curves
         if (showEnthalpy && displayMode !== "minimal") {
             ctx.setLineDash([2 * scale, 3 * scale]);
-            ctx.strokeStyle = darkMode ? "rgba(255, 165, 0, 0.7)" : "rgba(255, 99, 71, 0.7)";
+            ctx.strokeStyle = actualEnthalpyColor;
 
-            for (let h = 0; h <= 100; h += 10) {
+            for (let h = 0; h <= 150; h += 10) {
                 let enthalpy_points = [];
-                for (let t = -10; t <= 50; t += 0.5) {
+                for (let t = bounds.minTemp; t <= bounds.maxTemp; t += 0.5) {
                     const W = (h - 1.006 * t) / (2501 + 1.84 * t);
-                    if (W < 0 || W > 0.05) continue;
+                    if (W < 0) continue;
                     const P_v = (W * 101.325) / (0.622 + W);
                     const P_sat = 0.61078 * Math.exp((17.27 * t) / (t + 237.3));
                     const rh = (P_v / P_sat) * 100;
-                    if (rh >= 10 && rh <= 100) {
-                        enthalpy_points.push({ x: this.tempToX(t), y: this.humidityToY(t, rh) });
+
+                    const y = this.humidityToY(t, rh);
+                    if (y >= topPadding && y <= bottomEdge) {
+                        enthalpy_points.push({ x: this.tempToX(t), y });
                     }
                 }
 
@@ -1729,17 +2152,21 @@ class PsychrometricChartEnhanced extends LitElement {
         if (showWetBulb && displayMode !== "minimal") {
             ctx.setLineDash([1 * scale, 4 * scale]);
             ctx.strokeStyle = darkMode ? "rgba(0, 255, 255, 0.4)" : "rgba(0, 100, 255, 0.4)";
-            for (let tw = -5; tw <= 35; tw += 5) {
-                // Simplified drawing: straight lines from saturation curve
-                // This is an approximation for visualization
+
+            const startTw = Math.floor(bounds.minTemp / 5) * 5;
+            const endTw = Math.ceil(bounds.maxTemp / 5) * 5;
+
+            for (let tw = startTw; tw <= endTw; tw += 5) {
                 const startX = this.tempToX(tw);
                 const startY = this.humidityToY(tw, 100);
+
+                if (startY < topPadding || startY > bottomEdge) continue;
+
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
 
-                // Find end point (approximate)
                 let endX = startX, endY = startY;
-                for (let t_search = tw; t_search < 60; t_search += 0.5) {
+                for (let t_search = tw; t_search < bounds.maxTemp + 10; t_search += 0.5) {
                     for (let rh_search = 100; rh_search > 0; rh_search -= 5) {
                         const calculatedTw = PsychrometricCalculations.calculateWetBulbTemp(t_search, rh_search);
                         if (Math.abs(calculatedTw - tw) < 0.2) {
@@ -1749,6 +2176,8 @@ class PsychrometricChartEnhanced extends LitElement {
                         }
                     }
                 }
+                if (endY > bottomEdge) endY = bottomEdge;
+
                 ctx.lineTo(endX, endY);
                 ctx.stroke();
             }
@@ -1763,6 +2192,7 @@ class PsychrometricChartEnhanced extends LitElement {
             { temp: comfortRange.tempMax, rh: comfortRange.rhMax },
             { temp: comfortRange.tempMin, rh: comfortRange.rhMax },
         ];
+
         comfortPoints.forEach((point, index) => {
             const x = this.tempToX(point.temp);
             const y = this.humidityToY(point.temp, point.rh);
@@ -1776,7 +2206,6 @@ class PsychrometricChartEnhanced extends LitElement {
         const yBottom = this.humidityToY(avgTemp, comfortRange.rhMin);
         const gradient = ctx.createLinearGradient(0, yTop, 0, yBottom);
 
-        // Parse comfort color for gradient
         let startColor = actualComfortColor;
         let endColor = actualComfortColor;
         const colorMatch = actualComfortColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
@@ -1798,6 +2227,9 @@ class PsychrometricChartEnhanced extends LitElement {
         points.forEach(point => {
             const x = this.tempToX(point.temp);
             const y = this.humidityToY(point.temp, point.humidity);
+
+            // Only draw if within visible area (roughly)
+            if (x < leftPadding - 20 || x > rightEdge + 20 || y < topPadding - 20 || y > bottomEdge + 20) return;
 
             ctx.fillStyle = point.color;
             ctx.beginPath();
@@ -1832,17 +2264,20 @@ class PsychrometricChartEnhanced extends LitElement {
             if (showDewPoint && displayMode !== "minimal") {
                 const dewX = this.tempToX(point.dewPoint);
                 const dewY = this.humidityToY(point.dewPoint, 100);
-                ctx.beginPath();
-                ctx.arc(dewX, dewY, 4 * scale, 0, 2 * Math.PI);
-                ctx.fillStyle = "rgba(0, 0, 255, 0.5)";
-                ctx.fill();
-                ctx.beginPath();
-                ctx.setLineDash([3 * scale, 3 * scale]);
-                ctx.strokeStyle = "rgba(0, 0, 255, 0.5)";
-                ctx.moveTo(x, y);
-                ctx.lineTo(dewX, dewY);
-                ctx.stroke();
-                ctx.setLineDash([]);
+
+                if (dewX >= leftPadding && dewX <= rightEdge && dewY >= topPadding && dewY <= bottomEdge) {
+                    ctx.beginPath();
+                    ctx.arc(dewX, dewY, 4 * scale, 0, 2 * Math.PI);
+                    ctx.fillStyle = "rgba(0, 0, 255, 0.5)";
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.setLineDash([3 * scale, 3 * scale]);
+                    ctx.strokeStyle = "rgba(0, 0, 255, 0.5)";
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(dewX, dewY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
             }
 
             if (showPointLabels !== false) {
@@ -1859,13 +2294,21 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {number} X coordinate
      */
     tempToX(temp) {
+        const bounds = this._currentBounds || this._calculateChartBounds();
         const scaleX = this.canvasWidth / 800;
-        const baseX = 50 * scaleX + (temp + 10) * 12 * scaleX;
+
+        const leftPadding = 50 * scaleX;
+        const rightEdge = 750 * scaleX;
+        const chartWidth = rightEdge - leftPadding;
+
+        const tempRange = bounds.maxTemp - bounds.minTemp;
+        const x = leftPadding + ((temp - bounds.minTemp) / tempRange) * chartWidth;
+
         if (this.zoomLevel !== 1.0 || this.panX !== 0) {
             const centerX = this.canvasWidth / 2;
-            return (baseX - centerX) * this.zoomLevel + centerX + this.panX;
+            return (x - centerX) * this.zoomLevel + centerX + this.panX;
         }
-        return baseX;
+        return x;
     }
 
     /**
@@ -1875,15 +2318,27 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {number} Y coordinate
      */
     humidityToY(temp, humidity) {
+        const bounds = this._currentBounds || this._calculateChartBounds();
         const scaleY = this.canvasHeight / 600;
+
+        const topPadding = 50 * scaleY;
+        const bottomEdge = 550 * scaleY;
+        const chartHeight = bottomEdge - topPadding;
+
         const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
         const P_v = (humidity / 100) * P_sat;
-        const baseY = 550 * scaleY - (P_v / 4) * 500 * scaleY;
+
+        // Map P_v to Y using maxPv from bounds
+        // 0 Pv -> bottomEdge
+        // maxPv -> topPadding
+
+        const y = bottomEdge - (P_v / bounds.maxPv) * chartHeight;
+
         if (this.zoomLevel !== 1.0 || this.panY !== 0) {
             const centerY = this.canvasHeight / 2;
-            return (baseY - centerY) * this.zoomLevel + centerY + this.panY;
+            return (y - centerY) * this.zoomLevel + centerY + this.panY;
         }
-        return baseY;
+        return y;
     }
 
     /**
