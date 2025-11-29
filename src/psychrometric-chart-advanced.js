@@ -897,14 +897,24 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.stroke();
 
             // Label
-            // Place label at a reasonable position, e.g., 60% of temp range
-            const labelTemp = bounds.minTemp + (bounds.maxTemp - bounds.minTemp) * 0.6;
-            const labelX = this.tempToX(labelTemp);
-            const labelY = this.humidityToY(labelTemp, rh);
+            // Dynamic positioning: find the rightmost visible point
+            let labelX = -1;
+            let labelY = -1;
 
-            if (labelY > topPadding && labelY < bottomEdge) {
+            // Search from right to left (maxTemp to minTemp)
+            for (let t = bounds.maxTemp; t >= bounds.minTemp; t -= 0.5) {
+                const y = this.humidityToY(t, rh);
+                // Check if y is within visible bounds (with some padding)
+                if (y >= topPadding + 10 && y <= bottomEdge - 10) {
+                    labelX = this.tempToX(t);
+                    labelY = y;
+                    break; // Found the rightmost visible point
+                }
+            }
+
+            if (labelX !== -1 && labelY !== -1) {
                 ctx.fillStyle = actualTextColor;
-                ctx.fillText(`${rh}%`, labelX + 10 * scaleX, labelY - 5 * scaleY);
+                ctx.fillText(`${rh}%`, labelX + 5 * scaleX, labelY - 2 * scaleY);
             }
         }
 
@@ -913,19 +923,16 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.setLineDash([2 * scale, 3 * scale]);
             ctx.strokeStyle = darkMode ? "rgba(255, 165, 0, 0.7)" : "rgba(255, 99, 71, 0.7)";
 
-            // Adjust enthalpy range based on bounds? 
-            // For now keep 0-100 but clip
             for (let h = 0; h <= 150; h += 10) {
                 let enthalpy_points = [];
                 for (let t = bounds.minTemp; t <= bounds.maxTemp; t += 0.5) {
                     const W = (h - 1.006 * t) / (2501 + 1.84 * t);
-                    if (W < 0) continue; // W > 0.05 check removed to allow higher ranges
+                    if (W < 0) continue;
                     const P_v = (W * 101.325) / (0.622 + W);
                     const P_sat = 0.61078 * Math.exp((17.27 * t) / (t + 237.3));
                     const rh = (P_v / P_sat) * 100;
 
                     const y = this.humidityToY(t, rh);
-                    // Basic clipping
                     if (y >= topPadding && y <= bottomEdge) {
                         enthalpy_points.push({ x: this.tempToX(t), y });
                     }
@@ -953,7 +960,6 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.setLineDash([1 * scale, 4 * scale]);
             ctx.strokeStyle = darkMode ? "rgba(0, 255, 255, 0.4)" : "rgba(0, 100, 255, 0.4)";
 
-            // Adjust range
             const startTw = Math.floor(bounds.minTemp / 5) * 5;
             const endTw = Math.ceil(bounds.maxTemp / 5) * 5;
 
@@ -966,7 +972,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 ctx.beginPath();
                 ctx.moveTo(startX, startY);
 
-                // Find end point (approximate)
                 let endX = startX, endY = startY;
                 for (let t_search = tw; t_search < bounds.maxTemp + 10; t_search += 0.5) {
                     for (let rh_search = 100; rh_search > 0; rh_search -= 5) {
@@ -978,7 +983,6 @@ class PsychrometricChartEnhanced extends LitElement {
                         }
                     }
                 }
-                // Clip end point
                 if (endY > bottomEdge) endY = bottomEdge;
 
                 ctx.lineTo(endX, endY);
@@ -996,10 +1000,6 @@ class PsychrometricChartEnhanced extends LitElement {
             { temp: comfortRange.tempMin, rh: comfortRange.rhMax },
         ];
 
-        // Helper to clip and draw polygon
-        // For simplicity, just draw and let canvas clip (we should use clip() but it might affect other things)
-        // Or just ensure points are within bounds visually.
-
         comfortPoints.forEach((point, index) => {
             const x = this.tempToX(point.temp);
             const y = this.humidityToY(point.temp, point.rh);
@@ -1013,7 +1013,6 @@ class PsychrometricChartEnhanced extends LitElement {
         const yBottom = this.humidityToY(avgTemp, comfortRange.rhMin);
         const gradient = ctx.createLinearGradient(0, yTop, 0, yBottom);
 
-        // Parse comfort color for gradient
         let startColor = actualComfortColor;
         let endColor = actualComfortColor;
         const colorMatch = actualComfortColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
