@@ -2165,7 +2165,10 @@ class PsychrometricChartEnhanced extends LitElement {
         ctx.setLineDash([]);
         ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
 
-        for (let rh = 10; rh <= 100; rh += 10) {
+        // Use zoom bounds for humidity curves if configured
+        const startRh = bounds.minHum > 10 ? Math.ceil(bounds.minHum / 10) * 10 : 10;
+        const endRh = bounds.maxHum < 100 ? Math.floor(bounds.maxHum / 10) * 10 : 100;
+        for (let rh = startRh; rh <= endRh; rh += 10) {
             ctx.beginPath();
             ctx.strokeStyle = rh === 100 ? "rgba(30, 144, 255, 0.8)" : actualCurveColor;
             ctx.lineWidth = (rh % 20 === 0 ? 1.5 : 0.8) * scale;
