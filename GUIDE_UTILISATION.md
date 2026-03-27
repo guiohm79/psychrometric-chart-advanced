@@ -276,7 +276,6 @@ Les animations nécessitent un navigateur moderne :
 ## 🚀 Prochaines fonctionnalités
 
 - [ ] Zoom et pan sur le graphique
-- [ ] Export des données en CSV
 - [ ] Comparaison de périodes
 - [ ] Alertes personnalisables
 - [ ] Graphiques d'historique étendus (7j, 30j)
