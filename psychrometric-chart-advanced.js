@@ -606,6 +606,59 @@ class PsychrometricChartEditor extends HTMLElement {
     }
 
     /**
+     * Set the hass object for the editor.
+     * @param {Object} hass - The Home Assistant hass object
+     */
+    set hass(hass) {
+        const oldHass = this._hass;
+        this._hass = hass;
+        // Never re-render on hass change - only update entity pickers
+        // Re-render only happens on setConfig
+        if (oldHass !== hass && this._config && this.shadowRoot) {
+            this._updateEntityPickers();
+        }
+        // If we have hass and shadowRoot is rendered, initialize pickers
+        if (hass && this.shadowRoot) {
+            this._initializeEntityPickers();
+        }
+    }
+
+    /**
+     * Update hass reference on entity pickers without full re-render.
+     */
+    _updateEntityPickers() {
+        if (!this._hass) return;
+        this.shadowRoot.querySelectorAll('ha-entity-picker').forEach(picker => {
+            picker.hass = this._hass;
+        });
+    }
+
+    /**
+     * Initialize entity pickers with hass and value when they become available.
+     */
+    _initializeEntityPickers() {
+        if (!this._hass) return;
+        this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
+            const index = parseInt(picker.dataset.index);
+            const field = picker.dataset.field;
+            const point = this._points[index];
+            
+            picker.hass = this._hass;
+            if (point && point[field] && !picker.value) {
+                picker.value = point[field];
+            }
+        });
+    }
+
+    /**
+     * Get the hass object.
+     * @returns {Object} The hass object
+     */
+    get hass() {
+        return this._hass;
+    }
+
+    /**
      * Set the configuration for the editor.
      * @param {Object} config - The configuration object
      */
@@ -820,15 +873,25 @@ class PsychrometricChartEditor extends HTMLElement {
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('label')}</label>
-                                    <input type="text" class="point-input" data-index="${index}" data-field="label" value="${point.label || ''}" placeholder="Ex: Salon">
+                                    <input type="text" class="point-input point-label" data-index="${index}" data-field="label" value="${point.label || ''}" placeholder="Ex: Salon">
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('tempEntity')}</label>
-                                    <input type="text" class="point-input" data-index="${index}" data-field="temp" value="${point.temp || ''}" placeholder="sensor.temp_salon">
+                                    <ha-entity-picker
+                                        class="entity-picker"
+                                        data-index="${index}"
+                                        data-field="temp"
+                                        allow-custom-entity
+                                    ></ha-entity-picker>
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('humEntity')}</label>
-                                    <input type="text" class="point-input" data-index="${index}" data-field="humidity" value="${point.humidity || ''}" placeholder="sensor.hum_salon">
+                                    <ha-entity-picker
+                                        class="entity-picker"
+                                        data-index="${index}"
+                                        data-field="humidity"
+                                        allow-custom-entity
+                                    ></ha-entity-picker>
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('color')}</label>
@@ -851,7 +914,7 @@ class PsychrometricChartEditor extends HTMLElement {
                                 </div>
                                 <div class="form-row">
                                     <label>${this.t('icon')}</label>
-                                    <input type="text" class="point-input" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
+                                    <input type="text" class="point-input point-icon" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
 
                                 <details>
@@ -1009,10 +1072,18 @@ class PsychrometricChartEditor extends HTMLElement {
         // Add point button
         this.shadowRoot.getElementById('addPoint').addEventListener('click', this._addPoint.bind(this));
 
-        // Point inputs
-        this.shadowRoot.querySelectorAll('.point-input').forEach(input => {
+        // Point inputs (label and icon only - temp/humidity use ha-entity-picker)
+        this.shadowRoot.querySelectorAll('.point-label, .point-icon').forEach(input => {
             input.addEventListener('change', this._pointChanged.bind(this));
         });
+
+        // Entity pickers - add event listeners (initialization done separately)
+        this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
+            picker.addEventListener('value-changed', this._entityPickerChanged.bind(this));
+        });
+        
+        // Initialize entity pickers if hass is available
+        this._initializeEntityPickers();
 
         // Point colors
         this.shadowRoot.querySelectorAll('.point-color-hex, .point-color-alpha').forEach(input => {
@@ -1136,6 +1207,33 @@ class PsychrometricChartEditor extends HTMLElement {
         const index = parseInt(target.dataset.index);
         const field = target.dataset.field;
         const value = target.value;
+
+        const newPoints = [...(this._config.points || [])];
+        if (!newPoints[index]) newPoints[index] = {};
+
+        newPoints[index] = {
+            ...newPoints[index],
+            [field]: value
+        };
+
+        this._config = {
+            ...this._config,
+            points: newPoints
+        };
+
+        fireEvent(this, 'config-changed', { config: this._config });
+    }
+
+    /**
+     * Handle entity picker value changes.
+     * @param {CustomEvent} e - Value changed event from ha-entity-picker
+     */
+    _entityPickerChanged(e) {
+        if (!this._config) return;
+        const target = e.target;
+        const index = parseInt(target.dataset.index);
+        const field = target.dataset.field;
+        const value = e.detail.value;
 
         const newPoints = [...(this._config.points || [])];
         if (!newPoints[index]) newPoints[index] = {};
