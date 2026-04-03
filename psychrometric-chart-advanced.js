@@ -371,7 +371,7 @@ class PsychrometricCalculations {
  * Fire a custom event.
  * @param {HTMLElement} node - The element to dispatch the event from
  * @param {string} type - The event type
- * @param {Object} detail - The event detail
+ * @param {Object} detail - Event detail
  * @param {Object} options - Event options
  * @returns {Event} The dispatched event
  */
@@ -413,14 +413,13 @@ const editorTranslations = {
         action: "Action/Puissance",
         addPoint: "Ajouter un point",
         appearance: "Apparence",
-        displayMode: "Mode d'affichage",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Avancé",
+        theme: "Thème visuel",
+        themeModern: "Moderne",
+        themeClassic: "Classique",
+        themeCompact: "Compact",
         bgColor: "Couleur de fond",
         textColor: "Couleur du texte",
         gridColor: "Couleur de la grille",
-        curveColor: "Couleur des courbes",
         curveColor: "Couleur des courbes",
         enthalpyColor: "Couleur des enthalpies",
         comfortColor: "Couleur zone confort",
@@ -464,14 +463,13 @@ const editorTranslations = {
         action: "Action/Power",
         addPoint: "Add Point",
         appearance: "Appearance",
-        displayMode: "Display Mode",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Advanced",
+        theme: "Visual Theme",
+        themeModern: "Modern",
+        themeClassic: "Classic",
+        themeCompact: "Compact",
         bgColor: "Background Color",
         textColor: "Text Color",
         gridColor: "Grid Color",
-        curveColor: "Curve Color",
         curveColor: "Curve Color",
         enthalpyColor: "Enthalpy Color",
         comfortColor: "Comfort Zone Color",
@@ -515,14 +513,13 @@ const editorTranslations = {
         action: "Acción/Potencia",
         addPoint: "Añadir punto",
         appearance: "Apariencia",
-        displayMode: "Modo de visualización",
-        standard: "Estándar",
-        minimal: "Mínimo",
-        advanced: "Avanzado",
+        theme: "Tema visual",
+        themeModern: "Moderno",
+        themeClassic: "Clásico",
+        themeCompact: "Compacto",
         bgColor: "Color de fondo",
         textColor: "Color del texto",
         gridColor: "Color de la cuadrícula",
-        curveColor: "Color de las curvas",
         curveColor: "Color de las curvas",
         enthalpyColor: "Color de las entalpías",
         comfortColor: "Color zona confort",
@@ -566,14 +563,13 @@ const editorTranslations = {
         action: "Aktion/Leistung",
         addPoint: "Punkt hinzufügen",
         appearance: "Aussehen",
-        displayMode: "Anzeigemodus",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Erweitert",
+        theme: "Visuelles Thema",
+        themeModern: "Modern",
+        themeClassic: "Klassisch",
+        themeCompact: "Kompakt",
         bgColor: "Hintergrundfarbe",
         textColor: "Textfarbe",
         gridColor: "Gitterfarbe",
-        curveColor: "Kurvenfarbe",
         curveColor: "Kurvenfarbe",
         enthalpyColor: "Enthalpiefarbe",
         comfortColor: "Komfortzonenfarbe",
@@ -597,12 +593,69 @@ const editorTranslations = {
 
 /**
  * Psychrometric Chart Editor
- * Visual editor for the Psychrometric Chart card.
+ * 
+ * SOLUTION ROBUSTE basée sur les patterns de Mushroom et card-tools :
+ * 1. Pre-chargement des composants HA dans connectedCallback
+ * 2. Attente explicite de la définition des custom elements
+ * 3. Utilisation de provideHass pour propager hass aux enfants
+ * 4. Événement ll-rebuild pour forcer le re-rendu si nécessaire
  */
 class PsychrometricChartEditor extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
+        
+        this._hass = null;
+        this._config = null;
+        this._initialized = false;
+        this._pendingValue = new Map();
+        this._openDetails = new Set(); // Stocke les index des details ouverts
+    }
+
+    /**
+     * Pre-charge les composants HA nécessaires
+     * Pattern utilisé par Mushroom et autres cartes modernes
+     */
+    connectedCallback() {
+        // Force le chargement des composants HA en appelant getConfigElement sur des cartes connues
+        if (!customElements.get('ha-entity-picker')) {
+            // Déclenche le chargement via une carte qui utilise ha-entity-picker
+            const entitiesCard = customElements.get('hui-entities-card');
+            if (entitiesCard && entitiesCard.getConfigElement) {
+                try {
+                    entitiesCard.getConfigElement();
+                } catch (e) {
+                    // Ignore les erreurs de chargement
+                }
+            }
+        }
+
+        // Attend que les composants soient définis puis initialise
+        this._waitForComponents();
+    }
+
+    /**
+     * Attend que les composants HA nécessaires soient chargés
+     */
+    async _waitForComponents() {
+        // Attend ha-entity-picker
+        if (!customElements.get('ha-entity-picker')) {
+            await customElements.whenDefined('ha-entity-picker');
+        }
+        
+        // Attend ha-form si besoin
+        if (!customElements.get('ha-form')) {
+            await customElements.whenDefined('ha-form');
+        }
+
+        this._initialized = true;
+        
+        // Si on a déjà une config, on rend
+        if (this._config) {
+            this.render();
+            // Applique les valeurs en attente
+            this._applyPendingValues();
+        }
     }
 
     /**
@@ -612,48 +665,14 @@ class PsychrometricChartEditor extends HTMLElement {
     set hass(hass) {
         const oldHass = this._hass;
         this._hass = hass;
-        // Never re-render on hass change - only update entity pickers
-        // Re-render only happens on setConfig
-        if (oldHass !== hass && this._config && this.shadowRoot) {
+        
+        // Si hass change et qu'on a une config et un shadowRoot
+        if (hass && this.shadowRoot && this._config && oldHass !== hass) {
+            // Met à jour tous les pickers avec le nouveau hass
             this._updateEntityPickers();
         }
-        // If we have hass and shadowRoot is rendered, initialize pickers
-        if (hass && this.shadowRoot) {
-            this._initializeEntityPickers();
-        }
     }
 
-    /**
-     * Update hass reference on entity pickers without full re-render.
-     */
-    _updateEntityPickers() {
-        if (!this._hass) return;
-        this.shadowRoot.querySelectorAll('ha-entity-picker').forEach(picker => {
-            picker.hass = this._hass;
-        });
-    }
-
-    /**
-     * Initialize entity pickers with hass and value when they become available.
-     */
-    _initializeEntityPickers() {
-        if (!this._hass) return;
-        this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
-            const index = parseInt(picker.dataset.index);
-            const field = picker.dataset.field;
-            const point = this._points[index];
-            
-            picker.hass = this._hass;
-            if (point && point[field] && !picker.value) {
-                picker.value = point[field];
-            }
-        });
-    }
-
-    /**
-     * Get the hass object.
-     * @returns {Object} The hass object
-     */
     get hass() {
         return this._hass;
     }
@@ -663,31 +682,31 @@ class PsychrometricChartEditor extends HTMLElement {
      * @param {Object} config - The configuration object
      */
     setConfig(config) {
-        this._config = config;
-        this.render();
+        this._config = JSON.parse(JSON.stringify(config || {}));
+        
+        // Stocke les valeurs pour les pickers
+        this._pendingValue.clear();
+        (this._config.points || []).forEach((point, index) => {
+            if (point.temp) this._pendingValue.set(`${index}-temp`, point.temp);
+            if (point.humidity) this._pendingValue.set(`${index}-humidity`, point.humidity);
+        });
+        
+        // Ne rend que si les composants sont prêts
+        if (this._initialized) {
+            this.render();
+            this._applyPendingValues();
+        }
+        // Sinon, le rendu sera fait dans _waitForComponents quand les composants seront prêts
     }
 
-    /**
-     * Get the chart title from config.
-     * @returns {string} The chart title
-     */
     get _title() {
         return this._config?.chartTitle || 'Diagramme Psychrométrique';
     }
 
-    /**
-     * Get the points from config.
-     * @returns {Array} List of points
-     */
     get _points() {
         return this._config?.points || [];
     }
 
-    /**
-     * Get translation for key
-     * @param {string} key 
-     * @returns {string}
-     */
     t(key) {
         const lang = this._config?.language || 'fr';
         return editorTranslations[lang]?.[key] || editorTranslations['fr'][key] || key;
@@ -716,13 +735,9 @@ class PsychrometricChartEditor extends HTMLElement {
             return parseInt(color.substring(7, 9), 16) / 255;
         }
         if (color.startsWith('rgba')) {
-            const match = color.match(/[\d.]+\)$/); // Match last number before )
-            if (match) {
-                // This is a bit weak, let's do better regex
-                const parts = color.split(',');
-                if (parts.length === 4) {
-                    return parseFloat(parts[3]);
-                }
+            const parts = color.split(',');
+            if (parts.length === 4) {
+                return parseFloat(parts[3]);
             }
         }
         return 1;
@@ -752,10 +767,72 @@ class PsychrometricChartEditor extends HTMLElement {
     }
 
     /**
-     * Render the editor UI.
+     * Met à jour tous les pickers avec hass
      */
+    _updateEntityPickers() {
+        if (!this._hass || !this.shadowRoot) return;
+        
+        const pickers = this.shadowRoot.querySelectorAll('ha-entity-picker');
+        pickers.forEach(picker => {
+            if (picker.hass !== this._hass) {
+                picker.hass = this._hass;
+            }
+        });
+    }
+
+    /**
+     * Applique les valeurs en attente aux pickers
+     */
+    _applyPendingValues() {
+        if (!this.shadowRoot || !this._hass) return;
+        
+        const pickers = this.shadowRoot.querySelectorAll('ha-entity-picker');
+        pickers.forEach(picker => {
+            const index = picker.dataset.index;
+            const field = picker.dataset.field;
+            const value = this._pendingValue.get(`${index}-${field}`);
+            
+            if (value && picker.value !== value) {
+                picker.value = value;
+            }
+            
+            // Assure que hass est assigné
+            if (this._hass && picker.hass !== this._hass) {
+                picker.hass = this._hass;
+            }
+        });
+    }
+
+    /**
+     * Sauvegarde l'état des éléments details ouverts
+     */
+    _saveDetailsState() {
+        if (!this.shadowRoot) return;
+        this._openDetails.clear();
+        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
+            if (details.open) {
+                this._openDetails.add(index);
+            }
+        });
+    }
+
+    /**
+     * Restaure l'état des éléments details
+     */
+    _restoreDetailsState() {
+        if (!this.shadowRoot) return;
+        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
+            if (this._openDetails.has(index)) {
+                details.open = true;
+            }
+        });
+    }
+
     render() {
         if (!this._config) return;
+
+        // Sauvegarde l'état des details avant le re-render
+        this._saveDetailsState();
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -843,6 +920,9 @@ class PsychrometricChartEditor extends HTMLElement {
                     margin-top: -8px;
                     margin-bottom: 12px;
                 }
+                ha-entity-picker {
+                    flex: 2;
+                }
             </style>
             <div class="card-config">
                 <div class="section">
@@ -917,7 +997,7 @@ class PsychrometricChartEditor extends HTMLElement {
                                     <input type="text" class="point-input point-icon" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
 
-                                <details>
+                                <details data-index="${index}">
                                     <summary>${this.t('customDisplay')}</summary>
                                     <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
                                         ${this._renderDetailCheckbox(index, point, 'dewPoint', this.t('dewPoint'))}
@@ -940,11 +1020,11 @@ class PsychrometricChartEditor extends HTMLElement {
                 <div class="section">
                     <span class="section-title">${this.t('appearance')}</span>
                     <div class="form-row">
-                        <label>${this.t('displayMode')}</label>
-                        <select id="displayMode" class="select-input">
-                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>${this.t('standard')}</option>
-                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>${this.t('minimal')}</option>
-                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
+                        <label>${this.t('theme')}</label>
+                        <select id="theme" class="select-input">
+                            <option value="modern" ${(this._config.theme || 'modern') === 'modern' ? 'selected' : ''}>${this.t('themeModern')}</option>
+                            <option value="classic" ${this._config.theme === 'classic' ? 'selected' : ''}>${this.t('themeClassic')}</option>
+                            <option value="compact" ${this._config.theme === 'compact' ? 'selected' : ''}>${this.t('themeCompact')}</option>
                         </select>
                     </div>
                     ${this._renderColorInput(this.t('bgColor'), 'bgColor', this._config.bgColor || '#ffffff')}
@@ -1015,11 +1095,15 @@ class PsychrometricChartEditor extends HTMLElement {
         `;
 
         this._addEventListeners();
-
-        // Delete buttons
-        this.shadowRoot.querySelectorAll('.delete').forEach(btn => {
-            btn.addEventListener('click', this._deletePoint.bind(this));
-        });
+        
+        // Restaure l'état des details après le rendu
+        this._restoreDetailsState();
+        
+        // Applique hass et les valeurs si disponibles
+        if (this._hass) {
+            this._updateEntityPickers();
+            this._applyPendingValues();
+        }
     }
 
     _renderDetailCheckbox(index, point, field, label) {
@@ -1036,16 +1120,14 @@ class PsychrometricChartEditor extends HTMLElement {
         `;
     }
 
-    /**
-     * Add event listeners to form elements.
-     */
     _addEventListeners() {
         // Global inputs
-        this.shadowRoot.getElementById('chartTitle').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('language').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('chartTitle')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('language')?.addEventListener('change', this._valueChanged.bind(this));
 
-        // Appearance
-        this.shadowRoot.getElementById('displayMode').addEventListener('change', this._valueChanged.bind(this));
+        // Theme
+        this.shadowRoot.getElementById('theme')?.addEventListener('change', this._valueChanged.bind(this));
+        
         // Appearance - Colors
         this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {
             input.addEventListener('input', this._colorChanged.bind(this));
@@ -1054,36 +1136,33 @@ class PsychrometricChartEditor extends HTMLElement {
             input.addEventListener('input', this._colorChanged.bind(this));
         });
 
-        this.shadowRoot.getElementById('showEnthalpy').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showVaporPressure').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showDewPoint').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showWetBulb').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showMoldRisk').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showLegend').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showCalculatedData').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('darkMode').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showEnthalpy')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showVaporPressure')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showDewPoint')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showWetBulb')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showMoldRisk')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showLegend')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showCalculatedData')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('darkMode')?.addEventListener('change', this._valueChanged.bind(this));
 
         // Zoom inputs
-        this.shadowRoot.getElementById('zoom_temp_min').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_temp_max').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_humidity_min').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_humidity_max').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_temp_min')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_temp_max')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_humidity_min')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_humidity_max')?.addEventListener('change', this._valueChanged.bind(this));
 
         // Add point button
-        this.shadowRoot.getElementById('addPoint').addEventListener('click', this._addPoint.bind(this));
+        this.shadowRoot.getElementById('addPoint')?.addEventListener('click', this._addPoint.bind(this));
 
         // Point inputs (label and icon only - temp/humidity use ha-entity-picker)
         this.shadowRoot.querySelectorAll('.point-label, .point-icon').forEach(input => {
             input.addEventListener('change', this._pointChanged.bind(this));
         });
 
-        // Entity pickers - add event listeners (initialization done separately)
+        // Entity pickers - add event listeners for value-changed
         this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
             picker.addEventListener('value-changed', this._entityPickerChanged.bind(this));
         });
-        
-        // Initialize entity pickers if hass is available
-        this._initializeEntityPickers();
 
         // Point colors
         this.shadowRoot.querySelectorAll('.point-color-hex, .point-color-alpha').forEach(input => {
@@ -1106,14 +1185,10 @@ class PsychrometricChartEditor extends HTMLElement {
         const value = e.target.dataset.value;
         const checked = e.target.checked;
 
-        // Deep clone points array to ensure immutability
-        const points = this._points.map(p => ({ ...p }));
+        const points = this._points.map(p => ({ ...p, details: p.details ? [...p.details] : [] }));
 
         if (!points[index].details) {
             points[index].details = [];
-        } else {
-            // Clone details array
-            points[index].details = [...points[index].details];
         }
 
         if (checked) {
@@ -1197,10 +1272,6 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Handle point config value changes.
-     * @param {Event} e - Change event
-     */
     _pointChanged(e) {
         if (!this._config) return;
         const target = e.target;
@@ -1224,16 +1295,12 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Handle entity picker value changes.
-     * @param {CustomEvent} e - Value changed event from ha-entity-picker
-     */
     _entityPickerChanged(e) {
         if (!this._config) return;
         const target = e.target;
         const index = parseInt(target.dataset.index);
         const field = target.dataset.field;
-        const value = e.detail.value;
+        const value = e.detail?.value || '';
 
         const newPoints = [...(this._config.points || [])];
         if (!newPoints[index]) newPoints[index] = {};
@@ -1251,9 +1318,6 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Add a new point to the configuration.
-     */
     _addPoint() {
         const newPoints = [...(this._config.points || [])];
         newPoints.push({
@@ -1271,10 +1335,6 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Delete a point from the configuration.
-     * @param {Event} e - Click event
-     */
     _deletePoint(e) {
         const index = parseInt(e.target.dataset.index);
         const newPoints = [...(this._config.points || [])];
@@ -1520,6 +1580,65 @@ class PsychrometricChartEnhanced extends LitElement {
             @media (max-width: 768px) {
                 .psychro-data { grid-template-columns: 1fr !important; }
                 .modal-content { padding: 20px; max-width: 95%; }
+            }
+
+            /* === THEME: CLASSIC === */
+            .theme-classic .data-box {
+                border-radius: 4px;
+                border: 1px solid var(--divider-color, #e0e0e0);
+                backdrop-filter: none;
+                background: var(--card-background-color, #fff);
+                box-shadow: none;
+            }
+            .theme-classic .data-box:hover {
+                transform: none;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            .theme-classic .status-badge {
+                border-radius: 4px;
+                box-shadow: none;
+            }
+            .theme-classic .legend-box {
+                backdrop-filter: none;
+                border: 1px solid var(--divider-color, #e0e0e0);
+                box-shadow: none;
+            }
+
+            /* === THEME: COMPACT === */
+            .theme-compact .psychro-data {
+                gap: 8px;
+                padding: 0 10px 10px;
+            }
+            .theme-compact .data-box {
+                padding: 8px;
+                border-radius: 8px;
+                backdrop-filter: none;
+            }
+            .theme-compact .data-box:hover {
+                transform: translateY(-2px);
+            }
+            .theme-compact .data-header {
+                margin-bottom: 6px;
+                font-size: 1em;
+            }
+            .theme-compact .data-grid {
+                gap: 4px;
+                font-size: 0.85em;
+            }
+            .theme-compact .data-row {
+                padding: 2px;
+            }
+            .theme-compact .action-box {
+                margin-top: 8px;
+                padding-top: 6px;
+            }
+            .theme-compact .legend-box {
+                padding: 6px;
+                backdrop-filter: none;
+            }
+            .theme-compact .card-header {
+                padding: 10px;
+                font-size: 1.2rem;
             }
         `;
     }
@@ -2690,10 +2809,9 @@ class PsychrometricChartEnhanced extends LitElement {
      * Determine if a field should be shown for a point.
      * @param {Object} point - Point data
      * @param {string} field - Field name
-     * @param {string} displayMode - Global display mode
      * @returns {boolean}
      */
-    _shouldShowField(point, field, displayMode) {
+    _shouldShowField(point, field) {
         // If point has specific details configured, use them
         // Fix: check if details is an array, even if empty. 
         // If it is an array, it means the user has explicitly configured this point.
@@ -2701,16 +2819,9 @@ class PsychrometricChartEnhanced extends LitElement {
             return point.details.includes(field);
         }
 
-        // Otherwise fallback to global displayMode
-        if (displayMode === 'minimal') return false;
-
-        if (displayMode === 'standard') {
-            const standardFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
-            return standardFields.includes(field);
-        }
-
-        // Advanced shows everything
-        return true;
+        // Default: show standard fields if no custom display configured
+        const defaultFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+        return defaultFields.includes(field);
     }
 
     render() {
@@ -2724,7 +2835,7 @@ class PsychrometricChartEnhanced extends LitElement {
             darkMode = false,
             textColor = "#333333",
             bgColor = "#ffffff",
-            displayMode = "standard"
+            theme = "modern"
         } = this.config;
 
         const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
@@ -2734,8 +2845,25 @@ class PsychrometricChartEnhanced extends LitElement {
             `${p.label}: ${this.formatTemp(p.temp)}, ${p.humidity.toFixed(1)}% d'humidité relative.`
         ).join(" ");
 
+        // Styles conditionnels selon le thème
+        const isClassic = theme === 'classic';
+        const isCompact = theme === 'compact';
+        
+        // Styles pour les data-box selon le thème
+        const dataBoxBg = isClassic 
+            ? (darkMode ? 'var(--card-background-color, #1c1c1c)' : 'var(--card-background-color, #ffffff)')
+            : (darkMode ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)');
+        
+        const dataBoxBoxShadow = isClassic 
+            ? 'none' 
+            : `0 4px 15px rgba(0, 0, 0, ${darkMode ? '0.3' : '0.1'})`;
+        
+        const legendBg = isClassic || isCompact
+            ? (darkMode ? 'var(--card-background-color, #2d2d2d)' : 'var(--card-background-color, #ffffff)')
+            : (darkMode ? 'rgba(45, 45, 45, 0.9)' : 'rgba(255,255,255,0.9)');
+
         return html`
-            <ha-card style="background: ${actualBgColor}; color: ${actualTextColor}">
+            <ha-card class="theme-${theme}" style="background: ${actualBgColor}; color: ${actualTextColor}">
                 <div class="card-header" style="color: ${actualTextColor}">${chartTitle}</div>
                 
                 <div class="chart-container">
@@ -2743,7 +2871,7 @@ class PsychrometricChartEnhanced extends LitElement {
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? html`
-                        <div class="legend-box" style="background: ${darkMode ? 'rgba(45, 45, 45, 0.9)' : 'rgba(255,255,255,0.9)'}; color: ${actualTextColor}">
+                        <div class="legend-box" style="background: ${legendBg}; color: ${actualTextColor}">
                             <div style="margin-bottom: 8px; font-weight: bold; color: ${actualTextColor}; font-size: 13px;">📍 ${this.t('legend')}</div>
                             ${points.map(p => html`
                                 <div class="legend-item">
@@ -2755,24 +2883,24 @@ class PsychrometricChartEnhanced extends LitElement {
                     ` : ''}
                 </div>
 
-                ${showCalculatedData && displayMode !== 'minimal' ? html`
+                ${showCalculatedData ? html`
                     <div class="psychro-data">
                         ${points.map((point, index) => html`
                             <div class="data-box" 
                                  style="
-                                    background: ${darkMode ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)'};
+                                    background: ${dataBoxBg};
                                     border-left-color: ${point.color};
-                                    box-shadow: 0 4px 15px rgba(0, 0, 0, ${darkMode ? '0.3' : '0.1'});
-                                    animation: fadeInUp 0.5s ease-out ${index * 0.1}s backwards;
+                                    box-shadow: ${dataBoxBoxShadow};
+                                    animation: ${isClassic ? 'none' : `fadeInUp 0.5s ease-out ${index * 0.1}s backwards`};
                                  ">
-                                <div style="
+                                ${!isClassic && !isCompact ? html`<div style="
                                     position: absolute;
                                     top: 0;
                                     left: 0;
                                     right: 0;
                                     bottom: 0;
                                     background: radial-gradient(circle at top right, ${point.color}15, transparent);
-                                    pointer-events: none;"></div>
+                                    pointer-events: none;"></div>` : ''}
                                 
                                 <div style="position: relative; z-index: 1;">
                                     <div class="data-header" style="color: ${point.color}">
@@ -2803,15 +2931,15 @@ class PsychrometricChartEnhanced extends LitElement {
                                             <span>💧 ${this.t('humidity')}: <span style="color: ${point.color}; font-weight: 600;">${point.humidity.toFixed(1)}%</span></span>
                                         </div>
                                         
-                                        ${this._shouldShowField(point, 'dewPoint', displayMode) ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'wetBulb', displayMode) ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'enthalpy', displayMode) ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'absHumidity', displayMode) ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
-                                        ${this._shouldShowField(point, 'waterContent', displayMode) ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'specificVolume', displayMode) ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'pmvIndex', displayMode) ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'dewPoint') ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'wetBulb') ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'enthalpy') ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'absHumidity') ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
+                                        ${this._shouldShowField(point, 'waterContent') ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'specificVolume') ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'pmvIndex') ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
                                         
-                                        ${this._shouldShowField(point, 'moldRisk', displayMode) ? html`
+                                        ${this._shouldShowField(point, 'moldRisk') ? html`
                                             <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
                                                 <span>🍄 ${this.t('moldRisk')}:</span>
                                                 <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
@@ -2821,7 +2949,7 @@ class PsychrometricChartEnhanced extends LitElement {
                                         ` : ''}
                                     </div>
 
-                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action', displayMode) ? html`
+                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action') ? html`
                                         <div class="action-box" style="border-top-color: ${darkMode ? '#555' : '#ddd'}">
                                             ${point.action ? html`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
                                             ${point.power > 0 ? html`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}
@@ -2841,3 +2969,13 @@ class PsychrometricChartEnhanced extends LitElement {
 }
 
 customElements.define("psychrometric-chart-enhanced", PsychrometricChartEnhanced);
+
+// Enregistrement de la carte pour le picker de cartes Home Assistant
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: "psychrometric-chart-enhanced",
+    name: "Psychrometric Chart Advanced",
+    description: "Carte de diagramme psychrométrique interactif avec calculs scientifiques (point de rosée, enthalpie, PMV, etc.)",
+    preview: true,
+    documentationURL: "https://github.com/guiohm79/psychrometric-chart-advanced"
+});
