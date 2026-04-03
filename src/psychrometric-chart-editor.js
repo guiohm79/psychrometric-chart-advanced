@@ -44,10 +44,10 @@ const editorTranslations = {
         action: "Action/Puissance",
         addPoint: "Ajouter un point",
         appearance: "Apparence",
-        displayMode: "Mode d'affichage",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Avancé",
+        theme: "Thème visuel",
+        themeModern: "Moderne",
+        themeClassic: "Classique",
+        themeCompact: "Compact",
         bgColor: "Couleur de fond",
         textColor: "Couleur du texte",
         gridColor: "Couleur de la grille",
@@ -94,10 +94,10 @@ const editorTranslations = {
         action: "Action/Power",
         addPoint: "Add Point",
         appearance: "Appearance",
-        displayMode: "Display Mode",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Advanced",
+        theme: "Visual Theme",
+        themeModern: "Modern",
+        themeClassic: "Classic",
+        themeCompact: "Compact",
         bgColor: "Background Color",
         textColor: "Text Color",
         gridColor: "Grid Color",
@@ -144,10 +144,10 @@ const editorTranslations = {
         action: "Acción/Potencia",
         addPoint: "Añadir punto",
         appearance: "Apariencia",
-        displayMode: "Modo de visualización",
-        standard: "Estándar",
-        minimal: "Mínimo",
-        advanced: "Avanzado",
+        theme: "Tema visual",
+        themeModern: "Moderno",
+        themeClassic: "Clásico",
+        themeCompact: "Compacto",
         bgColor: "Color de fondo",
         textColor: "Color del texto",
         gridColor: "Color de la cuadrícula",
@@ -194,10 +194,10 @@ const editorTranslations = {
         action: "Aktion/Leistung",
         addPoint: "Punkt hinzufügen",
         appearance: "Aussehen",
-        displayMode: "Anzeigemodus",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Erweitert",
+        theme: "Visuelles Thema",
+        themeModern: "Modern",
+        themeClassic: "Klassisch",
+        themeCompact: "Kompakt",
         bgColor: "Hintergrundfarbe",
         textColor: "Textfarbe",
         gridColor: "Gitterfarbe",
@@ -240,6 +240,7 @@ export class PsychrometricChartEditor extends HTMLElement {
         this._config = null;
         this._initialized = false;
         this._pendingValue = new Map();
+        this._openDetails = new Set(); // Stocke les index des details ouverts
     }
 
     /**
@@ -433,8 +434,36 @@ export class PsychrometricChartEditor extends HTMLElement {
         });
     }
 
+    /**
+     * Sauvegarde l'état des éléments details ouverts
+     */
+    _saveDetailsState() {
+        if (!this.shadowRoot) return;
+        this._openDetails.clear();
+        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
+            if (details.open) {
+                this._openDetails.add(index);
+            }
+        });
+    }
+
+    /**
+     * Restaure l'état des éléments details
+     */
+    _restoreDetailsState() {
+        if (!this.shadowRoot) return;
+        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
+            if (this._openDetails.has(index)) {
+                details.open = true;
+            }
+        });
+    }
+
     render() {
         if (!this._config) return;
+
+        // Sauvegarde l'état des details avant le re-render
+        this._saveDetailsState();
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -599,7 +628,7 @@ export class PsychrometricChartEditor extends HTMLElement {
                                     <input type="text" class="point-input point-icon" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
 
-                                <details>
+                                <details data-index="${index}">
                                     <summary>${this.t('customDisplay')}</summary>
                                     <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
                                         ${this._renderDetailCheckbox(index, point, 'dewPoint', this.t('dewPoint'))}
@@ -622,11 +651,11 @@ export class PsychrometricChartEditor extends HTMLElement {
                 <div class="section">
                     <span class="section-title">${this.t('appearance')}</span>
                     <div class="form-row">
-                        <label>${this.t('displayMode')}</label>
-                        <select id="displayMode" class="select-input">
-                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>${this.t('standard')}</option>
-                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>${this.t('minimal')}</option>
-                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
+                        <label>${this.t('theme')}</label>
+                        <select id="theme" class="select-input">
+                            <option value="modern" ${(this._config.theme || 'modern') === 'modern' ? 'selected' : ''}>${this.t('themeModern')}</option>
+                            <option value="classic" ${this._config.theme === 'classic' ? 'selected' : ''}>${this.t('themeClassic')}</option>
+                            <option value="compact" ${this._config.theme === 'compact' ? 'selected' : ''}>${this.t('themeCompact')}</option>
                         </select>
                     </div>
                     ${this._renderColorInput(this.t('bgColor'), 'bgColor', this._config.bgColor || '#ffffff')}
@@ -698,6 +727,9 @@ export class PsychrometricChartEditor extends HTMLElement {
 
         this._addEventListeners();
         
+        // Restaure l'état des details après le rendu
+        this._restoreDetailsState();
+        
         // Applique hass et les valeurs si disponibles
         if (this._hass) {
             this._updateEntityPickers();
@@ -724,8 +756,8 @@ export class PsychrometricChartEditor extends HTMLElement {
         this.shadowRoot.getElementById('chartTitle')?.addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('language')?.addEventListener('change', this._valueChanged.bind(this));
 
-        // Appearance
-        this.shadowRoot.getElementById('displayMode')?.addEventListener('change', this._valueChanged.bind(this));
+        // Theme
+        this.shadowRoot.getElementById('theme')?.addEventListener('change', this._valueChanged.bind(this));
         
         // Appearance - Colors
         this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {

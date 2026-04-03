@@ -413,10 +413,10 @@ const editorTranslations = {
         action: "Action/Puissance",
         addPoint: "Ajouter un point",
         appearance: "Apparence",
-        displayMode: "Mode d'affichage",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Avancé",
+        theme: "Thème visuel",
+        themeModern: "Moderne",
+        themeClassic: "Classique",
+        themeCompact: "Compact",
         bgColor: "Couleur de fond",
         textColor: "Couleur du texte",
         gridColor: "Couleur de la grille",
@@ -463,10 +463,10 @@ const editorTranslations = {
         action: "Action/Power",
         addPoint: "Add Point",
         appearance: "Appearance",
-        displayMode: "Display Mode",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Advanced",
+        theme: "Visual Theme",
+        themeModern: "Modern",
+        themeClassic: "Classic",
+        themeCompact: "Compact",
         bgColor: "Background Color",
         textColor: "Text Color",
         gridColor: "Grid Color",
@@ -513,10 +513,10 @@ const editorTranslations = {
         action: "Acción/Potencia",
         addPoint: "Añadir punto",
         appearance: "Apariencia",
-        displayMode: "Modo de visualización",
-        standard: "Estándar",
-        minimal: "Mínimo",
-        advanced: "Avanzado",
+        theme: "Tema visual",
+        themeModern: "Moderno",
+        themeClassic: "Clásico",
+        themeCompact: "Compacto",
         bgColor: "Color de fondo",
         textColor: "Color del texto",
         gridColor: "Color de la cuadrícula",
@@ -563,10 +563,10 @@ const editorTranslations = {
         action: "Aktion/Leistung",
         addPoint: "Punkt hinzufügen",
         appearance: "Aussehen",
-        displayMode: "Anzeigemodus",
-        standard: "Standard",
-        minimal: "Minimal",
-        advanced: "Erweitert",
+        theme: "Visuelles Thema",
+        themeModern: "Modern",
+        themeClassic: "Klassisch",
+        themeCompact: "Kompakt",
         bgColor: "Hintergrundfarbe",
         textColor: "Textfarbe",
         gridColor: "Gitterfarbe",
@@ -609,6 +609,7 @@ class PsychrometricChartEditor extends HTMLElement {
         this._config = null;
         this._initialized = false;
         this._pendingValue = new Map();
+        this._openDetails = new Set(); // Stocke les index des details ouverts
     }
 
     /**
@@ -802,8 +803,36 @@ class PsychrometricChartEditor extends HTMLElement {
         });
     }
 
+    /**
+     * Sauvegarde l'état des éléments details ouverts
+     */
+    _saveDetailsState() {
+        if (!this.shadowRoot) return;
+        this._openDetails.clear();
+        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
+            if (details.open) {
+                this._openDetails.add(index);
+            }
+        });
+    }
+
+    /**
+     * Restaure l'état des éléments details
+     */
+    _restoreDetailsState() {
+        if (!this.shadowRoot) return;
+        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
+            if (this._openDetails.has(index)) {
+                details.open = true;
+            }
+        });
+    }
+
     render() {
         if (!this._config) return;
+
+        // Sauvegarde l'état des details avant le re-render
+        this._saveDetailsState();
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -968,7 +997,7 @@ class PsychrometricChartEditor extends HTMLElement {
                                     <input type="text" class="point-input point-icon" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
                                 </div>
 
-                                <details>
+                                <details data-index="${index}">
                                     <summary>${this.t('customDisplay')}</summary>
                                     <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
                                         ${this._renderDetailCheckbox(index, point, 'dewPoint', this.t('dewPoint'))}
@@ -991,11 +1020,11 @@ class PsychrometricChartEditor extends HTMLElement {
                 <div class="section">
                     <span class="section-title">${this.t('appearance')}</span>
                     <div class="form-row">
-                        <label>${this.t('displayMode')}</label>
-                        <select id="displayMode" class="select-input">
-                            <option value="standard" ${this._config.displayMode === 'standard' ? 'selected' : ''}>${this.t('standard')}</option>
-                            <option value="minimal" ${this._config.displayMode === 'minimal' ? 'selected' : ''}>${this.t('minimal')}</option>
-                            <option value="advanced" ${this._config.displayMode === 'advanced' ? 'selected' : ''}>${this.t('advanced')}</option>
+                        <label>${this.t('theme')}</label>
+                        <select id="theme" class="select-input">
+                            <option value="modern" ${(this._config.theme || 'modern') === 'modern' ? 'selected' : ''}>${this.t('themeModern')}</option>
+                            <option value="classic" ${this._config.theme === 'classic' ? 'selected' : ''}>${this.t('themeClassic')}</option>
+                            <option value="compact" ${this._config.theme === 'compact' ? 'selected' : ''}>${this.t('themeCompact')}</option>
                         </select>
                     </div>
                     ${this._renderColorInput(this.t('bgColor'), 'bgColor', this._config.bgColor || '#ffffff')}
@@ -1067,6 +1096,9 @@ class PsychrometricChartEditor extends HTMLElement {
 
         this._addEventListeners();
         
+        // Restaure l'état des details après le rendu
+        this._restoreDetailsState();
+        
         // Applique hass et les valeurs si disponibles
         if (this._hass) {
             this._updateEntityPickers();
@@ -1093,8 +1125,8 @@ class PsychrometricChartEditor extends HTMLElement {
         this.shadowRoot.getElementById('chartTitle')?.addEventListener('change', this._valueChanged.bind(this));
         this.shadowRoot.getElementById('language')?.addEventListener('change', this._valueChanged.bind(this));
 
-        // Appearance
-        this.shadowRoot.getElementById('displayMode')?.addEventListener('change', this._valueChanged.bind(this));
+        // Theme
+        this.shadowRoot.getElementById('theme')?.addEventListener('change', this._valueChanged.bind(this));
         
         // Appearance - Colors
         this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {
@@ -1548,6 +1580,65 @@ class PsychrometricChartEnhanced extends LitElement {
             @media (max-width: 768px) {
                 .psychro-data { grid-template-columns: 1fr !important; }
                 .modal-content { padding: 20px; max-width: 95%; }
+            }
+
+            /* === THEME: CLASSIC === */
+            .theme-classic .data-box {
+                border-radius: 4px;
+                border: 1px solid var(--divider-color, #e0e0e0);
+                backdrop-filter: none;
+                background: var(--card-background-color, #fff);
+                box-shadow: none;
+            }
+            .theme-classic .data-box:hover {
+                transform: none;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            .theme-classic .status-badge {
+                border-radius: 4px;
+                box-shadow: none;
+            }
+            .theme-classic .legend-box {
+                backdrop-filter: none;
+                border: 1px solid var(--divider-color, #e0e0e0);
+                box-shadow: none;
+            }
+
+            /* === THEME: COMPACT === */
+            .theme-compact .psychro-data {
+                gap: 8px;
+                padding: 0 10px 10px;
+            }
+            .theme-compact .data-box {
+                padding: 8px;
+                border-radius: 8px;
+                backdrop-filter: none;
+            }
+            .theme-compact .data-box:hover {
+                transform: translateY(-2px);
+            }
+            .theme-compact .data-header {
+                margin-bottom: 6px;
+                font-size: 1em;
+            }
+            .theme-compact .data-grid {
+                gap: 4px;
+                font-size: 0.85em;
+            }
+            .theme-compact .data-row {
+                padding: 2px;
+            }
+            .theme-compact .action-box {
+                margin-top: 8px;
+                padding-top: 6px;
+            }
+            .theme-compact .legend-box {
+                padding: 6px;
+                backdrop-filter: none;
+            }
+            .theme-compact .card-header {
+                padding: 10px;
+                font-size: 1.2rem;
             }
         `;
     }
@@ -2718,10 +2809,9 @@ class PsychrometricChartEnhanced extends LitElement {
      * Determine if a field should be shown for a point.
      * @param {Object} point - Point data
      * @param {string} field - Field name
-     * @param {string} displayMode - Global display mode
      * @returns {boolean}
      */
-    _shouldShowField(point, field, displayMode) {
+    _shouldShowField(point, field) {
         // If point has specific details configured, use them
         // Fix: check if details is an array, even if empty. 
         // If it is an array, it means the user has explicitly configured this point.
@@ -2729,16 +2819,9 @@ class PsychrometricChartEnhanced extends LitElement {
             return point.details.includes(field);
         }
 
-        // Otherwise fallback to global displayMode
-        if (displayMode === 'minimal') return false;
-
-        if (displayMode === 'standard') {
-            const standardFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
-            return standardFields.includes(field);
-        }
-
-        // Advanced shows everything
-        return true;
+        // Default: show standard fields if no custom display configured
+        const defaultFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+        return defaultFields.includes(field);
     }
 
     render() {
@@ -2752,7 +2835,7 @@ class PsychrometricChartEnhanced extends LitElement {
             darkMode = false,
             textColor = "#333333",
             bgColor = "#ffffff",
-            displayMode = "standard"
+            theme = "modern"
         } = this.config;
 
         const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
@@ -2762,8 +2845,25 @@ class PsychrometricChartEnhanced extends LitElement {
             `${p.label}: ${this.formatTemp(p.temp)}, ${p.humidity.toFixed(1)}% d'humidité relative.`
         ).join(" ");
 
+        // Styles conditionnels selon le thème
+        const isClassic = theme === 'classic';
+        const isCompact = theme === 'compact';
+        
+        // Styles pour les data-box selon le thème
+        const dataBoxBg = isClassic 
+            ? (darkMode ? 'var(--card-background-color, #1c1c1c)' : 'var(--card-background-color, #ffffff)')
+            : (darkMode ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)');
+        
+        const dataBoxBoxShadow = isClassic 
+            ? 'none' 
+            : `0 4px 15px rgba(0, 0, 0, ${darkMode ? '0.3' : '0.1'})`;
+        
+        const legendBg = isClassic || isCompact
+            ? (darkMode ? 'var(--card-background-color, #2d2d2d)' : 'var(--card-background-color, #ffffff)')
+            : (darkMode ? 'rgba(45, 45, 45, 0.9)' : 'rgba(255,255,255,0.9)');
+
         return html`
-            <ha-card style="background: ${actualBgColor}; color: ${actualTextColor}">
+            <ha-card class="theme-${theme}" style="background: ${actualBgColor}; color: ${actualTextColor}">
                 <div class="card-header" style="color: ${actualTextColor}">${chartTitle}</div>
                 
                 <div class="chart-container">
@@ -2771,7 +2871,7 @@ class PsychrometricChartEnhanced extends LitElement {
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? html`
-                        <div class="legend-box" style="background: ${darkMode ? 'rgba(45, 45, 45, 0.9)' : 'rgba(255,255,255,0.9)'}; color: ${actualTextColor}">
+                        <div class="legend-box" style="background: ${legendBg}; color: ${actualTextColor}">
                             <div style="margin-bottom: 8px; font-weight: bold; color: ${actualTextColor}; font-size: 13px;">📍 ${this.t('legend')}</div>
                             ${points.map(p => html`
                                 <div class="legend-item">
@@ -2783,24 +2883,24 @@ class PsychrometricChartEnhanced extends LitElement {
                     ` : ''}
                 </div>
 
-                ${showCalculatedData && displayMode !== 'minimal' ? html`
+                ${showCalculatedData ? html`
                     <div class="psychro-data">
                         ${points.map((point, index) => html`
                             <div class="data-box" 
                                  style="
-                                    background: ${darkMode ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)'};
+                                    background: ${dataBoxBg};
                                     border-left-color: ${point.color};
-                                    box-shadow: 0 4px 15px rgba(0, 0, 0, ${darkMode ? '0.3' : '0.1'});
-                                    animation: fadeInUp 0.5s ease-out ${index * 0.1}s backwards;
+                                    box-shadow: ${dataBoxBoxShadow};
+                                    animation: ${isClassic ? 'none' : `fadeInUp 0.5s ease-out ${index * 0.1}s backwards`};
                                  ">
-                                <div style="
+                                ${!isClassic && !isCompact ? html`<div style="
                                     position: absolute;
                                     top: 0;
                                     left: 0;
                                     right: 0;
                                     bottom: 0;
                                     background: radial-gradient(circle at top right, ${point.color}15, transparent);
-                                    pointer-events: none;"></div>
+                                    pointer-events: none;"></div>` : ''}
                                 
                                 <div style="position: relative; z-index: 1;">
                                     <div class="data-header" style="color: ${point.color}">
@@ -2831,15 +2931,15 @@ class PsychrometricChartEnhanced extends LitElement {
                                             <span>💧 ${this.t('humidity')}: <span style="color: ${point.color}; font-weight: 600;">${point.humidity.toFixed(1)}%</span></span>
                                         </div>
                                         
-                                        ${this._shouldShowField(point, 'dewPoint', displayMode) ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'wetBulb', displayMode) ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'enthalpy', displayMode) ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'absHumidity', displayMode) ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
-                                        ${this._shouldShowField(point, 'waterContent', displayMode) ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'specificVolume', displayMode) ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'pmvIndex', displayMode) ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'dewPoint') ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'wetBulb') ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'enthalpy') ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'absHumidity') ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
+                                        ${this._shouldShowField(point, 'waterContent') ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'specificVolume') ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'pmvIndex') ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
                                         
-                                        ${this._shouldShowField(point, 'moldRisk', displayMode) ? html`
+                                        ${this._shouldShowField(point, 'moldRisk') ? html`
                                             <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
                                                 <span>🍄 ${this.t('moldRisk')}:</span>
                                                 <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
@@ -2849,7 +2949,7 @@ class PsychrometricChartEnhanced extends LitElement {
                                         ` : ''}
                                     </div>
 
-                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action', displayMode) ? html`
+                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action') ? html`
                                         <div class="action-box" style="border-top-color: ${darkMode ? '#555' : '#ddd'}">
                                             ${point.action ? html`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
                                             ${point.power > 0 ? html`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}
