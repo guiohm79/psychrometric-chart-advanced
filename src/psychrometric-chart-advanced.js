@@ -1552,3 +1552,13 @@ class PsychrometricChartEnhanced extends LitElement {
 }
 
 customElements.define("psychrometric-chart-enhanced", PsychrometricChartEnhanced);
+
+// Enregistrement de la carte pour le picker de cartes Home Assistant
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: "psychrometric-chart-enhanced",
+    name: "Psychrometric Chart Advanced",
+    description: "Carte de diagramme psychrométrique interactif avec calculs scientifiques (point de rosée, enthalpie, PMV, etc.)",
+    preview: true,
+    documentationURL: "https://github.com/guiohm79/psychrometric-chart-advanced"
+});

@@ -371,7 +371,7 @@ class PsychrometricCalculations {
  * Fire a custom event.
  * @param {HTMLElement} node - The element to dispatch the event from
  * @param {string} type - The event type
- * @param {Object} detail - The event detail
+ * @param {Object} detail - Event detail
  * @param {Object} options - Event options
  * @returns {Event} The dispatched event
  */
@@ -420,7 +420,6 @@ const editorTranslations = {
         bgColor: "Couleur de fond",
         textColor: "Couleur du texte",
         gridColor: "Couleur de la grille",
-        curveColor: "Couleur des courbes",
         curveColor: "Couleur des courbes",
         enthalpyColor: "Couleur des enthalpies",
         comfortColor: "Couleur zone confort",
@@ -472,7 +471,6 @@ const editorTranslations = {
         textColor: "Text Color",
         gridColor: "Grid Color",
         curveColor: "Curve Color",
-        curveColor: "Curve Color",
         enthalpyColor: "Enthalpy Color",
         comfortColor: "Comfort Zone Color",
         displayOptions: "Display Options",
@@ -522,7 +520,6 @@ const editorTranslations = {
         bgColor: "Color de fondo",
         textColor: "Color del texto",
         gridColor: "Color de la cuadrícula",
-        curveColor: "Color de las curvas",
         curveColor: "Color de las curvas",
         enthalpyColor: "Color de las entalpías",
         comfortColor: "Color zona confort",
@@ -574,7 +571,6 @@ const editorTranslations = {
         textColor: "Textfarbe",
         gridColor: "Gitterfarbe",
         curveColor: "Kurvenfarbe",
-        curveColor: "Kurvenfarbe",
         enthalpyColor: "Enthalpiefarbe",
         comfortColor: "Komfortzonenfarbe",
         displayOptions: "Anzeigeoptionen",
@@ -597,12 +593,68 @@ const editorTranslations = {
 
 /**
  * Psychrometric Chart Editor
- * Visual editor for the Psychrometric Chart card.
+ * 
+ * SOLUTION ROBUSTE basée sur les patterns de Mushroom et card-tools :
+ * 1. Pre-chargement des composants HA dans connectedCallback
+ * 2. Attente explicite de la définition des custom elements
+ * 3. Utilisation de provideHass pour propager hass aux enfants
+ * 4. Événement ll-rebuild pour forcer le re-rendu si nécessaire
  */
 class PsychrometricChartEditor extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
+        
+        this._hass = null;
+        this._config = null;
+        this._initialized = false;
+        this._pendingValue = new Map();
+    }
+
+    /**
+     * Pre-charge les composants HA nécessaires
+     * Pattern utilisé par Mushroom et autres cartes modernes
+     */
+    connectedCallback() {
+        // Force le chargement des composants HA en appelant getConfigElement sur des cartes connues
+        if (!customElements.get('ha-entity-picker')) {
+            // Déclenche le chargement via une carte qui utilise ha-entity-picker
+            const entitiesCard = customElements.get('hui-entities-card');
+            if (entitiesCard && entitiesCard.getConfigElement) {
+                try {
+                    entitiesCard.getConfigElement();
+                } catch (e) {
+                    // Ignore les erreurs de chargement
+                }
+            }
+        }
+
+        // Attend que les composants soient définis puis initialise
+        this._waitForComponents();
+    }
+
+    /**
+     * Attend que les composants HA nécessaires soient chargés
+     */
+    async _waitForComponents() {
+        // Attend ha-entity-picker
+        if (!customElements.get('ha-entity-picker')) {
+            await customElements.whenDefined('ha-entity-picker');
+        }
+        
+        // Attend ha-form si besoin
+        if (!customElements.get('ha-form')) {
+            await customElements.whenDefined('ha-form');
+        }
+
+        this._initialized = true;
+        
+        // Si on a déjà une config, on rend
+        if (this._config) {
+            this.render();
+            // Applique les valeurs en attente
+            this._applyPendingValues();
+        }
     }
 
     /**
@@ -612,48 +664,14 @@ class PsychrometricChartEditor extends HTMLElement {
     set hass(hass) {
         const oldHass = this._hass;
         this._hass = hass;
-        // Never re-render on hass change - only update entity pickers
-        // Re-render only happens on setConfig
-        if (oldHass !== hass && this._config && this.shadowRoot) {
+        
+        // Si hass change et qu'on a une config et un shadowRoot
+        if (hass && this.shadowRoot && this._config && oldHass !== hass) {
+            // Met à jour tous les pickers avec le nouveau hass
             this._updateEntityPickers();
         }
-        // If we have hass and shadowRoot is rendered, initialize pickers
-        if (hass && this.shadowRoot) {
-            this._initializeEntityPickers();
-        }
     }
 
-    /**
-     * Update hass reference on entity pickers without full re-render.
-     */
-    _updateEntityPickers() {
-        if (!this._hass) return;
-        this.shadowRoot.querySelectorAll('ha-entity-picker').forEach(picker => {
-            picker.hass = this._hass;
-        });
-    }
-
-    /**
-     * Initialize entity pickers with hass and value when they become available.
-     */
-    _initializeEntityPickers() {
-        if (!this._hass) return;
-        this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
-            const index = parseInt(picker.dataset.index);
-            const field = picker.dataset.field;
-            const point = this._points[index];
-            
-            picker.hass = this._hass;
-            if (point && point[field] && !picker.value) {
-                picker.value = point[field];
-            }
-        });
-    }
-
-    /**
-     * Get the hass object.
-     * @returns {Object} The hass object
-     */
     get hass() {
         return this._hass;
     }
@@ -663,31 +681,31 @@ class PsychrometricChartEditor extends HTMLElement {
      * @param {Object} config - The configuration object
      */
     setConfig(config) {
-        this._config = config;
-        this.render();
+        this._config = JSON.parse(JSON.stringify(config || {}));
+        
+        // Stocke les valeurs pour les pickers
+        this._pendingValue.clear();
+        (this._config.points || []).forEach((point, index) => {
+            if (point.temp) this._pendingValue.set(`${index}-temp`, point.temp);
+            if (point.humidity) this._pendingValue.set(`${index}-humidity`, point.humidity);
+        });
+        
+        // Ne rend que si les composants sont prêts
+        if (this._initialized) {
+            this.render();
+            this._applyPendingValues();
+        }
+        // Sinon, le rendu sera fait dans _waitForComponents quand les composants seront prêts
     }
 
-    /**
-     * Get the chart title from config.
-     * @returns {string} The chart title
-     */
     get _title() {
         return this._config?.chartTitle || 'Diagramme Psychrométrique';
     }
 
-    /**
-     * Get the points from config.
-     * @returns {Array} List of points
-     */
     get _points() {
         return this._config?.points || [];
     }
 
-    /**
-     * Get translation for key
-     * @param {string} key 
-     * @returns {string}
-     */
     t(key) {
         const lang = this._config?.language || 'fr';
         return editorTranslations[lang]?.[key] || editorTranslations['fr'][key] || key;
@@ -716,13 +734,9 @@ class PsychrometricChartEditor extends HTMLElement {
             return parseInt(color.substring(7, 9), 16) / 255;
         }
         if (color.startsWith('rgba')) {
-            const match = color.match(/[\d.]+\)$/); // Match last number before )
-            if (match) {
-                // This is a bit weak, let's do better regex
-                const parts = color.split(',');
-                if (parts.length === 4) {
-                    return parseFloat(parts[3]);
-                }
+            const parts = color.split(',');
+            if (parts.length === 4) {
+                return parseFloat(parts[3]);
             }
         }
         return 1;
@@ -752,8 +766,42 @@ class PsychrometricChartEditor extends HTMLElement {
     }
 
     /**
-     * Render the editor UI.
+     * Met à jour tous les pickers avec hass
      */
+    _updateEntityPickers() {
+        if (!this._hass || !this.shadowRoot) return;
+        
+        const pickers = this.shadowRoot.querySelectorAll('ha-entity-picker');
+        pickers.forEach(picker => {
+            if (picker.hass !== this._hass) {
+                picker.hass = this._hass;
+            }
+        });
+    }
+
+    /**
+     * Applique les valeurs en attente aux pickers
+     */
+    _applyPendingValues() {
+        if (!this.shadowRoot || !this._hass) return;
+        
+        const pickers = this.shadowRoot.querySelectorAll('ha-entity-picker');
+        pickers.forEach(picker => {
+            const index = picker.dataset.index;
+            const field = picker.dataset.field;
+            const value = this._pendingValue.get(`${index}-${field}`);
+            
+            if (value && picker.value !== value) {
+                picker.value = value;
+            }
+            
+            // Assure que hass est assigné
+            if (this._hass && picker.hass !== this._hass) {
+                picker.hass = this._hass;
+            }
+        });
+    }
+
     render() {
         if (!this._config) return;
 
@@ -842,6 +890,9 @@ class PsychrometricChartEditor extends HTMLElement {
                     color: var(--secondary-text-color);
                     margin-top: -8px;
                     margin-bottom: 12px;
+                }
+                ha-entity-picker {
+                    flex: 2;
                 }
             </style>
             <div class="card-config">
@@ -1015,11 +1066,12 @@ class PsychrometricChartEditor extends HTMLElement {
         `;
 
         this._addEventListeners();
-
-        // Delete buttons
-        this.shadowRoot.querySelectorAll('.delete').forEach(btn => {
-            btn.addEventListener('click', this._deletePoint.bind(this));
-        });
+        
+        // Applique hass et les valeurs si disponibles
+        if (this._hass) {
+            this._updateEntityPickers();
+            this._applyPendingValues();
+        }
     }
 
     _renderDetailCheckbox(index, point, field, label) {
@@ -1036,16 +1088,14 @@ class PsychrometricChartEditor extends HTMLElement {
         `;
     }
 
-    /**
-     * Add event listeners to form elements.
-     */
     _addEventListeners() {
         // Global inputs
-        this.shadowRoot.getElementById('chartTitle').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('language').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('chartTitle')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('language')?.addEventListener('change', this._valueChanged.bind(this));
 
         // Appearance
-        this.shadowRoot.getElementById('displayMode').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('displayMode')?.addEventListener('change', this._valueChanged.bind(this));
+        
         // Appearance - Colors
         this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {
             input.addEventListener('input', this._colorChanged.bind(this));
@@ -1054,36 +1104,33 @@ class PsychrometricChartEditor extends HTMLElement {
             input.addEventListener('input', this._colorChanged.bind(this));
         });
 
-        this.shadowRoot.getElementById('showEnthalpy').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showVaporPressure').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showDewPoint').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showWetBulb').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showMoldRisk').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showLegend').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showCalculatedData').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('darkMode').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showEnthalpy')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showVaporPressure')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showDewPoint')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showWetBulb')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showMoldRisk')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showLegend')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('showCalculatedData')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('darkMode')?.addEventListener('change', this._valueChanged.bind(this));
 
         // Zoom inputs
-        this.shadowRoot.getElementById('zoom_temp_min').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_temp_max').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_humidity_min').addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_humidity_max').addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_temp_min')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_temp_max')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_humidity_min')?.addEventListener('change', this._valueChanged.bind(this));
+        this.shadowRoot.getElementById('zoom_humidity_max')?.addEventListener('change', this._valueChanged.bind(this));
 
         // Add point button
-        this.shadowRoot.getElementById('addPoint').addEventListener('click', this._addPoint.bind(this));
+        this.shadowRoot.getElementById('addPoint')?.addEventListener('click', this._addPoint.bind(this));
 
         // Point inputs (label and icon only - temp/humidity use ha-entity-picker)
         this.shadowRoot.querySelectorAll('.point-label, .point-icon').forEach(input => {
             input.addEventListener('change', this._pointChanged.bind(this));
         });
 
-        // Entity pickers - add event listeners (initialization done separately)
+        // Entity pickers - add event listeners for value-changed
         this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
             picker.addEventListener('value-changed', this._entityPickerChanged.bind(this));
         });
-        
-        // Initialize entity pickers if hass is available
-        this._initializeEntityPickers();
 
         // Point colors
         this.shadowRoot.querySelectorAll('.point-color-hex, .point-color-alpha').forEach(input => {
@@ -1106,14 +1153,10 @@ class PsychrometricChartEditor extends HTMLElement {
         const value = e.target.dataset.value;
         const checked = e.target.checked;
 
-        // Deep clone points array to ensure immutability
-        const points = this._points.map(p => ({ ...p }));
+        const points = this._points.map(p => ({ ...p, details: p.details ? [...p.details] : [] }));
 
         if (!points[index].details) {
             points[index].details = [];
-        } else {
-            // Clone details array
-            points[index].details = [...points[index].details];
         }
 
         if (checked) {
@@ -1197,10 +1240,6 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Handle point config value changes.
-     * @param {Event} e - Change event
-     */
     _pointChanged(e) {
         if (!this._config) return;
         const target = e.target;
@@ -1224,16 +1263,12 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Handle entity picker value changes.
-     * @param {CustomEvent} e - Value changed event from ha-entity-picker
-     */
     _entityPickerChanged(e) {
         if (!this._config) return;
         const target = e.target;
         const index = parseInt(target.dataset.index);
         const field = target.dataset.field;
-        const value = e.detail.value;
+        const value = e.detail?.value || '';
 
         const newPoints = [...(this._config.points || [])];
         if (!newPoints[index]) newPoints[index] = {};
@@ -1251,9 +1286,6 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Add a new point to the configuration.
-     */
     _addPoint() {
         const newPoints = [...(this._config.points || [])];
         newPoints.push({
@@ -1271,10 +1303,6 @@ class PsychrometricChartEditor extends HTMLElement {
         fireEvent(this, 'config-changed', { config: this._config });
     }
 
-    /**
-     * Delete a point from the configuration.
-     * @param {Event} e - Click event
-     */
     _deletePoint(e) {
         const index = parseInt(e.target.dataset.index);
         const newPoints = [...(this._config.points || [])];
@@ -2841,3 +2869,13 @@ class PsychrometricChartEnhanced extends LitElement {
 }
 
 customElements.define("psychrometric-chart-enhanced", PsychrometricChartEnhanced);
+
+// Enregistrement de la carte pour le picker de cartes Home Assistant
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: "psychrometric-chart-enhanced",
+    name: "Psychrometric Chart Advanced",
+    description: "Carte de diagramme psychrométrique interactif avec calculs scientifiques (point de rosée, enthalpie, PMV, etc.)",
+    preview: true,
+    documentationURL: "https://github.com/guiohm79/psychrometric-chart-advanced"
+});
