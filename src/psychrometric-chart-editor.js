@@ -32,12 +32,12 @@ const fireEvent = (node, type, detail = {}, options = {}) => {
 
 /** Champs affichables par point, dans l'ordre de la carte. */
 const DETAIL_FIELDS = [
-    'dewPoint', 'wetBulb', 'enthalpy', 'absHumidity', 'waterContent',
+    'dewPoint', 'wetBulb', 'apparentTemp', 'enthalpy', 'absHumidity', 'waterContent',
     'specificVolume', 'pmvIndex', 'moldRisk', 'action',
 ];
 
 /** Champs affichés par défaut quand `details` n'est pas configuré (cf. _shouldShowField). */
-const DEFAULT_DETAILS = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+const DEFAULT_DETAILS = ['dewPoint', 'wetBulb', 'apparentTemp', 'enthalpy', 'pmvIndex'];
 
 /** Zone de confort par défaut (identique à celle de la carte). */
 const DEFAULT_COMFORT_RANGE = { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 };
@@ -69,6 +69,7 @@ const editorTranslations = {
         details: "Champs affichés",
         dewPoint: "Point de rosée",
         wetBulb: "Temp. humide",
+        apparentTemp: "Temp. ressentie",
         enthalpy: "Enthalpie",
         absHumidity: "Humidité abs.",
         waterContent: "Teneur en eau",
@@ -99,7 +100,8 @@ const editorTranslations = {
         opacity: "Opacité",
         displayOptions: "Options d'affichage",
         displayMode: "Niveau de détail",
-        displayStandard: "Standard",
+        displayModeHelp: "Personnalisé applique les champs cochés sur chaque point. Minimal n'affiche que température, humidité et confort ; Détaillé affiche tous les champs.",
+        displayCustom: "Personnalisé",
         displayMinimal: "Minimal",
         temperatureUnit: "Unité de température",
         unitAuto: "Automatique (Home Assistant)",
@@ -144,6 +146,7 @@ const editorTranslations = {
         details: "Displayed fields",
         dewPoint: "Dew point",
         wetBulb: "Wet bulb",
+        apparentTemp: "Feels like",
         enthalpy: "Enthalpy",
         absHumidity: "Abs. humidity",
         waterContent: "Water content",
@@ -174,7 +177,8 @@ const editorTranslations = {
         opacity: "Opacity",
         displayOptions: "Display options",
         displayMode: "Detail level",
-        displayStandard: "Standard",
+        displayModeHelp: "Custom applies the fields ticked on each point. Minimal only shows temperature, humidity and comfort; Detailed shows every field.",
+        displayCustom: "Custom",
         displayMinimal: "Minimal",
         temperatureUnit: "Temperature unit",
         unitAuto: "Automatic (Home Assistant)",
@@ -219,6 +223,7 @@ const editorTranslations = {
         details: "Campos mostrados",
         dewPoint: "Punto de rocío",
         wetBulb: "Temp. húmeda",
+        apparentTemp: "Sensación térmica",
         enthalpy: "Entalpía",
         absHumidity: "Humedad abs.",
         waterContent: "Contenido de agua",
@@ -249,7 +254,8 @@ const editorTranslations = {
         opacity: "Opacidad",
         displayOptions: "Opciones de visualización",
         displayMode: "Nivel de detalle",
-        displayStandard: "Estándar",
+        displayModeHelp: "Personalizado aplica los campos marcados en cada punto. Mínimo solo muestra temperatura, humedad y confort; Detallado muestra todos los campos.",
+        displayCustom: "Personalizado",
         displayMinimal: "Mínimo",
         temperatureUnit: "Unidad de temperatura",
         unitAuto: "Automática (Home Assistant)",
@@ -294,6 +300,7 @@ const editorTranslations = {
         details: "Angezeigte Felder",
         dewPoint: "Taupunkt",
         wetBulb: "Feuchtkugeltemp.",
+        apparentTemp: "Gefühlte Temp.",
         enthalpy: "Enthalpie",
         absHumidity: "Abs. Feuchtigkeit",
         waterContent: "Wassergehalt",
@@ -324,7 +331,8 @@ const editorTranslations = {
         opacity: "Deckkraft",
         displayOptions: "Anzeigeoptionen",
         displayMode: "Detailgrad",
-        displayStandard: "Standard",
+        displayModeHelp: "Benutzerdefiniert wendet die pro Punkt angehakten Felder an. Minimal zeigt nur Temperatur, Luftfeuchte und Komfort; Detailliert zeigt alle Felder.",
+        displayCustom: "Benutzerdefiniert",
         displayMinimal: "Minimal",
         temperatureUnit: "Temperatureinheit",
         unitAuto: "Automatisch (Home Assistant)",
@@ -416,10 +424,11 @@ export class PsychrometricChartEditor extends LitElement {
      * @returns {string} Couleur CSS
      */
     _colorFallback(key) {
-        // L'aperçu doit refléter le mode réellement rendu par la carte.
-        const mode = this._config?.themeMode ?? (this._config?.darkMode === true ? 'dark' : 'auto');
+        // L'aperçu doit refléter le mode réellement rendu par la carte : même règle
+        // que son _isDark(), où `darkMode` n'est plus lu.
+        const mode = this._config?.themeMode ?? 'auto';
         const dark = mode === 'dark'
-            || (mode === 'auto' && Boolean(this.hass?.themes?.darkMode));
+            || (mode !== 'light' && Boolean(this.hass?.themes?.darkMode));
         switch (key) {
             case 'bgColor': return dark ? '#1c1c1c' : '#ffffff';
             case 'textColor': return dark ? '#e0e0e0' : '#333333';
@@ -562,7 +571,7 @@ export class PsychrometricChartEditor extends LitElement {
                         mode: 'dropdown',
                         options: [
                             { value: 'minimal', label: this.t('displayMinimal') },
-                            { value: 'standard', label: this.t('displayStandard') },
+                            { value: 'custom', label: this.t('displayCustom') },
                             { value: 'detailed', label: this.t('displayDetailed') },
                         ],
                     },
@@ -617,9 +626,11 @@ export class PsychrometricChartEditor extends LitElement {
             language: config.language ?? 'fr',
             temperatureUnit: config.temperatureUnit ?? 'auto',
             theme: config.theme ?? 'modern',
-            // Rétrocompatibilité : l'ancien booléen darkMode ne servait qu'à forcer le sombre.
-            themeMode: config.themeMode ?? (config.darkMode === true ? 'dark' : 'auto'),
-            displayMode: config.displayMode ?? 'standard',
+            themeMode: config.themeMode ?? 'auto',
+            // `standard` est l'ancien nom de `custom` : le normaliser ici évite un
+            // sélecteur vide sur une config existante, et fait disparaître la valeur
+            // périmée du YAML dès la première modification dans l'éditeur.
+            displayMode: config.displayMode === 'standard' ? 'custom' : (config.displayMode ?? 'custom'),
             massFlowRate: config.massFlowRate ?? 0.5,
             comfortRange: { ...DEFAULT_COMFORT_RANGE, ...(config.comfortRange || {}) },
             showEnthalpy: config.showEnthalpy !== false,
@@ -664,8 +675,8 @@ export class PsychrometricChartEditor extends LitElement {
         const cleaned = {};
         for (const [key, value] of Object.entries(config)) {
             if (value === '' || value === null || value === undefined) continue;
-            // `darkMode` est remplacé par `themeMode` : le laisser cohabiterait avec son
-            // successeur dans le YAML sans plus rien piloter. _formData l'a déjà migré.
+            // `darkMode` est remplacé par `themeMode` et n'est plus lu par la carte :
+            // le laisser dans le YAML ferait croire qu'il pilote encore le thème.
             if (key === 'darkMode') continue;
             cleaned[key] = value;
         }

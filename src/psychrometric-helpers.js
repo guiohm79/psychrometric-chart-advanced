@@ -337,6 +337,28 @@ export class PsychrometricCalculations {
     }
 
     /**
+     * Calculate the apparent ("felt") temperature — Steadman's formula.
+     *
+     * Retenue plutôt que l'indice de chaleur ou l'humidex, qui ne sont définis que par
+     * temps chaud (respectivement ~27 °C et ~20 °C) et renverraient la température sèche
+     * le reste de l'année : celle-ci reste valable du froid au chaud, donc aussi bien
+     * pour un point intérieur à 21 °C que pour un point extérieur à 2 °C.
+     *
+     * L'air intérieur est supposé immobile : la carte n'a pas de capteur de vent, et
+     * `windSpeed` reste donc à 0 sauf si un appelant en fournit un.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} rh - Relative humidity in %
+     * @param {number} [windSpeed=0] - Wind speed in m/s
+     * @returns {number} Apparent temperature in Celsius
+     */
+    static calculateApparentTemperature(temp, rh, windSpeed = 0) {
+        // La formule attend la pression de vapeur en hPa, calculateVaporPressure la
+        // donne en kPa (convention du fichier) : d'où le facteur 10.
+        const e = this.calculateVaporPressure(temp, rh) * 10;
+        return temp + 0.33 * e - 0.70 * windSpeed - 4.00;
+    }
+
+    /**
      * Calculate Mold Risk based on temperature and humidity.
      * @param {number} temp - Temperature in Celsius
      * @param {number} humidity - Relative humidity in %

@@ -37,7 +37,7 @@ comfortRange:
   rhMin: 40
   rhMax: 60
 showCalculatedData: true
-darkMode: true
+themeMode: auto
 ```
 
 ## Prérequis

@@ -392,6 +392,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Teneur en eau',
                 specificVolume: 'Volume spécifique',
                 pmvIndex: 'Indice PMV',
+                apparentTemp: 'Temp. ressentie',
                 wetBulb: 'Temp. humide',
                 moldRisk: 'Moisissure',
                 action: 'Action',
@@ -437,6 +438,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Water content',
                 specificVolume: 'Specific volume',
                 pmvIndex: 'PMV Index',
+                apparentTemp: 'Feels like',
                 wetBulb: 'Wet bulb',
                 moldRisk: 'Mold risk',
                 action: 'Action',
@@ -482,6 +484,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Contenido de agua',
                 specificVolume: 'Volumen específico',
                 pmvIndex: 'Índice PMV',
+                apparentTemp: 'Sensación térmica',
                 wetBulb: 'Temp. húmeda',
                 moldRisk: 'Moho',
                 action: 'Acción',
@@ -527,6 +530,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Wassergehalt',
                 specificVolume: 'Spezifisches Volumen',
                 pmvIndex: 'PMV-Index',
+                apparentTemp: 'Gefühlte Temp.',
                 wetBulb: 'Feuchtkugeltemp.',
                 moldRisk: 'Schimmel',
                 action: 'Aktion',
@@ -612,6 +616,11 @@ class PsychrometricChartEnhanced extends LitElement {
 
     /**
      * Get the default configuration stub.
+     *
+     * Aucune couleur n'y figure : `textColor: '#333333'` y était codé en dur, si bien
+     * que toute carte créée depuis le sélecteur naissait avec un texte gris foncé
+     * illisible sur un thème sombre, et que `_palette()` ne pouvait plus résoudre la
+     * variable du thème. Sans clé de couleur, la carte suit Home Assistant.
      * @returns {Object} Default configuration
      */
     static getStubConfig() {
@@ -622,8 +631,7 @@ class PsychrometricChartEnhanced extends LitElement {
             showDewPoint: true,
             showWetBulb: true,
             showVaporPressure: true,
-            darkMode: false,
-            textColor: "#333333"
+            themeMode: "auto"
         };
     }
 
@@ -758,17 +766,19 @@ class PsychrometricChartEnhanced extends LitElement {
 
     /**
      * Whether the card must render its dark palette.
-     * Defaults to following the Home Assistant theme, which is what the card always
-     * claimed to do but never did: it used to hardcode its light palette unless
-     * `darkMode: true` was set, ignoring the user's actual theme.
+     *
+     * `themeMode` est l'unique commande : sans lui, la carte suit le thème de Home
+     * Assistant. L'ancien booléen `darkMode` n'est volontairement plus lu — tant qu'il
+     * l'était, une config l'ayant hérité (la documentation l'annonçait comme « force le
+     * mode sombre ») figeait la carte en sombre à vie, et basculer Home Assistant en
+     * clair n'avait aucun effet. Qui veut réellement forcer le sombre pose
+     * `themeMode: dark`.
      * @returns {boolean} True when the dark palette applies
      */
     _isDark() {
         const mode = this.config?.themeMode;
         if (mode === 'dark') return true;
         if (mode === 'light') return false;
-        // Rétrocompatibilité : l'ancienne option booléenne ne servait qu'à forcer le sombre.
-        if (mode === undefined && this.config?.darkMode === true) return true;
         return Boolean(this.hass?.themes?.darkMode);
     }
 
@@ -998,6 +1008,7 @@ class PsychrometricChartEnhanced extends LitElement {
             const specificVolume = PsychrometricCalculations.calculateSpecificVolume(temp, humidity);
             const moldRisk = PsychrometricCalculations.calculateMoldRisk(temp, humidity);
             const pmv = PsychrometricCalculations.calculatePMV(temp, humidity);
+            const apparentTemp = PsychrometricCalculations.calculateApparentTemperature(temp, humidity);
             const idealSetpoint = PsychrometricCalculations.calculateIdealSetpoint(temp, humidity, comfortRange);
 
             // Normalisation en hex : le dessin concatène `color + '40'` pour le halo et
@@ -1008,7 +1019,7 @@ class PsychrometricChartEnhanced extends LitElement {
 
             return {
                 temp, humidity, action, power, heatingPower, coolingPower, humidificationPower, dehumidificationPower,
-                dewPoint, waterContent, enthalpy, absoluteHumidity, wetBulbTemp, specificVolume, moldRisk, pmv, idealSetpoint,
+                dewPoint, waterContent, enthalpy, absoluteHumidity, wetBulbTemp, specificVolume, moldRisk, pmv, apparentTemp, idealSetpoint,
                 color,
                 label: point.label || `${point.temp} & ${point.humidity}`,
                 icon: point.icon || "mdi:thermometer",
@@ -1831,7 +1842,7 @@ class PsychrometricChartEnhanced extends LitElement {
     _shouldShowField(point, field) {
         // Le niveau de détail est un interrupteur maître au-dessus du réglage par point :
         //   minimal  : la carte se réduit à température, humidité et badge de confort
-        //   standard : c'est `point.details` qui décide
+        //   custom   : c'est `point.details` qui décide — les cases cochées sur le point
         //   detailed : tous les champs, quel que soit `point.details`
         const mode = this._displayMode();
         if (mode === 'minimal') return false;
@@ -1844,18 +1855,24 @@ class PsychrometricChartEnhanced extends LitElement {
             return point.details.includes(field);
         }
 
-        // Default: show standard fields if no custom display configured
-        const defaultFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+        // Aucun `details` sur le point : repli sur les champs les plus courants.
+        // Doit rester aligné avec DEFAULT_DETAILS dans l'éditeur.
+        const defaultFields = ['dewPoint', 'wetBulb', 'apparentTemp', 'enthalpy', 'pmvIndex'];
         return defaultFields.includes(field);
     }
 
     /**
      * Current detail level.
-     * @returns {string} 'minimal', 'standard' or 'detailed'
+     *
+     * `standard` a été renommé `custom`, qui décrit ce que le mode fait réellement :
+     * respecter les cases cochées sur chaque point. Les configurations existantes
+     * portent encore l'ancienne valeur, d'où sa reconnaissance comme alias.
+     * @returns {string} 'minimal', 'custom' or 'detailed'
      */
     _displayMode() {
         const mode = this.config?.displayMode;
-        return ['minimal', 'standard', 'detailed'].includes(mode) ? mode : 'standard';
+        if (mode === 'standard') return 'custom';
+        return ['minimal', 'custom', 'detailed'].includes(mode) ? mode : 'custom';
     }
 
     render() {
@@ -1990,6 +2007,7 @@ class PsychrometricChartEnhanced extends LitElement {
                                         
                                         ${this._shouldShowField(point, 'dewPoint') ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
                                         ${this._shouldShowField(point, 'wetBulb') ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'apparentTemp') ? html`<div>${this.t('apparentTemp')}: ${this.formatTemp(point.apparentTemp)}</div>` : ''}
                                         ${this._shouldShowField(point, 'enthalpy') ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
                                         ${this._shouldShowField(point, 'absHumidity') ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
                                         ${this._shouldShowField(point, 'waterContent') ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}

@@ -363,6 +363,28 @@ class PsychrometricCalculations {
     }
 
     /**
+     * Calculate the apparent ("felt") temperature — Steadman's formula.
+     *
+     * Retenue plutôt que l'indice de chaleur ou l'humidex, qui ne sont définis que par
+     * temps chaud (respectivement ~27 °C et ~20 °C) et renverraient la température sèche
+     * le reste de l'année : celle-ci reste valable du froid au chaud, donc aussi bien
+     * pour un point intérieur à 21 °C que pour un point extérieur à 2 °C.
+     *
+     * L'air intérieur est supposé immobile : la carte n'a pas de capteur de vent, et
+     * `windSpeed` reste donc à 0 sauf si un appelant en fournit un.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} rh - Relative humidity in %
+     * @param {number} [windSpeed=0] - Wind speed in m/s
+     * @returns {number} Apparent temperature in Celsius
+     */
+    static calculateApparentTemperature(temp, rh, windSpeed = 0) {
+        // La formule attend la pression de vapeur en hPa, calculateVaporPressure la
+        // donne en kPa (convention du fichier) : d'où le facteur 10.
+        const e = this.calculateVaporPressure(temp, rh) * 10;
+        return temp + 0.33 * e - 0.70 * windSpeed - 4.00;
+    }
+
+    /**
      * Calculate Mold Risk based on temperature and humidity.
      * @param {number} temp - Temperature in Celsius
      * @param {number} humidity - Relative humidity in %
@@ -577,12 +599,12 @@ const fireEvent = (node, type, detail = {}, options = {}) => {
 
 /** Champs affichables par point, dans l'ordre de la carte. */
 const DETAIL_FIELDS = [
-    'dewPoint', 'wetBulb', 'enthalpy', 'absHumidity', 'waterContent',
+    'dewPoint', 'wetBulb', 'apparentTemp', 'enthalpy', 'absHumidity', 'waterContent',
     'specificVolume', 'pmvIndex', 'moldRisk', 'action',
 ];
 
 /** Champs affichés par défaut quand `details` n'est pas configuré (cf. _shouldShowField). */
-const DEFAULT_DETAILS = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+const DEFAULT_DETAILS = ['dewPoint', 'wetBulb', 'apparentTemp', 'enthalpy', 'pmvIndex'];
 
 /** Zone de confort par défaut (identique à celle de la carte). */
 const DEFAULT_COMFORT_RANGE = { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 };
@@ -614,6 +636,7 @@ const editorTranslations = {
         details: "Champs affichés",
         dewPoint: "Point de rosée",
         wetBulb: "Temp. humide",
+        apparentTemp: "Temp. ressentie",
         enthalpy: "Enthalpie",
         absHumidity: "Humidité abs.",
         waterContent: "Teneur en eau",
@@ -644,7 +667,8 @@ const editorTranslations = {
         opacity: "Opacité",
         displayOptions: "Options d'affichage",
         displayMode: "Niveau de détail",
-        displayStandard: "Standard",
+        displayModeHelp: "Personnalisé applique les champs cochés sur chaque point. Minimal n'affiche que température, humidité et confort ; Détaillé affiche tous les champs.",
+        displayCustom: "Personnalisé",
         displayMinimal: "Minimal",
         temperatureUnit: "Unité de température",
         unitAuto: "Automatique (Home Assistant)",
@@ -689,6 +713,7 @@ const editorTranslations = {
         details: "Displayed fields",
         dewPoint: "Dew point",
         wetBulb: "Wet bulb",
+        apparentTemp: "Feels like",
         enthalpy: "Enthalpy",
         absHumidity: "Abs. humidity",
         waterContent: "Water content",
@@ -719,7 +744,8 @@ const editorTranslations = {
         opacity: "Opacity",
         displayOptions: "Display options",
         displayMode: "Detail level",
-        displayStandard: "Standard",
+        displayModeHelp: "Custom applies the fields ticked on each point. Minimal only shows temperature, humidity and comfort; Detailed shows every field.",
+        displayCustom: "Custom",
         displayMinimal: "Minimal",
         temperatureUnit: "Temperature unit",
         unitAuto: "Automatic (Home Assistant)",
@@ -764,6 +790,7 @@ const editorTranslations = {
         details: "Campos mostrados",
         dewPoint: "Punto de rocío",
         wetBulb: "Temp. húmeda",
+        apparentTemp: "Sensación térmica",
         enthalpy: "Entalpía",
         absHumidity: "Humedad abs.",
         waterContent: "Contenido de agua",
@@ -794,7 +821,8 @@ const editorTranslations = {
         opacity: "Opacidad",
         displayOptions: "Opciones de visualización",
         displayMode: "Nivel de detalle",
-        displayStandard: "Estándar",
+        displayModeHelp: "Personalizado aplica los campos marcados en cada punto. Mínimo solo muestra temperatura, humedad y confort; Detallado muestra todos los campos.",
+        displayCustom: "Personalizado",
         displayMinimal: "Mínimo",
         temperatureUnit: "Unidad de temperatura",
         unitAuto: "Automática (Home Assistant)",
@@ -839,6 +867,7 @@ const editorTranslations = {
         details: "Angezeigte Felder",
         dewPoint: "Taupunkt",
         wetBulb: "Feuchtkugeltemp.",
+        apparentTemp: "Gefühlte Temp.",
         enthalpy: "Enthalpie",
         absHumidity: "Abs. Feuchtigkeit",
         waterContent: "Wassergehalt",
@@ -869,7 +898,8 @@ const editorTranslations = {
         opacity: "Deckkraft",
         displayOptions: "Anzeigeoptionen",
         displayMode: "Detailgrad",
-        displayStandard: "Standard",
+        displayModeHelp: "Benutzerdefiniert wendet die pro Punkt angehakten Felder an. Minimal zeigt nur Temperatur, Luftfeuchte und Komfort; Detailliert zeigt alle Felder.",
+        displayCustom: "Benutzerdefiniert",
         displayMinimal: "Minimal",
         temperatureUnit: "Temperatureinheit",
         unitAuto: "Automatisch (Home Assistant)",
@@ -961,10 +991,11 @@ class PsychrometricChartEditor extends i {
      * @returns {string} Couleur CSS
      */
     _colorFallback(key) {
-        // L'aperçu doit refléter le mode réellement rendu par la carte.
-        const mode = this._config?.themeMode ?? (this._config?.darkMode === true ? 'dark' : 'auto');
+        // L'aperçu doit refléter le mode réellement rendu par la carte : même règle
+        // que son _isDark(), où `darkMode` n'est plus lu.
+        const mode = this._config?.themeMode ?? 'auto';
         const dark = mode === 'dark'
-            || (mode === 'auto' && Boolean(this.hass?.themes?.darkMode));
+            || (mode !== 'light' && Boolean(this.hass?.themes?.darkMode));
         switch (key) {
             case 'bgColor': return dark ? '#1c1c1c' : '#ffffff';
             case 'textColor': return dark ? '#e0e0e0' : '#333333';
@@ -1107,7 +1138,7 @@ class PsychrometricChartEditor extends i {
                         mode: 'dropdown',
                         options: [
                             { value: 'minimal', label: this.t('displayMinimal') },
-                            { value: 'standard', label: this.t('displayStandard') },
+                            { value: 'custom', label: this.t('displayCustom') },
                             { value: 'detailed', label: this.t('displayDetailed') },
                         ],
                     },
@@ -1162,9 +1193,11 @@ class PsychrometricChartEditor extends i {
             language: config.language ?? 'fr',
             temperatureUnit: config.temperatureUnit ?? 'auto',
             theme: config.theme ?? 'modern',
-            // Rétrocompatibilité : l'ancien booléen darkMode ne servait qu'à forcer le sombre.
-            themeMode: config.themeMode ?? (config.darkMode === true ? 'dark' : 'auto'),
-            displayMode: config.displayMode ?? 'standard',
+            themeMode: config.themeMode ?? 'auto',
+            // `standard` est l'ancien nom de `custom` : le normaliser ici évite un
+            // sélecteur vide sur une config existante, et fait disparaître la valeur
+            // périmée du YAML dès la première modification dans l'éditeur.
+            displayMode: config.displayMode === 'standard' ? 'custom' : (config.displayMode ?? 'custom'),
             massFlowRate: config.massFlowRate ?? 0.5,
             comfortRange: { ...DEFAULT_COMFORT_RANGE, ...(config.comfortRange || {}) },
             showEnthalpy: config.showEnthalpy !== false,
@@ -1209,8 +1242,8 @@ class PsychrometricChartEditor extends i {
         const cleaned = {};
         for (const [key, value] of Object.entries(config)) {
             if (value === '' || value === null || value === undefined) continue;
-            // `darkMode` est remplacé par `themeMode` : le laisser cohabiterait avec son
-            // successeur dans le YAML sans plus rien piloter. _formData l'a déjà migré.
+            // `darkMode` est remplacé par `themeMode` et n'est plus lu par la carte :
+            // le laisser dans le YAML ferait croire qu'il pilote encore le thème.
             if (key === 'darkMode') continue;
             cleaned[key] = value;
         }
@@ -1884,6 +1917,7 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Teneur en eau',
                 specificVolume: 'Volume spécifique',
                 pmvIndex: 'Indice PMV',
+                apparentTemp: 'Temp. ressentie',
                 wetBulb: 'Temp. humide',
                 moldRisk: 'Moisissure',
                 action: 'Action',
@@ -1929,6 +1963,7 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Water content',
                 specificVolume: 'Specific volume',
                 pmvIndex: 'PMV Index',
+                apparentTemp: 'Feels like',
                 wetBulb: 'Wet bulb',
                 moldRisk: 'Mold risk',
                 action: 'Action',
@@ -1974,6 +2009,7 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Contenido de agua',
                 specificVolume: 'Volumen específico',
                 pmvIndex: 'Índice PMV',
+                apparentTemp: 'Sensación térmica',
                 wetBulb: 'Temp. húmeda',
                 moldRisk: 'Moho',
                 action: 'Acción',
@@ -2019,6 +2055,7 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Wassergehalt',
                 specificVolume: 'Spezifisches Volumen',
                 pmvIndex: 'PMV-Index',
+                apparentTemp: 'Gefühlte Temp.',
                 wetBulb: 'Feuchtkugeltemp.',
                 moldRisk: 'Schimmel',
                 action: 'Aktion',
@@ -2104,6 +2141,11 @@ class PsychrometricChartEnhanced extends i {
 
     /**
      * Get the default configuration stub.
+     *
+     * Aucune couleur n'y figure : `textColor: '#333333'` y était codé en dur, si bien
+     * que toute carte créée depuis le sélecteur naissait avec un texte gris foncé
+     * illisible sur un thème sombre, et que `_palette()` ne pouvait plus résoudre la
+     * variable du thème. Sans clé de couleur, la carte suit Home Assistant.
      * @returns {Object} Default configuration
      */
     static getStubConfig() {
@@ -2114,8 +2156,7 @@ class PsychrometricChartEnhanced extends i {
             showDewPoint: true,
             showWetBulb: true,
             showVaporPressure: true,
-            darkMode: false,
-            textColor: "#333333"
+            themeMode: "auto"
         };
     }
 
@@ -2250,17 +2291,19 @@ class PsychrometricChartEnhanced extends i {
 
     /**
      * Whether the card must render its dark palette.
-     * Defaults to following the Home Assistant theme, which is what the card always
-     * claimed to do but never did: it used to hardcode its light palette unless
-     * `darkMode: true` was set, ignoring the user's actual theme.
+     *
+     * `themeMode` est l'unique commande : sans lui, la carte suit le thème de Home
+     * Assistant. L'ancien booléen `darkMode` n'est volontairement plus lu — tant qu'il
+     * l'était, une config l'ayant hérité (la documentation l'annonçait comme « force le
+     * mode sombre ») figeait la carte en sombre à vie, et basculer Home Assistant en
+     * clair n'avait aucun effet. Qui veut réellement forcer le sombre pose
+     * `themeMode: dark`.
      * @returns {boolean} True when the dark palette applies
      */
     _isDark() {
         const mode = this.config?.themeMode;
         if (mode === 'dark') return true;
         if (mode === 'light') return false;
-        // Rétrocompatibilité : l'ancienne option booléenne ne servait qu'à forcer le sombre.
-        if (mode === undefined && this.config?.darkMode === true) return true;
         return Boolean(this.hass?.themes?.darkMode);
     }
 
@@ -2490,6 +2533,7 @@ class PsychrometricChartEnhanced extends i {
             const specificVolume = PsychrometricCalculations.calculateSpecificVolume(temp, humidity);
             const moldRisk = PsychrometricCalculations.calculateMoldRisk(temp, humidity);
             const pmv = PsychrometricCalculations.calculatePMV(temp, humidity);
+            const apparentTemp = PsychrometricCalculations.calculateApparentTemperature(temp, humidity);
             const idealSetpoint = PsychrometricCalculations.calculateIdealSetpoint(temp, humidity, comfortRange);
 
             // Normalisation en hex : le dessin concatène `color + '40'` pour le halo et
@@ -2500,7 +2544,7 @@ class PsychrometricChartEnhanced extends i {
 
             return {
                 temp, humidity, action, power, heatingPower, coolingPower, humidificationPower, dehumidificationPower,
-                dewPoint, waterContent, enthalpy, absoluteHumidity, wetBulbTemp, specificVolume, moldRisk, pmv, idealSetpoint,
+                dewPoint, waterContent, enthalpy, absoluteHumidity, wetBulbTemp, specificVolume, moldRisk, pmv, apparentTemp, idealSetpoint,
                 color,
                 label: point.label || `${point.temp} & ${point.humidity}`,
                 icon: point.icon || "mdi:thermometer",
@@ -3323,7 +3367,7 @@ class PsychrometricChartEnhanced extends i {
     _shouldShowField(point, field) {
         // Le niveau de détail est un interrupteur maître au-dessus du réglage par point :
         //   minimal  : la carte se réduit à température, humidité et badge de confort
-        //   standard : c'est `point.details` qui décide
+        //   custom   : c'est `point.details` qui décide — les cases cochées sur le point
         //   detailed : tous les champs, quel que soit `point.details`
         const mode = this._displayMode();
         if (mode === 'minimal') return false;
@@ -3336,18 +3380,24 @@ class PsychrometricChartEnhanced extends i {
             return point.details.includes(field);
         }
 
-        // Default: show standard fields if no custom display configured
-        const defaultFields = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+        // Aucun `details` sur le point : repli sur les champs les plus courants.
+        // Doit rester aligné avec DEFAULT_DETAILS dans l'éditeur.
+        const defaultFields = ['dewPoint', 'wetBulb', 'apparentTemp', 'enthalpy', 'pmvIndex'];
         return defaultFields.includes(field);
     }
 
     /**
      * Current detail level.
-     * @returns {string} 'minimal', 'standard' or 'detailed'
+     *
+     * `standard` a été renommé `custom`, qui décrit ce que le mode fait réellement :
+     * respecter les cases cochées sur chaque point. Les configurations existantes
+     * portent encore l'ancienne valeur, d'où sa reconnaissance comme alias.
+     * @returns {string} 'minimal', 'custom' or 'detailed'
      */
     _displayMode() {
         const mode = this.config?.displayMode;
-        return ['minimal', 'standard', 'detailed'].includes(mode) ? mode : 'standard';
+        if (mode === 'standard') return 'custom';
+        return ['minimal', 'custom', 'detailed'].includes(mode) ? mode : 'custom';
     }
 
     render() {
@@ -3482,6 +3532,7 @@ class PsychrometricChartEnhanced extends i {
                                         
                                         ${this._shouldShowField(point, 'dewPoint') ? b`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
                                         ${this._shouldShowField(point, 'wetBulb') ? b`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'apparentTemp') ? b`<div>${this.t('apparentTemp')}: ${this.formatTemp(point.apparentTemp)}</div>` : ''}
                                         ${this._shouldShowField(point, 'enthalpy') ? b`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
                                         ${this._shouldShowField(point, 'absHumidity') ? b`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
                                         ${this._shouldShowField(point, 'waterContent') ? b`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}

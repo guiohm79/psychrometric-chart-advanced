@@ -148,9 +148,8 @@ comfortRange:
 comfortColor: rgba(144, 238, 144, 0.3)
 massFlowRate: 0.5
 chartTitle: Diagramme Psychrométrique
-darkMode: true
-showMoldRisk: true
-displayMode: standard
+themeMode: auto
+displayMode: custom
 showEnthalpy: true
 showLegend: false
 showPointLabels: true
@@ -166,41 +165,33 @@ zoom_humidity_max: 70  # Humidité maximale à afficher (%) - optionnel
 
 ## Modes d'affichage
 
-Le paramètre `displayMode` permet de contrôler le niveau de détail affiché dans la section des données calculées. Trois modes sont disponibles :
+Le paramètre `displayMode` est un interrupteur maître au-dessus du `details` de chaque point. Trois modes sont disponibles :
 
 ### 🔹 minimal
-Affiche uniquement les mesures de base :
+Affiche uniquement les mesures de base, et retire les couches auxiliaires du graphique :
 - Température
 - Humidité
 - Badges de statut de confort
 
-### 🔹 standard (par défaut)
-Affiche les mesures de base plus les calculs psychrométriques clés :
-- Température
-- Humidité
-- Badges de statut de confort
-- Point de rosée
-- Température de bulbe humide
-- Enthalpie
-- Indice PMV (confort thermique)
+### 🔹 custom / Personnalisé (par défaut)
+Chaque point affiche exactement les champs cochés dans sa liste `details` — c'est le mode qui respecte votre configuration par point. Un point sans `details` retombe sur le point de rosée, la température humide, la température ressentie, l'enthalpie et l'indice PMV.
 
-### 🔹 advanced
-Affiche tous les calculs et recommandations disponibles :
-- Toutes les données du mode standard
-- Teneur en eau
-- Humidité absolue
-- Volume spécifique
-- Risque de moisissure (si `showMoldRisk: true`)
+### 🔹 detailed / Détaillé
+Affiche tous les champs disponibles pour tous les points, quel que soit `details` :
+- Toutes les données du mode `custom`
+- Teneur en eau, humidité absolue, volume spécifique
+- Risque de moisissure
 - Recommandations d'actions (chauffer, refroidir, humidifier, déshumidifier)
-- Calculs de puissance pour chaque action
-- Consigne idéale
+- Calculs de puissance pour chaque action, et consigne idéale
 
 **Exemple :**
 ```yaml
 type: custom:psychrometric-chart-enhanced
-displayMode: minimal  # ou 'standard' ou 'advanced'
+displayMode: minimal  # ou 'custom' ou 'detailed'
 # ... autres paramètres
 ```
+
+> `displayMode: standard` était l'ancien nom de `custom` et reste accepté : les configurations existantes continuent de fonctionner.
 
 ---
 

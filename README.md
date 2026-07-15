@@ -158,11 +158,8 @@ comfortRange:
 comfortColor: rgba(144, 238, 144, 0.3)
 massFlowRate: 0.5
 chartTitle: Psychrometric Chart
-darkMode: true
-showMoldRisk: true
-displayMode: standard
-showMoldRisk: true
-displayMode: standard
+themeMode: auto
+displayMode: custom
 showEnthalpy: true
 showVaporPressure: true
 showLegend: false
@@ -200,9 +197,8 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | `comfortColor` | string | No | `rgba(144,238,144,0.3)` | Comfort zone color |
 | `massFlowRate` | number | No | `0.5` | Mass flow rate (kg/s) for power calculations |
 | `chartTitle` | string | No | `Psychrometric Chart` | Chart title |
-| `darkMode` | boolean | No | `false` | Enable dark mode |
-| `showMoldRisk` | boolean | No | `true` | Display mold risk indicator |
-| `displayMode` | string | No | `standard` | Display mode: `minimal`, `standard`, or `advanced` |
+| `themeMode` | string | No | `auto` | Colour theme: `auto` (follows the Home Assistant light/dark theme), `light`, or `dark` |
+| `displayMode` | string | No | `custom` | Detail level: `minimal`, `custom` (applies each point's `details`), or `detailed` |
 | `showEnthalpy` | boolean | No | `false` | Show enthalpy curves |
 | `showVaporPressure` | boolean | No | `true` | Show vapor pressure vertical grid lines (kPa) |
 | `showLegend` | boolean | No | `true` | Show legend |
@@ -216,16 +212,17 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 
 You can customize exactly which data fields are displayed for each point, overriding the global `displayMode`. This is configured in the visual editor by expanding the "Affichage personnalisé" (Custom Display) section for each point.
 
-Available fields:
-- Dew Point
-- Wet Bulb
-- Enthalpy
-- Absolute Humidity
-- Water Content
-- Specific Volume
-- PMV Index
-- Mold Risk
-- Action/Power
+Available fields (`points[].details`):
+- `dewPoint` — Dew point
+- `wetBulb` — Wet bulb temperature
+- `apparentTemp` — Feels like (apparent temperature)
+- `enthalpy` — Enthalpy
+- `absHumidity` — Absolute humidity
+- `waterContent` — Water content
+- `specificVolume` — Specific volume
+- `pmvIndex` — PMV index
+- `moldRisk` — Mold risk
+- `action` — Action, power and ideal setpoint
 
 If you select specific fields for a point, **only** those fields (plus Temperature and Humidity) will be shown for that point. If you uncheck all fields, only Temperature and Humidity will be shown.
 
@@ -233,41 +230,33 @@ If you select specific fields for a point, **only** those fields (plus Temperatu
 
 ## Display Modes
 
-The `displayMode` parameter allows you to control the level of detail shown in the calculated data section. Three modes are available:
+The `displayMode` parameter is a master switch above each point's `details`. Three modes are available:
 
 ### 🔹 minimal
-Shows only basic measurements:
+Shows only basic measurements, and drops the auxiliary layers from the chart:
 - Temperature
 - Humidity
 - Comfort status badges
 
-### 🔹 standard (default)
-Shows basic measurements plus key psychrometric calculations:
-- Temperature
-- Humidity
-- Comfort status badges
-- Dew point
-- Wet bulb temperature
-- Enthalpy
-- PMV Index (thermal comfort)
+### 🔹 custom (default)
+Each point shows exactly the fields ticked in its `details` list — this is the mode that honours your per-point configuration. When a point has no `details` at all, it falls back to dew point, wet bulb, feels like, enthalpy and PMV index.
 
-### 🔹 advanced
-Shows all available calculations and recommendations:
-- All data from standard mode
-- Water content
-- Absolute humidity
-- Specific volume
-- Mold risk (if `showMoldRisk: true`)
+### 🔹 detailed
+Shows every available field for every point, whatever `details` says:
+- All data from `custom` mode
+- Water content, absolute humidity, specific volume
+- Mold risk
 - Action recommendations (heat, cool, humidify, dehumidify)
-- Power calculations for each action
-- Ideal setpoint
+- Power calculations for each action, and the ideal setpoint
 
 **Example:**
 ```yaml
 type: custom:psychrometric-chart-enhanced
-displayMode: minimal  # or 'standard' or 'advanced'
+displayMode: minimal  # or 'custom' or 'detailed'
 # ... other parameters
 ```
+
+> `displayMode: standard` was the previous name of `custom` and is still accepted, so existing configurations keep working.
 
 ---
 

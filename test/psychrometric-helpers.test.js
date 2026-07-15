@@ -88,6 +88,48 @@ test('calculateAbsoluteHumidity', () => {
     near(P.calculateAbsoluteHumidity(25, 0), 0, 1e-9, 'air sec');
 });
 
+test('calculateApparentTemperature suit la formule de Steadman', () => {
+    // AT = t + 0.33·e − 0.70·v − 4.00, avec e la pression de vapeur en hPa.
+    // Références calculées depuis l'équation publiée, pas depuis le code :
+    //   22 °C / 50 % → e = 13.219 hPa → 22 + 4.362 − 4 = 22.362
+    //   30 °C / 70 % → e = 29.689 hPa → 30 + 9.797 − 4 = 35.797
+    near(P.calculateApparentTemperature(22, 50), 22.362, 0.01, 'ressentie 22 °C / 50 %');
+    near(P.calculateApparentTemperature(30, 70), 35.797, 0.01, 'ressentie 30 °C / 70 %');
+});
+
+test('calculateApparentTemperature : l’air humide réchauffe, l’air sec rafraîchit', () => {
+    // Le seul intérêt du champ est de s'écarter de la température sèche dans le bon
+    // sens : à humidité élevée l'évaporation de la sueur est freinée (il fait plus
+    // chaud que le thermomètre), à humidité faible elle est facilitée.
+    assert.ok(P.calculateApparentTemperature(30, 70) > 30, '30 °C / 70 % doit sembler plus chaud');
+    assert.ok(P.calculateApparentTemperature(30, 20) < 30, '30 °C / 20 % doit sembler plus frais');
+
+    // Monotonie en humidité, à température constante.
+    let previous = -Infinity;
+    for (const rh of [10, 30, 50, 70, 90]) {
+        const at = P.calculateApparentTemperature(25, rh);
+        assert.ok(at > previous, `la ressentie doit croître avec l'humidité (${rh} %)`);
+        previous = at;
+    }
+});
+
+test('calculateApparentTemperature reste définie hors des plages chaudes', () => {
+    // C'est la raison du choix de Steadman plutôt que l'indice de chaleur ou l'humidex :
+    // un point extérieur en hiver doit rendre une valeur exploitable, pas un NaN ni un
+    // repli silencieux sur la température sèche.
+    for (const [t, rh] of [[-10, 80], [0, 60], [5, 90], [15, 40]]) {
+        const at = P.calculateApparentTemperature(t, rh);
+        assert.ok(Number.isFinite(at), `ressentie non finie à ${t} °C / ${rh} %`);
+        assert.ok(at < t, `par temps froid, l'air humide et immobile ne réchauffe pas (${t} °C)`);
+    }
+});
+
+test('calculateApparentTemperature : le vent rafraîchit', () => {
+    const still = P.calculateApparentTemperature(30, 70);
+    near(P.calculateApparentTemperature(30, 70, 2), still - 1.4, 0.01, '2 m/s retirent 1.4 °C');
+    assert.equal(P.calculateApparentTemperature(30, 70, 0), still, 'vent nul = valeur par défaut');
+});
+
 test('calculatePMV suit ISO 7730 et devient négatif quand il fait frais', () => {
     // Régression : la pression de vapeur était calculée avec un facteur 10 d'écart,
     // ce qui rendait le PMV positif même à 18 °C.

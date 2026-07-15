@@ -93,10 +93,16 @@ Les cartes utilisent des effets modernes :
 
 #### Mode sombre optimisé
 
-Le mode sombre détecte automatiquement le thème Home Assistant :
+Par défaut, la carte suit le thème clair/sombre de Home Assistant : il n'y a rien à
+configurer. Pour la forcer dans un mode donné, quel que soit le thème de HA :
 ```yaml
-darkMode: true  # Active automatiquement le mode sombre
+themeMode: auto   # auto (défaut, suit Home Assistant) | light | dark
 ```
+
+> L'ancienne option `darkMode: true` n'est plus lue : tant qu'elle l'était, elle figeait
+> la carte en sombre à vie et basculer Home Assistant en clair n'avait aucun effet.
+> Retirez-la de votre configuration ; pour forcer réellement le sombre, posez
+> `themeMode: dark`.
 
 Améliorations du mode sombre :
 - Contraste optimisé
@@ -141,10 +147,10 @@ showEnthalpy: true          # Afficher courbes d'enthalpie
 showMoldRisk: true          # Afficher risque moisissure
 showLegend: true            # Afficher la légende
 showPointLabels: true       # Afficher labels sur points
-darkMode: true              # Mode sombre
+themeMode: auto             # auto (suit Home Assistant), light, dark
 
 # Mode d'affichage
-displayMode: advanced       # standard, minimal, advanced
+displayMode: detailed       # minimal, custom, detailed
 
 # Calculs
 massFlowRate: 0.5          # Débit massique pour calculs (kg/s)
