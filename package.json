@@ -3,13 +3,18 @@
     "version": "1.0.0",
     "description": "A custom card for Home Assistant to visualize psychrometric data",
     "main": "psychrometric-chart-advanced.js",
+    "type": "module",
     "scripts": {
-        "build": "rollup -c"
+        "build": "rollup -c",
+        "test": "node --test"
     },
     "author": "Guillaume O.",
     "license": "MIT",
     "devDependencies": {
-        "rollup": ">=4.59.0",
-        "@rollup/plugin-node-resolve": "^15.2.3"
+        "@rollup/plugin-node-resolve": "^15.2.3",
+        "rollup": ">=4.59.0"
+    },
+    "dependencies": {
+        "lit": "^3.3.3"
     }
 }
