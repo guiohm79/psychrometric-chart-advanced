@@ -24,7 +24,8 @@ Il n'y a pas de linter. Le fichier distribué (`psychrometric-chart-advanced.js`
 Trois fichiers source sous `src/`, une classe par fichier, tous en Lit simple. **Lit est embarqué dans le bundle** (dépendance npm, résolue par `@rollup/plugin-node-resolve`) et non chargé depuis un CDN : beaucoup d'installations Home Assistant sont hors-ligne ou sur réseau restreint, où un import distant empêcherait la carte de se charger. Ne pas réintroduire d'`external` dans `rollup.config.js` — le bundle doit rester sans aucun import externe.
 
 - **`src/psychrometric-chart-advanced.js`** — `PsychrometricChartEnhanced extends LitElement` (enregistrée sous `psychrometric-chart-enhanced`). C'est la carte elle-même, et de loin le plus gros fichier (~1600 lignes). Flux interne clé :
-  - **`shouldUpdate()` est critique pour les performances** : Home Assistant remplace `hass` à chaque changement d'état de *n'importe quelle* entité de l'installation. La carte ne se met à jour que si l'un des capteurs réellement configurés a changé (`_watchedEntityIds()`). Ne jamais retirer cette garde.
+  - **`shouldUpdate()` est critique pour les performances** : Home Assistant remplace `hass` à chaque changement d'état de *n'importe quelle* entité de l'installation. La carte ne se met à jour que si l'un des capteurs réellement configurés a changé (`_watchedEntityIds()`). Ne jamais retirer cette garde. Elle surveille aussi `hass.themes` et `hass.locale` : tout nouvel élément de `hass` dont dépend le rendu doit y être ajouté, sinon son changement passera inaperçu.
+  - **Le thème suit Home Assistant par défaut.** `_isDark()` lit `hass.themes.darkMode` sauf si `themeMode` vaut `light`/`dark`. `_palette()` est la **source unique** de toutes les couleurs dessinées : elle résout les défauts depuis les variables CSS du thème (`--ha-card-background`, `--primary-text-color`) parce que le canvas exige des couleurs concrètes. Ne jamais coder une couleur en dur dans `_drawChart()` ni supposer un fond blanc en CSS — utiliser des surfaces translucides (`rgba(127, 127, 127, …)`) ou les variables HA.
   - `willUpdate()` calcule `_currentPoints` **une seule fois par cycle** ; `render()` et `_drawChart()` consomment ce tableau et ne doivent pas rappeler `_calculatePoints()`.
   - `updated(changedProperties)` déclenche `_drawChart()` sur changement de `hass`, `config` ou taille du canvas (`_canvasWidth`/`_canvasHeight`, alimentées par le `ResizeObserver`). Le survol du tooltip ne redessine pas le canvas.
   - `_calculatePoints()` lit les états d'entités courants depuis `hass` et calcule toutes les valeurs dérivées par point via `PsychrometricCalculations`. Il **écarte** les points dont l'entité est absente ou dont l'état n'est pas un nombre fini (`unavailable`, `unknown`) — sans quoi des `NaN` se propagent jusqu'à l'affichage.
@@ -45,6 +46,9 @@ Tous les calculs se font en **Celsius en interne** ; le Fahrenheit n'est qu'une 
 
 ### Ajouter une nouvelle langue
 Mettre à jour trois emplacements : `translations` dans le composant principal, `editorTranslations` dans l'éditeur, et les `options` du selector `language` dans `_generalSchema()` de l'éditeur.
+
+### Niveaux de détail
+`displayMode` est un interrupteur maître au-dessus du `details` par point, appliqué dans `_shouldShowField()` : `minimal` réduit chaque carte à température/humidité/badge et retire les couches auxiliaires du graphique, `standard` laisse `point.details` décider, `detailed` affiche tout. Il ne doit pas redevenir un simple doublon des cases `showEnthalpy`/`showWetBulb`/`showDewPoint`, ce qu'il était quand il ne touchait que le canvas.
 
 ### Ajouter un champ calculé
 Ajouter la méthode statique à `PsychrometricCalculations` → ajouter les clés de traduction dans les 4 langues → la brancher dans `_calculatePoints()` → ajouter la clé à `DETAIL_FIELDS` dans l'éditeur (elle apparaît automatiquement dans le selector `details`) → conditionner son affichage par `displayMode` dans `render()`.

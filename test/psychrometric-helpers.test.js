@@ -233,6 +233,50 @@ test('rgbToCss reste compatible avec le regex du dégradé de la carte', () => {
     }
 });
 
+/**
+ * Produit les graduations affichées pour une plage donnée.
+ * @param {number} min - Borne basse des données
+ * @param {number} max - Borne haute des données
+ * @returns {string[]} Libellés des graduations
+ */
+const ticksFor = (min, max) => {
+    const axis = P.niceScale(min, max, 6);
+    const ticks = [];
+    for (let value = axis.min; value <= axis.max + axis.step / 2; value += axis.step) {
+        ticks.push(value.toFixed(axis.decimals));
+    }
+    return ticks;
+};
+
+test('niceScale produit des graduations rondes', () => {
+    // Cas réel : l'échelle naïve (min + i/steps · plage) affichait 26.1 / 28.1 / 30.1.
+    assert.deepEqual(ticksFor(26.1, 36.0), ['26', '28', '30', '32', '34', '36'], 'plage de la capture');
+    assert.deepEqual(ticksFor(40, 85), ['40', '50', '60', '70', '80', '90'], 'humidité');
+    assert.deepEqual(ticksFor(0, 100), ['0', '20', '40', '60', '80', '100'], 'plage complète');
+});
+
+test('niceScale garde un écart affiché constant', () => {
+    // Régression : un pas de 2.5 s'affichait avec 0 décimale (-5, -3, 0, 3, 5, 8),
+    // donnant une échelle d'apparence irrégulière.
+    assert.deepEqual(ticksFor(-3.4, 7.1), ['-5.0', '-2.5', '0.0', '2.5', '5.0', '7.5'], 'pas de 2.5');
+
+    for (const [min, max] of [[26.1, 36], [18.2, 24.9], [-15.7, -2.2], [20.05, 20.35], [0.004, 0.021], [21, 21]]) {
+        const ticks = ticksFor(min, max).map(Number);
+        const gaps = ticks.slice(1).map((v, i) => Number((v - ticks[i]).toFixed(6)));
+        assert.equal(new Set(gaps).size, 1, `graduations non équidistantes pour [${min}, ${max}] : ${ticks}`);
+    }
+});
+
+test('niceScale encadre toujours les données', () => {
+    for (const [min, max] of [[26.1, 36], [-3.4, 7.1], [20.05, 20.35], [21, 21], [0.004, 0.021], [-15.7, -2.2]]) {
+        const axis = P.niceScale(min, max, 6);
+        assert.ok(axis.min <= min + 1e-9, `borne basse ${axis.min} au-dessus de ${min}`);
+        assert.ok(axis.max >= max - 1e-9, `borne haute ${axis.max} en dessous de ${max}`);
+        assert.ok(axis.max > axis.min, `plage nulle pour [${min}, ${max}]`);
+        assert.ok(axis.step > 0, `pas non positif pour [${min}, ${max}]`);
+    }
+});
+
 test('generateColorFromHash est déterministe et rend un hex exploitable', () => {
     const color = P.generateColorFromHash('sensor.salon_temp_sensor.salon_hum');
     assert.equal(color, P.generateColorFromHash('sensor.salon_temp_sensor.salon_hum'), 'déterminisme');

@@ -127,6 +127,42 @@ export class PsychrometricCalculations {
     }
 
     // ========================================
+    // AXIS SCALING
+    // ========================================
+
+    /**
+     * Build an axis scale snapped to round values.
+     *
+     * A naive `min + i/steps * range` produces unreadable ticks (26.1, 28.1, 30.1…);
+     * this snaps the step to 1, 2, 2.5, 5 or 10 times a power of ten, and returns the
+     * decimal count needed to render every tick without rounding them into a scale
+     * that only looks irregular.
+     * @param {number} min - Smallest data value
+     * @param {number} max - Largest data value
+     * @param {number} targetTicks - Desired number of gridlines
+     * @returns {{min: number, max: number, step: number, decimals: number}} Axis definition
+     */
+    static niceScale(min, max, targetTicks) {
+        const span = (max - min) || 1;
+        const rawStep = span / Math.max(1, targetTicks - 1);
+        const exponent = Math.floor(Math.log10(rawStep));
+        const magnitude = Math.pow(10, exponent);
+
+        const multiple = [1, 2, 2.5, 5, 10].find(m => m * magnitude >= rawStep) ?? 10;
+        const step = multiple * magnitude;
+
+        // Les décimales se déduisent de la puissance de dix, pas du pas lui-même :
+        // log10(2.5) vaut 0.39, dont la partie entière est nulle — un pas de 2.5
+        // s'afficherait alors arrondi à l'entier (-5, -3, 0, 3, 5, 8).
+        const decimals = Math.max(0, -exponent + (multiple === 2.5 ? 1 : 0));
+
+        const niceMin = Math.floor(min / step) * step;
+        const niceMax = Math.ceil(max / step) * step;
+
+        return { min: niceMin, max: niceMax === niceMin ? niceMin + step : niceMax, step, decimals };
+    }
+
+    // ========================================
     // TEMPERATURE CONVERSION UTILITIES
     // ========================================
 

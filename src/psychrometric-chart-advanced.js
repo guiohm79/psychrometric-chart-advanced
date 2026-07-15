@@ -38,17 +38,20 @@ class PsychrometricChartEnhanced extends LitElement {
             :host {
                 display: block;
             }
+            /* Sans surcharge explicite, ha-card garde le fond et le texte du thème HA. */
             ha-card {
                 overflow: hidden;
                 display: flex;
                 flex-direction: column;
                 height: 100%;
+                color: var(--primary-text-color);
             }
             .card-header {
                 padding: 16px;
                 font-size: 1.5rem;
                 font-weight: 500;
                 text-align: center;
+                color: inherit;
             }
             .chart-container {
                 position: relative;
@@ -130,13 +133,13 @@ class PsychrometricChartEnhanced extends LitElement {
             }
 
             .data-row:hover {
-                background: rgba(0, 0, 0, 0.05);
+                background: rgba(127, 127, 127, 0.15);
             }
 
             .action-box {
                 margin-top: 15px;
                 padding-top: 10px;
-                border-top: 1px solid rgba(0, 0, 0, 0.1);
+                border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.35));
                 font-size: 0.9em;
             }
 
@@ -192,11 +195,12 @@ class PsychrometricChartEnhanced extends LitElement {
                 font-size: 24px;
                 cursor: pointer;
                 transition: all 0.2s;
-                background: rgba(0, 0, 0, 0.1);
+                background: rgba(127, 127, 127, 0.2);
+                color: inherit;
             }
             .modal-close:hover {
                 transform: rotate(90deg);
-                background: rgba(0, 0, 0, 0.2);
+                background: rgba(127, 127, 127, 0.35);
             }
             .history-chart {
                 width: 100%;
@@ -263,12 +267,18 @@ class PsychrometricChartEnhanced extends LitElement {
                 position: absolute;
                 top: 10px;
                 right: 10px;
-                backdrop-filter: blur(10px);
                 padding: 12px;
                 border-radius: 10px;
                 text-align: left;
                 pointer-events: none;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                color: inherit;
+                border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.35));
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            }
+            .legend-title {
+                margin-bottom: 8px;
+                font-weight: bold;
+                font-size: 13px;
             }
             .legend-item {
                 display: flex;
@@ -698,6 +708,12 @@ class PsychrometricChartEnhanced extends LitElement {
         const oldHass = changedProperties.get('hass');
         if (!oldHass || !this.config) return true;
 
+        // Le thème et la locale changent le rendu sans qu'aucune entité ne bouge :
+        // sans ces deux gardes, basculer Home Assistant en sombre laisserait la carte
+        // figée dans sa palette claire jusqu'au prochain relevé de capteur.
+        if (oldHass.themes !== this.hass.themes) return true;
+        if (oldHass.locale !== this.hass.locale) return true;
+
         return this._watchedEntityIds().some(id => oldHass.states[id] !== this.hass.states[id]);
     }
 
@@ -738,6 +754,57 @@ class PsychrometricChartEnhanced extends LitElement {
      */
     t(key) {
         return this.translations[this._language]?.[key] ?? this.translations.fr[key] ?? key;
+    }
+
+    /**
+     * Whether the card must render its dark palette.
+     * Defaults to following the Home Assistant theme, which is what the card always
+     * claimed to do but never did: it used to hardcode its light palette unless
+     * `darkMode: true` was set, ignoring the user's actual theme.
+     * @returns {boolean} True when the dark palette applies
+     */
+    _isDark() {
+        const mode = this.config?.themeMode;
+        if (mode === 'dark') return true;
+        if (mode === 'light') return false;
+        // Rétrocompatibilité : l'ancienne option booléenne ne servait qu'à forcer le sombre.
+        if (mode === undefined && this.config?.darkMode === true) return true;
+        return Boolean(this.hass?.themes?.darkMode);
+    }
+
+    /**
+     * Resolve every colour the card draws with, once per use.
+     *
+     * Defaults come from the Home Assistant theme variables so the card blends into
+     * any theme — the canvas needs concrete colour strings, which CSS variables
+     * cannot provide directly, hence the computed-style read. Explicit config
+     * colours always win.
+     * @returns {Object} Resolved palette
+     */
+    _palette() {
+        const dark = this._isDark();
+        const styles = getComputedStyle(this);
+        /**
+         * Reads a CSS custom property, falling back when the theme does not define it.
+         * @param {string} name - Custom property name
+         * @param {string} fallback - Value to use when unset
+         * @returns {string} Resolved colour
+         */
+        const readVar = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+
+        return {
+            dark,
+            bg: this.config.bgColor
+                || readVar('--ha-card-background', readVar('--card-background-color', dark ? '#1c1c1c' : '#ffffff')),
+            text: this.config.textColor || readVar('--primary-text-color', dark ? '#e0e0e0' : '#333333'),
+            grid: this.config.gridColor || (dark ? '#444444' : '#cccccc'),
+            curve: this.config.curveColor || (dark ? '#4fc3f7' : '#1f77b4'),
+            comfort: this.config.comfortColor || (dark ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)'),
+            enthalpy: this.config.enthalpyColor || (dark ? 'rgba(255, 165, 0, 0.7)' : 'rgba(255, 99, 71, 0.7)'),
+            wetBulb: dark ? 'rgba(0, 255, 255, 0.4)' : 'rgba(0, 100, 255, 0.4)',
+            saturation: dark ? 'rgba(80, 180, 255, 0.9)' : 'rgba(30, 144, 255, 0.8)',
+            pointOutline: dark ? '#ffffff' : '#000000',
+        };
     }
 
     /**
@@ -1022,19 +1089,18 @@ class PsychrometricChartEnhanced extends LitElement {
             showWetBulb = true,
             showDewPoint = true,
             showVaporPressure = true,
-            darkMode = false,
             showPointLabels = true,
-            displayMode = "standard",
-            enthalpyColor
         } = this.config;
 
-        // Use configured colors or defaults based on mode
-        const actualBgColor = this.config.bgColor || (darkMode ? "#1c1c1c" : "#ffffff");
-        const actualGridColor = this.config.gridColor || (darkMode ? "#444444" : "#cccccc");
-        const actualCurveColor = this.config.curveColor || (darkMode ? "#4fc3f7" : "#1f77b4");
-        const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
-        const actualComfortColor = this.config.comfortColor || (darkMode ? "rgba(100, 200, 100, 0.3)" : "rgba(144, 238, 144, 0.5)");
-        const actualEnthalpyColor = enthalpyColor || (darkMode ? "rgba(255, 165, 0, 0.7)" : "rgba(255, 99, 71, 0.7)");
+        const minimal = this._displayMode() === 'minimal';
+        const palette = this._palette();
+        const darkMode = palette.dark;
+        const actualBgColor = palette.bg;
+        const actualGridColor = palette.grid;
+        const actualCurveColor = palette.curve;
+        const actualTextColor = palette.text;
+        const actualComfortColor = palette.comfort;
+        const actualEnthalpyColor = palette.enthalpy;
 
         const comfortRange = this.config.comfortRange ? {
             tempMin: this.toInternalTemp(this.config.comfortRange.tempMin),
@@ -1120,7 +1186,7 @@ class PsychrometricChartEnhanced extends LitElement {
         const endRh = bounds.maxHum < 100 ? Math.floor(bounds.maxHum / 10) * 10 : 100;
         for (let rh = startRh; rh <= endRh; rh += 10) {
             ctx.beginPath();
-            ctx.strokeStyle = rh === 100 ? "rgba(30, 144, 255, 0.8)" : actualCurveColor;
+            ctx.strokeStyle = rh === 100 ? palette.saturation : actualCurveColor;
             ctx.lineWidth = (rh % 20 === 0 ? 1.5 : 0.8) * scale;
 
             let firstPoint = true;
@@ -1163,7 +1229,7 @@ class PsychrometricChartEnhanced extends LitElement {
         }
 
         // Draw enthalpy curves
-        if (showEnthalpy && displayMode !== "minimal") {
+        if (showEnthalpy && !minimal) {
             ctx.setLineDash([2 * scale, 3 * scale]);
             ctx.strokeStyle = actualEnthalpyColor;
 
@@ -1199,9 +1265,9 @@ class PsychrometricChartEnhanced extends LitElement {
         }
 
         // Draw Wet Bulb lines
-        if (showWetBulb && displayMode !== "minimal") {
+        if (showWetBulb && !minimal) {
             ctx.setLineDash([1 * scale, 4 * scale]);
-            ctx.strokeStyle = darkMode ? "rgba(0, 255, 255, 0.4)" : "rgba(0, 100, 255, 0.4)";
+            ctx.strokeStyle = palette.wetBulb;
 
             for (const line of this._wetBulbLines(bounds)) {
                 let started = false;
@@ -1276,7 +1342,7 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.beginPath();
             ctx.arc(x, y, 6 * scale, 0, 2 * Math.PI);
             ctx.fill();
-            ctx.strokeStyle = darkMode ? "#ffffff" : "#000000";
+            ctx.strokeStyle = palette.pointOutline;
             ctx.lineWidth = 2 * scale;
             ctx.stroke();
 
@@ -1302,7 +1368,7 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.setLineDash([]);
 
             // Dew point
-            if (showDewPoint && displayMode !== "minimal") {
+            if (showDewPoint && !minimal) {
                 const dewX = this.tempToX(point.dewPoint);
                 const dewY = this.humidityToY(point.dewPoint, 100);
 
@@ -1495,9 +1561,14 @@ class PsychrometricChartEnhanced extends LitElement {
         try {
             // minimal_response / no_attributes allègent nettement la réponse : seuls
             // `state` et `last_changed` sont exploités par le tracé.
+            // significant_changes_only vaut 1 par défaut côté Home Assistant, et le filtre
+            // « changement significatif » des capteurs écarte les variations inférieures à
+            // 0.5 °C (1 % en humidité) : la courbe en ressortait quantifiée. On demande
+            // donc explicitement la résolution complète.
             const url = `history/period/${startTime.toISOString()}`
                 + `?filter_entity_id=${encodeURIComponent(entityId)}`
                 + `&end_time=${encodeURIComponent(endTime.toISOString())}`
+                + `&significant_changes_only=0`
                 + `&minimal_response&no_attributes`;
             const response = await this.hass.callApi('GET', url);
             // La requête a pu être doublée par des clics rapides : ignorer une réponse obsolète.
@@ -1567,16 +1638,19 @@ class PsychrometricChartEnhanced extends LitElement {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const type = this._selectedType;
-        const darkMode = this.config.darkMode;
-        const textColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
+        const palette = this._palette();
+        const textColor = palette.text;
+        const gridColor = palette.dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
+        const lineColor = type === 'temperature' ? '#ff9800' : '#2196f3';
 
         const values = samples.map(s => s.value);
-        const minVal = Math.min(...values);
-        const maxVal = Math.max(...values);
-        const range = maxVal - minVal || 1;
-        const padding = 40;
+        const padding = 44;
         const plotWidth = width - 2 * padding;
         const plotHeight = height - 2 * padding;
+
+        // Graduations sur des valeurs rondes : l'échelle se calait auparavant sur
+        // `min + i/5 · plage`, d'où des repères illisibles du type 26.1 / 28.1 / 30.1.
+        const axis = PsychrometricCalculations.niceScale(Math.min(...values), Math.max(...values), 6);
 
         // L'axe X porte le temps réel : un espacement par index déformerait la
         // chronologie, l'historique HA étant échantillonné irrégulièrement.
@@ -1584,31 +1658,59 @@ class PsychrometricChartEnhanced extends LitElement {
         const endTime = samples[samples.length - 1].time.getTime();
         const timeSpan = endTime - startTime || 1;
         const toX = time => padding + ((time - startTime) / timeSpan) * plotWidth;
-        const toY = value => height - padding - ((value - minVal) / range) * plotHeight;
+        const toY = value => height - padding - ((value - axis.min) / (axis.max - axis.min)) * plotHeight;
 
         ctx.clearRect(0, 0, width, height);
-
-        // Draw grid and Y-axis labels
-        ctx.strokeStyle = darkMode ? "#444444" : "#e0e0e0";
         ctx.lineWidth = 1;
-        ctx.fillStyle = textColor;
         ctx.font = '11px Arial';
+
+        // Grille horizontale + libellés de l'axe Y
+        ctx.strokeStyle = gridColor;
+        ctx.fillStyle = textColor;
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-
-        const steps = 5;
-        for (let i = 0; i <= steps; i++) {
-            const y = height - padding - (i / steps) * plotHeight;
+        for (let value = axis.min; value <= axis.max + axis.step / 2; value += axis.step) {
+            const y = toY(value);
             ctx.beginPath();
             ctx.moveTo(padding, y);
             ctx.lineTo(width - padding, y);
             ctx.stroke();
-            ctx.fillText((minVal + (i / steps) * range).toFixed(1), padding - 5, y);
+            ctx.fillText(value.toFixed(axis.decimals), padding - 6, y);
         }
 
-        // Draw curve
-        ctx.strokeStyle = type === 'temperature' ? '#ff9800' : '#2196f3';
-        ctx.lineWidth = 2;
+        // Grille verticale toutes les heures rondes, libellée toutes les 3 h
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const hourTicks = this._hourTicks(startTime, endTime);
+        for (const { time, labelled } of hourTicks) {
+            const x = toX(time);
+            ctx.strokeStyle = gridColor;
+            ctx.beginPath();
+            ctx.moveTo(x, padding);
+            ctx.lineTo(x, height - padding);
+            ctx.stroke();
+            if (labelled) {
+                ctx.fillStyle = textColor;
+                ctx.fillText(this._formatTime(new Date(time)), x, height - padding + 8);
+            }
+        }
+
+        // Aire sous la courbe, pour donner du corps au tracé
+        const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+        gradient.addColorStop(0, `${lineColor}40`);
+        gradient.addColorStop(1, `${lineColor}00`);
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(toX(startTime), height - padding);
+        for (const sample of samples) ctx.lineTo(toX(sample.time.getTime()), toY(sample.value));
+        ctx.lineTo(toX(endTime), height - padding);
+        ctx.closePath();
+        ctx.fill();
+
+        // Courbe
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1.8;
+        ctx.lineJoin = 'round';
         ctx.beginPath();
         samples.forEach((sample, index) => {
             const x = toX(sample.time.getTime());
@@ -1618,14 +1720,35 @@ class PsychrometricChartEnhanced extends LitElement {
         });
         ctx.stroke();
 
-        // X-axis Labels (Time)
-        ctx.fillStyle = textColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        for (const fraction of [0, 0.5, 1]) {
-            const time = startTime + fraction * timeSpan;
-            ctx.fillText(this._formatTime(new Date(time)), toX(time), height - padding + 10);
+        // Dernière valeur, mise en évidence
+        const last = samples[samples.length - 1];
+        ctx.fillStyle = lineColor;
+        ctx.beginPath();
+        ctx.arc(toX(last.time.getTime()), toY(last.value), 3, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+
+    /**
+     * Whole-hour gridline positions across a time span.
+     * @param {number} startTime - Range start, epoch ms
+     * @param {number} endTime - Range end, epoch ms
+     * @returns {Array<{time: number, labelled: boolean}>} Tick positions
+     */
+    _hourTicks(startTime, endTime) {
+        const hour = 3600 * 1000;
+        const ticks = [];
+        const first = new Date(startTime);
+        first.setMinutes(0, 0, 0);
+        let time = first.getTime();
+        if (time < startTime) time += hour;
+
+        // Sur 24 h, une graduation par heure et un libellé toutes les 3 h : au-delà,
+        // les libellés se chevauchent sur une carte étroite.
+        for (; time <= endTime; time += hour) {
+            ticks.push({ time, labelled: new Date(time).getHours() % 3 === 0 });
         }
+        return ticks;
     }
 
     /**
@@ -1646,9 +1769,9 @@ class PsychrometricChartEnhanced extends LitElement {
         const type = this._selectedType;
         const unit = type === 'temperature' ? this.getTempUnit() : '%';
         const label = type === 'temperature' ? this.t('temperature') : this.t('humidity');
-        const darkMode = this.config.darkMode;
-        const textColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
-        const bgColor = this.config.bgColor || (darkMode ? "#1c1c1c" : "#ffffff");
+        const palette = this._palette();
+        const textColor = palette.text;
+        const bgColor = palette.bg;
 
         const samples = this._historySamples();
         const stats = this._historyStats(samples);
@@ -1706,8 +1829,16 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {boolean}
      */
     _shouldShowField(point, field) {
+        // Le niveau de détail est un interrupteur maître au-dessus du réglage par point :
+        //   minimal  : la carte se réduit à température, humidité et badge de confort
+        //   standard : c'est `point.details` qui décide
+        //   detailed : tous les champs, quel que soit `point.details`
+        const mode = this._displayMode();
+        if (mode === 'minimal') return false;
+        if (mode === 'detailed') return true;
+
         // If point has specific details configured, use them
-        // Fix: check if details is an array, even if empty. 
+        // Fix: check if details is an array, even if empty.
         // If it is an array, it means the user has explicitly configured this point.
         if (point.details && Array.isArray(point.details)) {
             return point.details.includes(field);
@@ -1718,6 +1849,15 @@ class PsychrometricChartEnhanced extends LitElement {
         return defaultFields.includes(field);
     }
 
+    /**
+     * Current detail level.
+     * @returns {string} 'minimal', 'standard' or 'detailed'
+     */
+    _displayMode() {
+        const mode = this.config?.displayMode;
+        return ['minimal', 'standard', 'detailed'].includes(mode) ? mode : 'standard';
+    }
+
     render() {
         if (!this.config || !this.hass) return html``;
 
@@ -1726,20 +1866,25 @@ class PsychrometricChartEnhanced extends LitElement {
             chartTitle = "Diagramme Psychrométrique",
             showLegend = true,
             showCalculatedData = true,
-            darkMode = false,
             theme = "modern"
         } = this.config;
 
-        const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
-        const actualBgColor = this.config.bgColor || (darkMode ? "#1c1c1c" : "#ffffff");
+        const palette = this._palette();
+        const darkMode = palette.dark;
+        // Sans couleur explicitement configurée, on ne pose aucun style : ha-card et
+        // ses descendants héritent alors du thème de Home Assistant, quel qu'il soit.
+        const cardStyle = [
+            this.config.bgColor ? `background: ${this.config.bgColor}` : '',
+            this.config.textColor ? `color: ${this.config.textColor}` : '',
+        ].filter(Boolean).join('; ');
 
         // Les entités configurées sont toutes absentes ou invalides : le dire, plutôt
         // que d'afficher un diagramme vide sans explication.
         if (points.length === 0) {
             const message = this.config.points?.length ? this.t('noValidEntity') : this.t('noPointsConfigured');
             return html`
-                <ha-card class="theme-${theme}" style="background: ${actualBgColor}; color: ${actualTextColor}">
-                    <div class="card-header" style="color: ${actualTextColor}">${chartTitle}</div>
+                <ha-card class="theme-${theme}" style="${cardStyle}">
+                    <div class="card-header">${chartTitle}</div>
                     <div class="card-message">⚠️ ${message}</div>
                 </ha-card>
             `;
@@ -1753,30 +1898,33 @@ class PsychrometricChartEnhanced extends LitElement {
         const isClassic = theme === 'classic';
         const isCompact = theme === 'compact';
         
-        // Styles pour les data-box selon le thème
-        const dataBoxBg = isClassic 
-            ? (darkMode ? 'var(--card-background-color, #1c1c1c)' : 'var(--card-background-color, #ffffff)')
-            : (darkMode ? 'linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%)');
-        
-        const dataBoxBoxShadow = isClassic 
-            ? 'none' 
+        // Surfaces translucides plutôt que des blancs/gris opaques : elles se posent
+        // correctement sur le fond du thème courant, quel qu'il soit.
+        const dataBoxBg = isClassic
+            ? 'var(--card-background-color, transparent)'
+            : (darkMode
+                ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
+                : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
+
+        const dataBoxBoxShadow = isClassic
+            ? 'none'
             : `0 4px 15px rgba(0, 0, 0, ${darkMode ? '0.3' : '0.1'})`;
-        
-        const legendBg = isClassic || isCompact
-            ? (darkMode ? 'var(--card-background-color, #2d2d2d)' : 'var(--card-background-color, #ffffff)')
-            : (darkMode ? 'rgba(45, 45, 45, 0.9)' : 'rgba(255,255,255,0.9)');
+
+        // La légende se pose sur le canvas : elle reprend la couleur de fond résolue
+        // du graphique pour rester lisible sans jamais supposer un fond blanc.
+        const legendBg = palette.bg;
 
         return html`
-            <ha-card class="theme-${theme}" style="background: ${actualBgColor}; color: ${actualTextColor}">
-                <div class="card-header" style="color: ${actualTextColor}">${chartTitle}</div>
-                
+            <ha-card class="theme-${theme}" style="${cardStyle}">
+                <div class="card-header">${chartTitle}</div>
+
                 <div class="chart-container">
                     <canvas id="psychroChart" role="img" aria-label="${chartDescription}">
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? html`
-                        <div class="legend-box" style="background: ${legendBg}; color: ${actualTextColor}">
-                            <div style="margin-bottom: 8px; font-weight: bold; color: ${actualTextColor}; font-size: 13px;">📍 ${this.t('legend')}</div>
+                        <div class="legend-box" style="background: ${legendBg}">
+                            <div class="legend-title">📍 ${this.t('legend')}</div>
                             ${points.map(p => html`
                                 <div class="legend-item">
                                     <span class="legend-color" style="background-color: ${p.color}; box-shadow: 0 0 5px ${p.color}"></span>

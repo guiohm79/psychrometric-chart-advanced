@@ -51,7 +51,7 @@ const SENSOR_DOMAINS = ['sensor', 'input_number', 'number'];
 const editorTranslations = {
     fr: {
         general: "Général",
-        title: "Titre",
+        chartTitle: "Titre",
         language: "Langue de la carte",
         languageHelp: "Langue des textes affichés sur la carte (l'éditeur suit la langue de Home Assistant).",
         measurementPoints: "Points de mesure",
@@ -112,8 +112,12 @@ const editorTranslations = {
         showPointLabels: "Afficher les labels des points",
         showLegend: "Afficher Légende",
         showCalculatedData: "Afficher Données Calculées",
-        darkMode: "Mode Sombre Forcé",
-        darkModeHelp: "Si décoché, utilise les couleurs claires par défaut.",
+        themeMode: "Thème de couleurs",
+        themeModeHelp: "Automatique suit le thème clair/sombre de Home Assistant.",
+        themeAuto: "Automatique (Home Assistant)",
+        themeLight: "Clair",
+        themeDark: "Sombre",
+        displayDetailed: "Détaillé",
         zoomPan: "Bornes du graphique (optionnel)",
         zoom_temp_min: "Température min",
         zoom_temp_max: "Température max",
@@ -122,7 +126,7 @@ const editorTranslations = {
     },
     en: {
         general: "General",
-        title: "Title",
+        chartTitle: "Title",
         language: "Card language",
         languageHelp: "Language of the texts shown on the card (the editor follows the Home Assistant language).",
         measurementPoints: "Measurement points",
@@ -183,8 +187,12 @@ const editorTranslations = {
         showPointLabels: "Show point labels",
         showLegend: "Show legend",
         showCalculatedData: "Show calculated data",
-        darkMode: "Force dark mode",
-        darkModeHelp: "If unchecked, uses the default light colors.",
+        themeMode: "Colour theme",
+        themeModeHelp: "Automatic follows the Home Assistant light/dark theme.",
+        themeAuto: "Automatic (Home Assistant)",
+        themeLight: "Light",
+        themeDark: "Dark",
+        displayDetailed: "Detailed",
         zoomPan: "Chart bounds (optional)",
         zoom_temp_min: "Min temperature",
         zoom_temp_max: "Max temperature",
@@ -193,7 +201,7 @@ const editorTranslations = {
     },
     es: {
         general: "General",
-        title: "Título",
+        chartTitle: "Título",
         language: "Idioma de la tarjeta",
         languageHelp: "Idioma de los textos de la tarjeta (el editor sigue el idioma de Home Assistant).",
         measurementPoints: "Puntos de medición",
@@ -254,8 +262,12 @@ const editorTranslations = {
         showPointLabels: "Mostrar etiquetas de los puntos",
         showLegend: "Mostrar leyenda",
         showCalculatedData: "Mostrar datos calculados",
-        darkMode: "Modo oscuro forzado",
-        darkModeHelp: "Si está desmarcado, usa los colores claros por defecto.",
+        themeMode: "Tema de colores",
+        themeModeHelp: "Automático sigue el tema claro/oscuro de Home Assistant.",
+        themeAuto: "Automático (Home Assistant)",
+        themeLight: "Claro",
+        themeDark: "Oscuro",
+        displayDetailed: "Detallado",
         zoomPan: "Límites del gráfico (opcional)",
         zoom_temp_min: "Temp. mín",
         zoom_temp_max: "Temp. máx",
@@ -264,7 +276,7 @@ const editorTranslations = {
     },
     de: {
         general: "Allgemein",
-        title: "Titel",
+        chartTitle: "Titel",
         language: "Sprache der Karte",
         languageHelp: "Sprache der Texte auf der Karte (der Editor folgt der Home-Assistant-Sprache).",
         measurementPoints: "Messpunkte",
@@ -325,8 +337,12 @@ const editorTranslations = {
         showPointLabels: "Punktbeschriftungen anzeigen",
         showLegend: "Legende anzeigen",
         showCalculatedData: "Berechnete Daten anzeigen",
-        darkMode: "Dunkelmodus erzwingen",
-        darkModeHelp: "Wenn deaktiviert, werden die hellen Standardfarben verwendet.",
+        themeMode: "Farbschema",
+        themeModeHelp: "Automatisch folgt dem hellen/dunklen Thema von Home Assistant.",
+        themeAuto: "Automatisch (Home Assistant)",
+        themeLight: "Hell",
+        themeDark: "Dunkel",
+        displayDetailed: "Detailliert",
         zoomPan: "Diagrammgrenzen (optional)",
         zoom_temp_min: "Min. Temperatur",
         zoom_temp_max: "Max. Temperatur",
@@ -400,7 +416,10 @@ export class PsychrometricChartEditor extends LitElement {
      * @returns {string} Couleur CSS
      */
     _colorFallback(key) {
-        const dark = Boolean(this._config?.darkMode);
+        // L'aperçu doit refléter le mode réellement rendu par la carte.
+        const mode = this._config?.themeMode ?? (this._config?.darkMode === true ? 'dark' : 'auto');
+        const dark = mode === 'dark'
+            || (mode === 'auto' && Boolean(this.hass?.themes?.darkMode));
         switch (key) {
             case 'bgColor': return dark ? '#1c1c1c' : '#ffffff';
             case 'textColor': return dark ? '#e0e0e0' : '#333333';
@@ -524,13 +543,27 @@ export class PsychrometricChartEditor extends LitElement {
                 },
             },
             {
+                name: 'themeMode',
+                selector: {
+                    select: {
+                        mode: 'dropdown',
+                        options: [
+                            { value: 'auto', label: this.t('themeAuto') },
+                            { value: 'light', label: this.t('themeLight') },
+                            { value: 'dark', label: this.t('themeDark') },
+                        ],
+                    },
+                },
+            },
+            {
                 name: 'displayMode',
                 selector: {
                     select: {
                         mode: 'dropdown',
                         options: [
-                            { value: 'standard', label: this.t('displayStandard') },
                             { value: 'minimal', label: this.t('displayMinimal') },
+                            { value: 'standard', label: this.t('displayStandard') },
+                            { value: 'detailed', label: this.t('displayDetailed') },
                         ],
                     },
                 },
@@ -546,7 +579,6 @@ export class PsychrometricChartEditor extends LitElement {
                     { name: 'showPointLabels', selector: { boolean: {} } },
                     { name: 'showLegend', selector: { boolean: {} } },
                     { name: 'showCalculatedData', selector: { boolean: {} } },
-                    { name: 'darkMode', selector: { boolean: {} } },
                 ],
             },
         ];
@@ -585,6 +617,8 @@ export class PsychrometricChartEditor extends LitElement {
             language: config.language ?? 'fr',
             temperatureUnit: config.temperatureUnit ?? 'auto',
             theme: config.theme ?? 'modern',
+            // Rétrocompatibilité : l'ancien booléen darkMode ne servait qu'à forcer le sombre.
+            themeMode: config.themeMode ?? (config.darkMode === true ? 'dark' : 'auto'),
             displayMode: config.displayMode ?? 'standard',
             massFlowRate: config.massFlowRate ?? 0.5,
             comfortRange: { ...DEFAULT_COMFORT_RANGE, ...(config.comfortRange || {}) },
@@ -595,7 +629,6 @@ export class PsychrometricChartEditor extends LitElement {
             showPointLabels: config.showPointLabels !== false,
             showLegend: config.showLegend !== false,
             showCalculatedData: config.showCalculatedData !== false,
-            darkMode: Boolean(config.darkMode),
         };
     }
 
@@ -631,6 +664,9 @@ export class PsychrometricChartEditor extends LitElement {
         const cleaned = {};
         for (const [key, value] of Object.entries(config)) {
             if (value === '' || value === null || value === undefined) continue;
+            // `darkMode` est remplacé par `themeMode` : le laisser cohabiterait avec son
+            // successeur dans le YAML sans plus rien piloter. _formData l'a déjà migré.
+            if (key === 'darkMode') continue;
             cleaned[key] = value;
         }
         return cleaned;
