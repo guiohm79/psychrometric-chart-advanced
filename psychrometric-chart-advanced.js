@@ -1,4 +1,28 @@
-import { LitElement, css, html } from 'https://unpkg.com/lit?module';
+/**
+ * @license
+ * Copyright 2019 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t$1=globalThis,e$2=t$1.ShadowRoot&&(void 0===t$1.ShadyCSS||t$1.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$3=new WeakMap;let n$2 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$3.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$3.set(s,t));}return t}toString(){return this.cssText}};const r$2=t=>new n$2("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$2(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$1.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$2(e)})(t):t;
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$1,getOwnPropertySymbols:o$2,getPrototypeOf:n$1}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$1(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$1(t),...o$2(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$1=`lit$${Math.random().toFixed(9).slice(2)}$`,n="?"+o$1,r=`<${n}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$1+x):s+o$1+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$1),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$1)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$1),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$1,t+1));)d.push({type:7,index:l}),t+=o$1.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t.litHtmlPolyfillSupport;B?.(S,k),(t.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o=s.litElementPolyfillSupport;o?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.2");
 
 /**
  * Psychrometric Calculations Helper
@@ -8,49 +32,36 @@ import { LitElement, css, html } from 'https://unpkg.com/lit?module';
 class PsychrometricCalculations {
 
     // ========================================
-    // RANDOM COLOR GENERATION
+    // COLOR GENERATION
     // ========================================
 
     /**
-     * Generate a random bright color for points without specified colors.
-     * Uses HSL color space to ensure vibrant, saturated colors.
-     * @returns {string} Hex color code (e.g., "#ff0000")
+     * Convert an HSL color to RGB components.
+     * @param {number} h - Hue, normalized to 0-1
+     * @param {number} s - Saturation, normalized to 0-1
+     * @param {number} l - Lightness, normalized to 0-1
+     * @returns {number[]} [r, g, b] in the 0-255 range
      */
-    static generateRandomBrightColor() {
-        // Generate bright, vibrant colors using HSL
-        const hue = Math.floor(Math.random() * 360); // Random hue (0-360)
-        const saturation = 80 + Math.floor(Math.random() * 20); // 80-100% saturation
-        const lightness = 50 + Math.floor(Math.random() * 15); // 50-65% lightness
-
-        // Convert HSL to hex
-        const h = hue / 360;
-        const s = saturation / 100;
-        const l = lightness / 100;
-
-        const hslToRgb = (h, s, l) => {
-            let r, g, b;
-            if (s === 0) {
-                r = g = b = l;
-            } else {
-                const hue2rgb = (p, q, t) => {
-                    if (t < 0) t += 1;
-                    if (t > 1) t -= 1;
-                    if (t < 1 / 6) return p + (q - p) * 6 * t;
-                    if (t < 1 / 2) return q;
-                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-                    return p;
-                };
-                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-                const p = 2 * l - q;
-                r = hue2rgb(p, q, h + 1 / 3);
-                g = hue2rgb(p, q, h);
-                b = hue2rgb(p, q, h - 1 / 3);
-            }
-            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    static hslToRgb(h, s, l) {
+        if (s === 0) {
+            const v = Math.round(l * 255);
+            return [v, v, v];
+        }
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
         };
-
-        const [r, g, b] = hslToRgb(h, s, l);
-        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        return [
+            hue2rgb(p, q, h + 1 / 3),
+            hue2rgb(p, q, h),
+            hue2rgb(p, q, h - 1 / 3),
+        ].map(v => Math.round(v * 255));
     }
 
     /**
@@ -65,42 +76,80 @@ class PsychrometricCalculations {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
         }
 
-        // Generate HSL from hash
-        const hue = Math.abs(hash % 360);
-        const saturation = 70 + (Math.abs(hash) % 30); // 70-100%
-        const lightness = 45 + (Math.abs(hash) % 20); // 45-65%
+        const hue = Math.abs(hash % 360) / 360;
+        const saturation = (70 + (Math.abs(hash) % 30)) / 100;
+        const lightness = (45 + (Math.abs(hash) % 20)) / 100;
 
-        // Convert HSL to RGB then Hex (reusing similar logic or simplified)
-        // Simplified HSL to RGB conversion for brevity
-        const h = hue / 360;
-        const s = saturation / 100;
-        const l = lightness / 100;
+        return this.rgbToHex(this.hslToRgb(hue, saturation, lightness));
+    }
 
-        let r, g, b;
-        if (s === 0) {
-            r = g = b = l;
-        } else {
-            const hue2rgb = (p, q, t) => {
-                if (t < 0) t += 1;
-                if (t > 1) t -= 1;
-                if (t < 1 / 6) return p + (q - p) * 6 * t;
-                if (t < 1 / 2) return q;
-                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-                return p;
-            };
-            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-            const p = 2 * l - q;
-            r = hue2rgb(p, q, h + 1 / 3);
-            g = hue2rgb(p, q, h);
-            b = hue2rgb(p, q, h - 1 / 3);
+    // ========================================
+    // COLOR PARSING UTILITIES
+    // ========================================
+
+    /**
+     * Extract the RGB components of a CSS color (3/6/8-digit hex, rgb() or rgba()).
+     * @param {string} color - CSS color
+     * @returns {number[]} [r, g, b], defaults to [0, 0, 0] when unparseable
+     */
+    static colorToRgb(color) {
+        if (typeof color === 'string') {
+            const value = color.trim();
+            if (value.startsWith('#')) {
+                const body = value.slice(1);
+                if (body.length === 3) {
+                    return [0, 1, 2].map(i => parseInt(body[i] + body[i], 16));
+                }
+                if (body.length >= 6) {
+                    return [0, 2, 4].map(i => parseInt(body.slice(i, i + 2), 16));
+                }
+            }
+            const match = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+            if (match) return [1, 2, 3].map(i => parseInt(match[i], 10));
         }
+        return [0, 0, 0];
+    }
 
-        const toHex = x => {
-            const hex = Math.round(x * 255).toString(16);
-            return hex.length === 1 ? '0' + hex : hex;
-        };
+    /**
+     * Extract the opacity of a CSS color.
+     * @param {string} color - CSS color
+     * @returns {number} Opacity between 0 and 1, defaults to 1
+     */
+    static colorToAlpha(color) {
+        if (typeof color === 'string') {
+            const value = color.trim();
+            if (value.startsWith('#') && value.length === 9) {
+                return parseInt(value.slice(7, 9), 16) / 255;
+            }
+            const match = value.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+            if (match) return parseFloat(match[1]);
+        }
+        return 1;
+    }
 
-        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    /**
+     * Convert RGB components to a hex color.
+     * @param {number[]} rgb - [r, g, b]
+     * @returns {string} Hex color (#rrggbb)
+     */
+    static rgbToHex(rgb) {
+        const [r, g, b] = Array.isArray(rgb) ? rgb : [0, 0, 0];
+        return `#${[r, g, b]
+            .map(v => Math.max(0, Math.min(255, Math.round(v || 0))).toString(16).padStart(2, '0'))
+            .join('')}`;
+    }
+
+    /**
+     * Recompose a CSS color from RGB components and an opacity.
+     * Returns a hex string at full opacity, an rgba() string otherwise.
+     * @param {number[]} rgb - [r, g, b]
+     * @param {number} alpha - Opacity between 0 and 1
+     * @returns {string} CSS color
+     */
+    static rgbToCss(rgb, alpha) {
+        if (!(alpha < 1)) return this.rgbToHex(rgb);
+        const [r, g, b] = Array.isArray(rgb) ? rgb : [0, 0, 0];
+        return `rgba(${r}, ${g}, ${b}, ${Number(Math.max(0, alpha).toFixed(2))})`;
     }
 
     // ========================================
@@ -131,6 +180,25 @@ class PsychrometricCalculations {
     // ========================================
 
     /**
+     * Atmospheric pressure at sea level, in kPa.
+     * @type {number}
+     */
+    static get ATMOSPHERIC_PRESSURE() {
+        return 101.325;
+    }
+
+    /**
+     * Calculate the saturation vapor pressure (Magnus-Tetens).
+     * Single source of truth: every other formula must go through this one
+     * rather than inlining the `0.61078 * exp(17.27 t / (t + 237.3))` expression.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @returns {number} Saturation vapor pressure in kPa
+     */
+    static calculateSaturationPressure(temp) {
+        return 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
+    }
+
+    /**
      * Calculate Dew Point temperature.
      * @param {number} temp - Dry bulb temperature in Celsius
      * @param {number} humidity - Relative humidity in %
@@ -150,10 +218,32 @@ class PsychrometricCalculations {
      * @returns {number} Water content in kg/kg (dry air)
      */
     static calculateWaterContent(temp, humidity) {
-        const P = 101.325;
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v = (humidity / 100) * P_sat;
+        const P = this.ATMOSPHERIC_PRESSURE;
+        const P_v = (humidity / 100) * this.calculateSaturationPressure(temp);
         return 0.622 * (P_v / (P - P_v));
+    }
+
+    /**
+     * Convert a water content (mixing ratio) back to a vapor pressure.
+     * @param {number} waterContent - Water content in kg/kg (dry air)
+     * @returns {number} Vapor pressure in kPa
+     */
+    static waterContentToVaporPressure(waterContent) {
+        return (waterContent * this.ATMOSPHERIC_PRESSURE) / (0.622 + waterContent);
+    }
+
+    /**
+     * Calculate the water content of moist air along a constant wet bulb line (ASHRAE).
+     * Replaces the brute-force search that used to scan `calculateWetBulbTemp` over a
+     * temperature/humidity grid: this is a direct, closed-form evaluation.
+     * @param {number} temp - Dry bulb temperature in Celsius
+     * @param {number} wetBulb - Wet bulb temperature in Celsius
+     * @returns {number} Water content in kg/kg (dry air)
+     */
+    static calculateWaterContentFromWetBulb(temp, wetBulb) {
+        const Ws = this.calculateWaterContent(wetBulb, 100);
+        return ((2501 - 2.326 * wetBulb) * Ws - 1.006 * (temp - wetBulb))
+            / (2501 + 1.86 * temp - 4.186 * wetBulb);
     }
 
     /**
@@ -173,24 +263,41 @@ class PsychrometricCalculations {
      * @returns {number} Absolute humidity in g/m³
      */
     static calculateAbsoluteHumidity(temp, rh) {
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v = (rh / 100) * P_sat;
-        const P_v_Pa = P_v * 1000;
+        const P_v_Pa = this.calculateVaporPressure(temp, rh) * 1000;
         const absHumidity_kg = P_v_Pa / (461.5 * (temp + 273.15));
         return absHumidity_kg * 1000;
     }
 
     /**
-     * Calculate Wet Bulb Temperature (Stull's formula).
+     * Calculate Wet Bulb Temperature.
+     *
+     * Inverts the ASHRAE constant-wet-bulb relation by bisection rather than using
+     * Stull's closed-form approximation: Stull is only valid for 5-99 % RH and drifts
+     * by up to ~1 °C (nearly 5 points of RH around 10 °C), which would put the value
+     * shown on a point out of step with the iso-wet-bulb lines drawn on the chart —
+     * both now come from `calculateWaterContentFromWetBulb`.
      * @param {number} temp - Dry bulb temperature in Celsius
      * @param {number} rh - Relative humidity in %
      * @returns {number} Wet bulb temperature in Celsius
      */
     static calculateWetBulbTemp(temp, rh) {
-        const tw = temp * Math.atan(0.151977 * Math.pow(rh + 8.313659, 0.5))
-            + Math.atan(temp + rh) - Math.atan(rh - 1.676331)
-            + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) - 4.686035;
-        return tw;
+        const target = this.calculateWaterContent(temp, rh);
+
+        // La température humide est bornée par le point de rosée et la température sèche.
+        let low = this.calculateDewPoint(temp, Math.max(rh, 0.01));
+        let high = temp;
+        if (!(low < high)) return temp; // air saturé
+
+        // W est strictement croissante en tw : la bissection converge toujours.
+        for (let i = 0; i < 60; i++) {
+            const mid = (low + high) / 2;
+            if (this.calculateWaterContentFromWetBulb(temp, mid) < target) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return (low + high) / 2;
     }
 
     /**
@@ -200,22 +307,23 @@ class PsychrometricCalculations {
      * @returns {number} Vapor pressure in kPa
      */
     static calculateVaporPressure(temp, rh) {
-        return 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3)) * (rh / 100);
+        return this.calculateSaturationPressure(temp) * (rh / 100);
     }
 
     /**
-     * Calculate Specific Volume.
+     * Calculate Specific Volume, per kilogram of dry air.
      * @param {number} temp - Dry bulb temperature in Celsius
      * @param {number} rh - Relative humidity in %
-     * @returns {number} Specific volume in m³/kg
+     * @returns {number} Specific volume in m³/kg (dry air)
      */
     static calculateSpecificVolume(temp, rh) {
-        const P = 101.325;
-        const Rd = 287.058;
+        // Rd exprimé en kJ/(kg·K) pour rester homogène avec une pression en kPa.
+        const Rd = 0.287058;
         const T = temp + 273.15;
-        const P_v = this.calculateVaporPressure(temp, rh);
         const W = this.calculateWaterContent(temp, rh);
-        return (Rd * T) / (P - P_v) * (1 + 1.608 * W);
+        // v = Rd·T·(1 + 1.6078·W) / P : le facteur (1 + 1.6078·W) porte déjà tout
+        // l'effet de la vapeur, la pression au dénominateur est donc la pression totale.
+        return (Rd * T * (1 + 1.6078 * W)) / this.ATMOSPHERIC_PRESSURE;
     }
 
     /**
@@ -260,24 +368,64 @@ class PsychrometricCalculations {
     }
 
     /**
-     * Calculate PMV (Predicted Mean Vote) thermal comfort index.
-     * @param {number} temp - Temperature in Celsius
+     * Calculate PMV (Predicted Mean Vote) thermal comfort index, per ISO 7730 / Fanger.
+     * @param {number} temp - Dry bulb (air) temperature in Celsius
      * @param {number} humidity - Relative humidity in %
-     * @returns {number} PMV index (-3 to +3)
+     * @param {Object} [options] - Comfort model parameters
+     * @param {number} [options.clo=0.7] - Clothing insulation, in clo
+     * @param {number} [options.met=1.2] - Metabolic rate, in met
+     * @param {number} [options.vel=0.1] - Relative air velocity, in m/s
+     * @param {number} [options.tr=temp] - Mean radiant temperature in Celsius
+     * @returns {number} PMV index, clamped to -3..+3
      */
-    static calculatePMV(temp, humidity) {
+    static calculatePMV(temp, humidity, options = {}) {
+        const { clo = 0.7, met = 1.2, vel = 0.1, tr = temp } = options;
         const ta = temp;
-        const tr = temp;
-        const rh_fraction = humidity / 100;
-        const met = 1.2;
-        const M = met * 58.15;
 
-        const pa = rh_fraction * 10 * Math.exp(16.6536 - 4030.183 / (ta + 235));
+        // Pression partielle de vapeur, en Pa (l'équation de Fanger l'exige en Pa).
+        const pa = this.calculateVaporPressure(ta, humidity) * 1000;
 
-        let pmv = 0.303 * Math.exp(-0.036 * M) + 0.028;
-        pmv *= (M - 58.15) - 0.42 * (M - 50) - 0.0173 * M * (5.87 - pa)
-            - 0.0014 * M * (34 - ta) - 3.96 * Math.pow(10, -8) * 0.7 * (Math.pow(tr + 273, 4) - Math.pow(ta + 273, 4))
-            - 0.072 * 0.7 * (34 - ta) - 0.054 * (5.87 - pa);
+        const icl = 0.155 * clo;      // isolation vestimentaire, m²K/W
+        const m = met * 58.15;        // métabolisme, W/m²
+        const w = 0;                  // travail mécanique externe, négligé
+        const mw = m - w;
+
+        const fcl = icl <= 0.078 ? 1.0 + 1.29 * icl : 1.05 + 0.645 * icl;
+        const hcf = 12.1 * Math.sqrt(vel);
+        const taa = ta + 273;
+        const tra = tr + 273;
+
+        // Température de surface du vêtement : résolue par itération, l'équation
+        // étant implicite (tcl apparaît des deux côtés via rayonnement et convection).
+        const tcla = taa + (35.5 - ta) / (3.5 * (icl + 0.1));
+        const p1 = icl * fcl;
+        const p2 = p1 * 3.96;
+        const p3 = p1 * 100;
+        const p4 = p1 * taa;
+        const p5 = 308.7 - 0.028 * mw + p2 * Math.pow(tra / 100, 4);
+
+        let xn = tcla / 100;
+        let xf = xn;
+        let hc = hcf;
+        for (let i = 0; i < 150; i++) {
+            xf = (xf + xn) / 2;
+            const hcn = 2.38 * Math.pow(Math.abs(100 * xf - taa), 0.25);
+            hc = hcf > hcn ? hcf : hcn;
+            xn = (p5 + p4 * hc - p2 * Math.pow(xf, 4)) / (100 + p3 * hc);
+            if (Math.abs(xn - xf) <= 0.00015) break;
+        }
+        const tcl = 100 * xn - 273;
+
+        // Composantes de la déperdition thermique
+        const hl1 = 3.05 * 0.001 * (5733 - 6.99 * mw - pa);          // diffusion cutanée
+        const hl2 = mw > 58.15 ? 0.42 * (mw - 58.15) : 0;            // sudation
+        const hl3 = 1.7 * 0.00001 * m * (5867 - pa);                 // respiration latente
+        const hl4 = 0.0014 * m * (34 - ta);                          // respiration sensible
+        const hl5 = 3.96 * fcl * (Math.pow(xn, 4) - Math.pow(tra / 100, 4)); // rayonnement
+        const hl6 = fcl * hc * (tcl - ta);                           // convection
+
+        const ts = 0.303 * Math.exp(-0.036 * m) + 0.028;
+        const pmv = ts * (mw - hl1 - hl2 - hl3 - hl4 - hl5 - hl6);
 
         return Math.max(-3, Math.min(3, pmv));
     }
@@ -352,13 +500,8 @@ class PsychrometricCalculations {
      * @returns {number} Power in Watts
      */
     static calculateHumidityPower(temp, humidity, targetHumidity, massFlowRate) {
-        const P = 101.325;
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v_actual = (humidity / 100) * P_sat;
-        const W_actual = 0.622 * (P_v_actual / (P - P_v_actual));
-
-        const P_v_target = (targetHumidity / 100) * P_sat;
-        const W_target = 0.622 * (P_v_target / (P - P_v_target));
+        const W_actual = this.calculateWaterContent(temp, humidity);
+        const W_target = this.calculateWaterContent(temp, targetHumidity);
 
         const deltaW = W_target - W_actual;
         const latentHeat = 2501;
@@ -368,40 +511,71 @@ class PsychrometricCalculations {
 }
 
 /**
- * Fire a custom event.
- * @param {HTMLElement} node - The element to dispatch the event from
- * @param {string} type - The event type
- * @param {Object} detail - Event detail
- * @param {Object} options - Event options
- * @returns {Event} The dispatched event
+ * Éditeur visuel de la carte Psychrometric Chart Advanced.
+ *
+ * Suit le standard des éditeurs de cartes Home Assistant :
+ * LitElement + `ha-form` alimenté par un schéma déclaratif de selectors.
+ * Les composants natifs de HA (ha-form, ha-selector, ha-expansion-panel,
+ * ha-icon-button) chargent leurs propres dépendances : aucune attente
+ * manuelle de `customElements.whenDefined` n'est nécessaire.
  */
-const fireEvent = (node, type, detail, options) => {
-    options = options || {};
-    detail = detail === null || detail === undefined ? {} : detail;
+
+/**
+ * Déclenche un événement personnalisé (helper standard des cartes HA).
+ * @param {HTMLElement} node - Élément émetteur
+ * @param {string} type - Type d'événement
+ * @param {Object} detail - Charge utile
+ * @param {Object} options - Options de l'événement
+ * @returns {Event} L'événement émis
+ */
+const fireEvent = (node, type, detail = {}, options = {}) => {
     const event = new CustomEvent(type, {
         bubbles: options.bubbles === undefined ? true : options.bubbles,
         cancelable: Boolean(options.cancelable),
         composed: options.composed === undefined ? true : options.composed,
-        detail: detail,
+        detail,
     });
     node.dispatchEvent(event);
     return event;
 };
 
+/** Champs affichables par point, dans l'ordre de la carte. */
+const DETAIL_FIELDS = [
+    'dewPoint', 'wetBulb', 'enthalpy', 'absHumidity', 'waterContent',
+    'specificVolume', 'pmvIndex', 'moldRisk', 'action',
+];
+
+/** Champs affichés par défaut quand `details` n'est pas configuré (cf. _shouldShowField). */
+const DEFAULT_DETAILS = ['dewPoint', 'wetBulb', 'enthalpy', 'pmvIndex'];
+
+/** Zone de confort par défaut (identique à celle de la carte). */
+const DEFAULT_COMFORT_RANGE = { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 };
+
+/** Clés de couleur globales exposées, avec alpha. */
+const COLOR_KEYS = ['bgColor', 'textColor', 'gridColor', 'curveColor', 'enthalpyColor', 'comfortColor'];
+
+/** Domaines proposés dans les sélecteurs d'entités. */
+const SENSOR_DOMAINS = ['sensor', 'input_number', 'number'];
+
 const editorTranslations = {
     fr: {
         general: "Général",
         title: "Titre",
-        language: "Langue",
+        language: "Langue de la carte",
+        languageHelp: "Langue des textes affichés sur la carte (l'éditeur suit la langue de Home Assistant).",
         measurementPoints: "Points de mesure",
         point: "Point",
-        delete: "Supprimer",
+        newPoint: "Nouveau point",
+        noPoints: "Aucun point configuré. Ajoutez-en un pour commencer.",
+        delete: "Supprimer le point",
+        moveUp: "Déplacer vers le haut",
+        moveDown: "Déplacer vers le bas",
         label: "Label",
-        tempEntity: "Température (Entity ID)",
-        humEntity: "Humidité (Entity ID)",
+        temp: "Température (entité)",
+        humidity: "Humidité (entité)",
         color: "Couleur",
         icon: "Icône",
-        customDisplay: "Affichage personnalisé",
+        details: "Champs affichés",
         dewPoint: "Point de rosée",
         wetBulb: "Temp. humide",
         enthalpy: "Enthalpie",
@@ -412,6 +586,14 @@ const editorTranslations = {
         moldRisk: "Moisissure",
         action: "Action/Puissance",
         addPoint: "Ajouter un point",
+        comfort: "Zone de confort",
+        comfortRange: "Bornes de confort",
+        tempMin: "Température min",
+        tempMax: "Température max",
+        rhMin: "Humidité min",
+        rhMax: "Humidité max",
+        massFlowRate: "Débit massique d'air",
+        massFlowRateHelp: "Sert au calcul des puissances de chauffage, refroidissement et humidification.",
         appearance: "Apparence",
         theme: "Thème visuel",
         themeModern: "Moderne",
@@ -423,85 +605,119 @@ const editorTranslations = {
         curveColor: "Couleur des courbes",
         enthalpyColor: "Couleur des enthalpies",
         comfortColor: "Couleur zone confort",
+        opacity: "Opacité",
         displayOptions: "Options d'affichage",
+        displayMode: "Niveau de détail",
+        displayStandard: "Standard",
+        displayMinimal: "Minimal",
+        temperatureUnit: "Unité de température",
+        unitAuto: "Automatique (Home Assistant)",
+        unitCelsius: "Celsius (°C)",
+        unitFahrenheit: "Fahrenheit (°F)",
         showEnthalpy: "Afficher Enthalpie",
         showVaporPressure: "Afficher Pression Vapeur",
         showDewPoint: "Afficher Point de Rosée",
         showWetBulb: "Afficher Temp. Humide",
-        showMoldRisk: "Afficher Risque Moisissure",
+        showPointLabels: "Afficher les labels des points",
         showLegend: "Afficher Légende",
         showCalculatedData: "Afficher Données Calculées",
-        forceDarkMode: "Mode Sombre Forcé",
-        darkModeHelp: "Si décoché, suit le thème de Home Assistant.",
-        zoomPan: "Zoom & Panoramique (Optionnel)",
-        minTemp: "Température Min",
-        maxTemp: "Température Max",
-        minHum: "Humidité Min",
-        maxHum: "Humidité Max"
+        darkMode: "Mode Sombre Forcé",
+        darkModeHelp: "Si décoché, utilise les couleurs claires par défaut.",
+        zoomPan: "Bornes du graphique (optionnel)",
+        zoom_temp_min: "Température min",
+        zoom_temp_max: "Température max",
+        zoom_humidity_min: "Humidité min",
+        zoom_humidity_max: "Humidité max",
     },
     en: {
         general: "General",
         title: "Title",
-        language: "Language",
-        measurementPoints: "Measurement Points",
+        language: "Card language",
+        languageHelp: "Language of the texts shown on the card (the editor follows the Home Assistant language).",
+        measurementPoints: "Measurement points",
         point: "Point",
-        delete: "Delete",
+        newPoint: "New point",
+        noPoints: "No point configured. Add one to get started.",
+        delete: "Delete point",
+        moveUp: "Move up",
+        moveDown: "Move down",
         label: "Label",
-        tempEntity: "Temperature (Entity ID)",
-        humEntity: "Humidity (Entity ID)",
+        temp: "Temperature (entity)",
+        humidity: "Humidity (entity)",
         color: "Color",
         icon: "Icon",
-        customDisplay: "Custom Display",
-        dewPoint: "Dew Point",
-        wetBulb: "Wet Bulb",
+        details: "Displayed fields",
+        dewPoint: "Dew point",
+        wetBulb: "Wet bulb",
         enthalpy: "Enthalpy",
-        absHumidity: "Abs. Humidity",
-        waterContent: "Water Content",
-        specificVolume: "Specific Vol.",
-        pmvIndex: "PMV Index",
-        moldRisk: "Mold Risk",
+        absHumidity: "Abs. humidity",
+        waterContent: "Water content",
+        specificVolume: "Specific vol.",
+        pmvIndex: "PMV index",
+        moldRisk: "Mold risk",
         action: "Action/Power",
-        addPoint: "Add Point",
+        addPoint: "Add point",
+        comfort: "Comfort zone",
+        comfortRange: "Comfort bounds",
+        tempMin: "Min temperature",
+        tempMax: "Max temperature",
+        rhMin: "Min humidity",
+        rhMax: "Max humidity",
+        massFlowRate: "Air mass flow rate",
+        massFlowRateHelp: "Used to compute heating, cooling and humidification power.",
         appearance: "Appearance",
-        theme: "Visual Theme",
+        theme: "Visual theme",
         themeModern: "Modern",
         themeClassic: "Classic",
         themeCompact: "Compact",
-        bgColor: "Background Color",
-        textColor: "Text Color",
-        gridColor: "Grid Color",
-        curveColor: "Curve Color",
-        enthalpyColor: "Enthalpy Color",
-        comfortColor: "Comfort Zone Color",
-        displayOptions: "Display Options",
-        showEnthalpy: "Show Enthalpy",
-        showVaporPressure: "Show Vapor Pressure",
-        showDewPoint: "Show Dew Point",
-        showWetBulb: "Show Wet Bulb",
-        showMoldRisk: "Show Mold Risk",
-        showLegend: "Show Legend",
-        showCalculatedData: "Show Calculated Data",
-        forceDarkMode: "Force Dark Mode",
-        darkModeHelp: "If unchecked, follows Home Assistant theme.",
-        zoomPan: "Zoom & Pan (Optional)",
-        minTemp: "Min Temperature",
-        maxTemp: "Max Temperature",
-        minHum: "Min Humidity",
-        maxHum: "Max Humidity"
+        bgColor: "Background color",
+        textColor: "Text color",
+        gridColor: "Grid color",
+        curveColor: "Curve color",
+        enthalpyColor: "Enthalpy color",
+        comfortColor: "Comfort zone color",
+        opacity: "Opacity",
+        displayOptions: "Display options",
+        displayMode: "Detail level",
+        displayStandard: "Standard",
+        displayMinimal: "Minimal",
+        temperatureUnit: "Temperature unit",
+        unitAuto: "Automatic (Home Assistant)",
+        unitCelsius: "Celsius (°C)",
+        unitFahrenheit: "Fahrenheit (°F)",
+        showEnthalpy: "Show enthalpy",
+        showVaporPressure: "Show vapor pressure",
+        showDewPoint: "Show dew point",
+        showWetBulb: "Show wet bulb",
+        showPointLabels: "Show point labels",
+        showLegend: "Show legend",
+        showCalculatedData: "Show calculated data",
+        darkMode: "Force dark mode",
+        darkModeHelp: "If unchecked, uses the default light colors.",
+        zoomPan: "Chart bounds (optional)",
+        zoom_temp_min: "Min temperature",
+        zoom_temp_max: "Max temperature",
+        zoom_humidity_min: "Min humidity",
+        zoom_humidity_max: "Max humidity",
     },
     es: {
         general: "General",
         title: "Título",
-        language: "Idioma",
+        language: "Idioma de la tarjeta",
+        languageHelp: "Idioma de los textos de la tarjeta (el editor sigue el idioma de Home Assistant).",
         measurementPoints: "Puntos de medición",
         point: "Punto",
-        delete: "Eliminar",
+        newPoint: "Nuevo punto",
+        noPoints: "No hay puntos configurados. Añade uno para empezar.",
+        delete: "Eliminar punto",
+        moveUp: "Mover arriba",
+        moveDown: "Mover abajo",
         label: "Etiqueta",
-        tempEntity: "Temperatura (Entity ID)",
-        humEntity: "Humedad (Entity ID)",
+        temp: "Temperatura (entidad)",
+        humidity: "Humedad (entidad)",
         color: "Color",
         icon: "Icono",
-        customDisplay: "Visualización personalizada",
+        details: "Campos mostrados",
         dewPoint: "Punto de rocío",
         wetBulb: "Temp. húmeda",
         enthalpy: "Entalpía",
@@ -512,6 +728,14 @@ const editorTranslations = {
         moldRisk: "Riesgo de moho",
         action: "Acción/Potencia",
         addPoint: "Añadir punto",
+        comfort: "Zona de confort",
+        comfortRange: "Límites de confort",
+        tempMin: "Temp. mín",
+        tempMax: "Temp. máx",
+        rhMin: "Humedad mín",
+        rhMax: "Humedad máx",
+        massFlowRate: "Caudal másico de aire",
+        massFlowRateHelp: "Se usa para calcular las potencias de calefacción, refrigeración y humidificación.",
         appearance: "Apariencia",
         theme: "Tema visual",
         themeModern: "Moderno",
@@ -523,35 +747,48 @@ const editorTranslations = {
         curveColor: "Color de las curvas",
         enthalpyColor: "Color de las entalpías",
         comfortColor: "Color zona confort",
+        opacity: "Opacidad",
         displayOptions: "Opciones de visualización",
-        showEnthalpy: "Mostrar Entalpía",
-        showVaporPressure: "Mostrar Presión de Vapor",
-        showDewPoint: "Mostrar Punto de Rocío",
-        showWetBulb: "Mostrar Temp. Húmeda",
-        showMoldRisk: "Mostrar Riesgo Moho",
-        showLegend: "Mostrar Leyenda",
-        showCalculatedData: "Mostrar Datos Calculados",
-        forceDarkMode: "Modo Oscuro Forzado",
-        darkModeHelp: "Si está desmarcado, sigue el tema de Home Assistant.",
-        zoomPan: "Zoom y Panorámica (Opcional)",
-        minTemp: "Temp. Mín",
-        maxTemp: "Temp. Máx",
-        minHum: "Humedad Mín",
-        maxHum: "Humedad Máx"
+        displayMode: "Nivel de detalle",
+        displayStandard: "Estándar",
+        displayMinimal: "Mínimo",
+        temperatureUnit: "Unidad de temperatura",
+        unitAuto: "Automática (Home Assistant)",
+        unitCelsius: "Celsius (°C)",
+        unitFahrenheit: "Fahrenheit (°F)",
+        showEnthalpy: "Mostrar entalpía",
+        showVaporPressure: "Mostrar presión de vapor",
+        showDewPoint: "Mostrar punto de rocío",
+        showWetBulb: "Mostrar temp. húmeda",
+        showPointLabels: "Mostrar etiquetas de los puntos",
+        showLegend: "Mostrar leyenda",
+        showCalculatedData: "Mostrar datos calculados",
+        darkMode: "Modo oscuro forzado",
+        darkModeHelp: "Si está desmarcado, usa los colores claros por defecto.",
+        zoomPan: "Límites del gráfico (opcional)",
+        zoom_temp_min: "Temp. mín",
+        zoom_temp_max: "Temp. máx",
+        zoom_humidity_min: "Humedad mín",
+        zoom_humidity_max: "Humedad máx",
     },
     de: {
         general: "Allgemein",
         title: "Titel",
-        language: "Sprache",
+        language: "Sprache der Karte",
+        languageHelp: "Sprache der Texte auf der Karte (der Editor folgt der Home-Assistant-Sprache).",
         measurementPoints: "Messpunkte",
         point: "Punkt",
-        delete: "Löschen",
+        newPoint: "Neuer Punkt",
+        noPoints: "Keine Punkte konfiguriert. Fügen Sie einen hinzu.",
+        delete: "Punkt löschen",
+        moveUp: "Nach oben verschieben",
+        moveDown: "Nach unten verschieben",
         label: "Beschriftung",
-        tempEntity: "Temperatur (Entity ID)",
-        humEntity: "Feuchtigkeit (Entity ID)",
+        temp: "Temperatur (Entität)",
+        humidity: "Feuchtigkeit (Entität)",
         color: "Farbe",
         icon: "Symbol",
-        customDisplay: "Benutzerdefinierte Anzeige",
+        details: "Angezeigte Felder",
         dewPoint: "Taupunkt",
         wetBulb: "Feuchtkugeltemp.",
         enthalpy: "Enthalpie",
@@ -562,6 +799,14 @@ const editorTranslations = {
         moldRisk: "Schimmelrisiko",
         action: "Aktion/Leistung",
         addPoint: "Punkt hinzufügen",
+        comfort: "Komfortzone",
+        comfortRange: "Komfortgrenzen",
+        tempMin: "Min. Temperatur",
+        tempMax: "Max. Temperatur",
+        rhMin: "Min. Feuchtigkeit",
+        rhMax: "Max. Feuchtigkeit",
+        massFlowRate: "Luftmassenstrom",
+        massFlowRateHelp: "Dient zur Berechnung der Heiz-, Kühl- und Befeuchtungsleistung.",
         appearance: "Aussehen",
         theme: "Visuelles Thema",
         themeModern: "Modern",
@@ -573,779 +818,605 @@ const editorTranslations = {
         curveColor: "Kurvenfarbe",
         enthalpyColor: "Enthalpiefarbe",
         comfortColor: "Komfortzonenfarbe",
+        opacity: "Deckkraft",
         displayOptions: "Anzeigeoptionen",
+        displayMode: "Detailgrad",
+        displayStandard: "Standard",
+        displayMinimal: "Minimal",
+        temperatureUnit: "Temperatureinheit",
+        unitAuto: "Automatisch (Home Assistant)",
+        unitCelsius: "Celsius (°C)",
+        unitFahrenheit: "Fahrenheit (°F)",
         showEnthalpy: "Enthalpie anzeigen",
         showVaporPressure: "Dampfdruck anzeigen",
         showDewPoint: "Taupunkt anzeigen",
         showWetBulb: "Feuchtkugeltemp. anzeigen",
-        showMoldRisk: "Schimmelrisiko anzeigen",
+        showPointLabels: "Punktbeschriftungen anzeigen",
         showLegend: "Legende anzeigen",
         showCalculatedData: "Berechnete Daten anzeigen",
-        forceDarkMode: "Dunkelmodus erzwingen",
-        darkModeHelp: "Wenn deaktiviert, folgt dem Home Assistant Thema.",
-        zoomPan: "Zoom & Schwenken (Optional)",
-        minTemp: "Min Temperatur",
-        maxTemp: "Max Temperatur",
-        minHum: "Min Feuchtigkeit",
-        maxHum: "Max Feuchtigkeit"
-    }
+        darkMode: "Dunkelmodus erzwingen",
+        darkModeHelp: "Wenn deaktiviert, werden die hellen Standardfarben verwendet.",
+        zoomPan: "Diagrammgrenzen (optional)",
+        zoom_temp_min: "Min. Temperatur",
+        zoom_temp_max: "Max. Temperatur",
+        zoom_humidity_min: "Min. Feuchtigkeit",
+        zoom_humidity_max: "Max. Feuchtigkeit",
+    },
 };
 
-/**
- * Psychrometric Chart Editor
- * 
- * SOLUTION ROBUSTE basée sur les patterns de Mushroom et card-tools :
- * 1. Pre-chargement des composants HA dans connectedCallback
- * 2. Attente explicite de la définition des custom elements
- * 3. Utilisation de provideHass pour propager hass aux enfants
- * 4. Événement ll-rebuild pour forcer le re-rendu si nécessaire
- */
-class PsychrometricChartEditor extends HTMLElement {
+class PsychrometricChartEditor extends i {
+    static get properties() {
+        return {
+            hass: { attribute: false },
+            _config: { state: true },
+        };
+    }
+
     constructor() {
         super();
-        this.attachShadow({ mode: 'open' });
-        
-        this._hass = null;
         this._config = null;
-        this._initialized = false;
-        this._pendingValue = new Map();
-        this._openDetails = new Set(); // Stocke les index des details ouverts
+        // Références stables : évite que Lit ne recrée les sous-arbres de ha-form à chaque rendu.
+        this._computeLabel = (schema) => this.t(schema.name);
+        this._computeHelper = (schema) => this.t(`${schema.name}Help`, '');
     }
 
     /**
-     * Pre-charge les composants HA nécessaires
-     * Pattern utilisé par Mushroom et autres cartes modernes
-     */
-    connectedCallback() {
-        // Force le chargement des composants HA en appelant getConfigElement sur des cartes connues
-        if (!customElements.get('ha-entity-picker')) {
-            // Déclenche le chargement via une carte qui utilise ha-entity-picker
-            const entitiesCard = customElements.get('hui-entities-card');
-            if (entitiesCard && entitiesCard.getConfigElement) {
-                try {
-                    entitiesCard.getConfigElement();
-                } catch (e) {
-                    // Ignore les erreurs de chargement
-                }
-            }
-        }
-
-        // Attend que les composants soient définis puis initialise
-        this._waitForComponents();
-    }
-
-    /**
-     * Attend que les composants HA nécessaires soient chargés
-     */
-    async _waitForComponents() {
-        // Attend ha-entity-picker
-        if (!customElements.get('ha-entity-picker')) {
-            await customElements.whenDefined('ha-entity-picker');
-        }
-        
-        // Attend ha-form si besoin
-        if (!customElements.get('ha-form')) {
-            await customElements.whenDefined('ha-form');
-        }
-
-        this._initialized = true;
-        
-        // Si on a déjà une config, on rend
-        if (this._config) {
-            this.render();
-            // Applique les valeurs en attente
-            this._applyPendingValues();
-        }
-    }
-
-    /**
-     * Set the hass object for the editor.
-     * @param {Object} hass - The Home Assistant hass object
-     */
-    set hass(hass) {
-        const oldHass = this._hass;
-        this._hass = hass;
-        
-        // Si hass change et qu'on a une config et un shadowRoot
-        if (hass && this.shadowRoot && this._config && oldHass !== hass) {
-            // Met à jour tous les pickers avec le nouveau hass
-            this._updateEntityPickers();
-        }
-    }
-
-    get hass() {
-        return this._hass;
-    }
-
-    /**
-     * Set the configuration for the editor.
-     * @param {Object} config - The configuration object
+     * Applique la configuration fournie par Lovelace.
+     * La config est traitée comme immuable : aucune copie profonde n'est nécessaire.
+     * @param {Object} config - Configuration de la carte
      */
     setConfig(config) {
-        this._config = JSON.parse(JSON.stringify(config || {}));
-        
-        // Stocke les valeurs pour les pickers
-        this._pendingValue.clear();
-        (this._config.points || []).forEach((point, index) => {
-            if (point.temp) this._pendingValue.set(`${index}-temp`, point.temp);
-            if (point.humidity) this._pendingValue.set(`${index}-humidity`, point.humidity);
-        });
-        
-        // Ne rend que si les composants sont prêts
-        if (this._initialized) {
-            this.render();
-            this._applyPendingValues();
-        }
-        // Sinon, le rendu sera fait dans _waitForComponents quand les composants seront prêts
+        this._config = config || {};
     }
 
-    get _title() {
-        return this._config?.chartTitle || 'Diagramme Psychrométrique';
+    /**
+     * Langue de l'interface de l'éditeur.
+     * Suit la langue de Home Assistant (standard), avec repli sur la langue de la carte puis le français.
+     * @returns {string} Code de langue supporté
+     */
+    get _lang() {
+        const haLang = this.hass?.locale?.language || this.hass?.language;
+        if (haLang && editorTranslations[haLang]) return haLang;
+        const cfgLang = this._config?.language;
+        if (cfgLang && editorTranslations[cfgLang]) return cfgLang;
+        return 'fr';
+    }
+
+    /**
+     * Traduit une clé dans la langue de l'éditeur.
+     * @param {string} key - Clé de traduction
+     * @param {string} [fallback] - Valeur si la clé est absente (défaut : la clé elle-même)
+     * @returns {string} Texte traduit
+     */
+    t(key, fallback) {
+        return editorTranslations[this._lang]?.[key]
+            ?? editorTranslations.fr[key]
+            ?? (fallback !== undefined ? fallback : key);
     }
 
     get _points() {
         return this._config?.points || [];
     }
 
-    t(key) {
-        const lang = this._config?.language || 'fr';
-        return editorTranslations[lang]?.[key] || editorTranslations['fr'][key] || key;
+    // ========================================
+    // COULEURS
+    // ========================================
+
+    /**
+     * Couleur par défaut affichée quand la config ne définit pas la clé.
+     * Reproduit exactement les valeurs de repli de la carte, mode sombre inclus.
+     * @param {string} key - Clé de couleur
+     * @returns {string} Couleur CSS
+     */
+    _colorFallback(key) {
+        const dark = Boolean(this._config?.darkMode);
+        switch (key) {
+            case 'bgColor': return dark ? '#1c1c1c' : '#ffffff';
+            case 'textColor': return dark ? '#e0e0e0' : '#333333';
+            case 'gridColor': return dark ? '#444444' : '#cccccc';
+            case 'curveColor': return dark ? '#4fc3f7' : '#1f77b4';
+            case 'comfortColor': return dark ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)';
+            case 'enthalpyColor': return dark ? 'rgba(255, 165, 0, 0.7)' : 'rgba(255, 99, 71, 0.7)';
+            default: return '#000000';
+        }
     }
 
-    _getHexFromColor(color) {
-        if (!color) return '#000000';
-        if (color.startsWith('#')) {
-            return color.substring(0, 7);
-        }
-        if (color.startsWith('rgb')) {
-            const match = color.match(/(\d+),\s*(\d+),\s*(\d+)/);
-            if (match) {
-                const [_, r, g, b] = match;
-                return "#" +
-                    (1 << 24 | parseInt(r) << 16 | parseInt(g) << 8 | parseInt(b))
-                        .toString(16).slice(1);
-            }
-        }
-        return '#000000';
+    // ========================================
+    // SCHÉMAS ha-form
+    // ========================================
+
+    _generalSchema() {
+        return [
+            { name: 'chartTitle', selector: { text: {} } },
+            {
+                name: 'language',
+                selector: {
+                    select: {
+                        mode: 'dropdown',
+                        options: [
+                            { value: 'fr', label: 'Français' },
+                            { value: 'en', label: 'English' },
+                            { value: 'es', label: 'Español' },
+                            { value: 'de', label: 'Deutsch' },
+                        ],
+                    },
+                },
+            },
+            {
+                name: 'temperatureUnit',
+                selector: {
+                    select: {
+                        mode: 'dropdown',
+                        options: [
+                            { value: 'auto', label: this.t('unitAuto') },
+                            { value: 'celsius', label: this.t('unitCelsius') },
+                            { value: 'fahrenheit', label: this.t('unitFahrenheit') },
+                        ],
+                    },
+                },
+            },
+        ];
     }
 
-    _getAlphaFromColor(color) {
-        if (!color) return 1;
-        if (color.startsWith('#') && color.length > 7) {
-            return parseInt(color.substring(7, 9), 16) / 255;
-        }
-        if (color.startsWith('rgba')) {
-            const parts = color.split(',');
-            if (parts.length === 4) {
-                return parseFloat(parts[3]);
-            }
-        }
-        return 1;
+    _pointSchema() {
+        return [
+            { name: 'label', selector: { text: {} } },
+            {
+                type: 'grid',
+                name: '',
+                schema: [
+                    { name: 'temp', selector: { entity: { filter: { domain: SENSOR_DOMAINS } } } },
+                    { name: 'humidity', selector: { entity: { filter: { domain: SENSOR_DOMAINS } } } },
+                ],
+            },
+            {
+                type: 'grid',
+                name: '',
+                schema: [
+                    { name: 'icon', selector: { icon: {} } },
+                    { name: 'color', selector: { color_rgb: {} } },
+                ],
+            },
+            {
+                name: 'details',
+                selector: {
+                    select: {
+                        multiple: true,
+                        mode: 'list',
+                        options: DETAIL_FIELDS.map(field => ({ value: field, label: this.t(field) })),
+                    },
+                },
+            },
+        ];
     }
 
-    _combineColor(hex, alpha) {
-        if (alpha >= 1) return hex;
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    _comfortSchema() {
+        const pct = { min: 0, max: 100, step: 1, mode: 'box', unit_of_measurement: '%' };
+        return [
+            {
+                type: 'expandable',
+                name: 'comfortRange',
+                title: this.t('comfortRange'),
+                schema: [
+                    {
+                        type: 'grid',
+                        name: '',
+                        schema: [
+                            { name: 'tempMin', selector: { number: { min: 0, max: 40, step: 0.5, mode: 'box' } } },
+                            { name: 'tempMax', selector: { number: { min: 0, max: 40, step: 0.5, mode: 'box' } } },
+                            { name: 'rhMin', selector: { number: pct } },
+                            { name: 'rhMax', selector: { number: pct } },
+                        ],
+                    },
+                ],
+            },
+            {
+                name: 'massFlowRate',
+                selector: { number: { min: 0.01, max: 20, step: 0.01, mode: 'box', unit_of_measurement: 'kg/s' } },
+            },
+        ];
     }
 
-    _renderColorInput(label, id, value) {
-        const hex = this._getHexFromColor(value);
-        const alpha = Math.round(this._getAlphaFromColor(value) * 100);
-        return `
-            <div class="form-row">
-                <label>${label}</label>
-                <div style="display: flex; gap: 8px; flex: 2; align-items: center;">
-                    <input type="color" id="${id}_hex" value="${hex}" data-base-id="${id}" class="color-hex-input" style="flex: 1; height: 30px; padding: 0;">
-                    <input type="range" id="${id}_alpha" min="0" max="100" value="${alpha}" data-base-id="${id}" class="color-alpha-input" style="flex: 1;" title="Opacité: ${alpha}%">
-                    <span style="width: 35px; text-align: right; font-size: 0.8em;" id="${id}_alpha_display">${alpha}%</span>
-                </div>
+    _displaySchema() {
+        return [
+            {
+                name: 'theme',
+                selector: {
+                    select: {
+                        mode: 'dropdown',
+                        options: [
+                            { value: 'modern', label: this.t('themeModern') },
+                            { value: 'classic', label: this.t('themeClassic') },
+                            { value: 'compact', label: this.t('themeCompact') },
+                        ],
+                    },
+                },
+            },
+            {
+                name: 'displayMode',
+                selector: {
+                    select: {
+                        mode: 'dropdown',
+                        options: [
+                            { value: 'standard', label: this.t('displayStandard') },
+                            { value: 'minimal', label: this.t('displayMinimal') },
+                        ],
+                    },
+                },
+            },
+            {
+                type: 'grid',
+                name: '',
+                schema: [
+                    { name: 'showEnthalpy', selector: { boolean: {} } },
+                    { name: 'showVaporPressure', selector: { boolean: {} } },
+                    { name: 'showDewPoint', selector: { boolean: {} } },
+                    { name: 'showWetBulb', selector: { boolean: {} } },
+                    { name: 'showPointLabels', selector: { boolean: {} } },
+                    { name: 'showLegend', selector: { boolean: {} } },
+                    { name: 'showCalculatedData', selector: { boolean: {} } },
+                    { name: 'darkMode', selector: { boolean: {} } },
+                ],
+            },
+        ];
+    }
+
+    _zoomSchema() {
+        return [
+            {
+                type: 'grid',
+                name: '',
+                schema: [
+                    { name: 'zoom_temp_min', selector: { number: { step: 'any', mode: 'box' } } },
+                    { name: 'zoom_temp_max', selector: { number: { step: 'any', mode: 'box' } } },
+                    { name: 'zoom_humidity_min', selector: { number: { min: 0, max: 100, step: 'any', mode: 'box' } } },
+                    { name: 'zoom_humidity_max', selector: { number: { min: 0, max: 100, step: 'any', mode: 'box' } } },
+                ],
+            },
+        ];
+    }
+
+    // ========================================
+    // DONNÉES DE FORMULAIRE
+    // ========================================
+
+    /**
+     * Construit les données passées à ha-form.
+     * Les valeurs par défaut de la carte y sont pré-remplies afin que l'éditeur
+     * montre ce que la carte affiche réellement, et non des champs vides ou décochés.
+     * @returns {Object} Données du formulaire
+     */
+    _formData() {
+        const config = this._config || {};
+        return {
+            ...config,
+            chartTitle: config.chartTitle ?? 'Diagramme Psychrométrique',
+            language: config.language ?? 'fr',
+            temperatureUnit: config.temperatureUnit ?? 'auto',
+            theme: config.theme ?? 'modern',
+            displayMode: config.displayMode ?? 'standard',
+            massFlowRate: config.massFlowRate ?? 0.5,
+            comfortRange: { ...DEFAULT_COMFORT_RANGE, ...(config.comfortRange || {}) },
+            showEnthalpy: config.showEnthalpy !== false,
+            showVaporPressure: config.showVaporPressure !== false,
+            showDewPoint: config.showDewPoint !== false,
+            showWetBulb: config.showWetBulb !== false,
+            showPointLabels: config.showPointLabels !== false,
+            showLegend: config.showLegend !== false,
+            showCalculatedData: config.showCalculatedData !== false,
+            darkMode: Boolean(config.darkMode),
+        };
+    }
+
+    /**
+     * Construit les données de formulaire d'un point.
+     * `details` et `color` sont pré-remplis avec ce que la carte utilise réellement,
+     * pour que l'édition d'un point n'altère jamais implicitement les autres.
+     * @param {Object} point - Point de configuration
+     * @returns {Object} Données du formulaire
+     */
+    _pointFormData(point) {
+        const fallbackColor = PsychrometricCalculations.generateColorFromHash(`${point.temp}_${point.humidity}`);
+        return {
+            ...point,
+            label: point.label ?? '',
+            icon: point.icon || 'mdi:thermometer',
+            color: PsychrometricCalculations.colorToRgb(point.color || fallbackColor),
+            details: Array.isArray(point.details) ? point.details : [...DEFAULT_DETAILS],
+        };
+    }
+
+    // ========================================
+    // ÉMISSION DE LA CONFIGURATION
+    // ========================================
+
+    /**
+     * Retire les valeurs vides de la configuration afin de ne pas polluer le YAML
+     * avec des clés comme `zoom_temp_min: ""`.
+     * @param {Object} config - Configuration brute
+     * @returns {Object} Configuration nettoyée
+     */
+    _clean(config) {
+        const cleaned = {};
+        for (const [key, value] of Object.entries(config)) {
+            if (value === '' || value === null || value === undefined) continue;
+            cleaned[key] = value;
+        }
+        return cleaned;
+    }
+
+    /**
+     * Publie une nouvelle configuration vers Lovelace.
+     * @param {Object} rawConfig - Configuration à publier
+     */
+    _emit(rawConfig) {
+        const config = this._clean(rawConfig);
+        this._config = config;
+        fireEvent(this, 'config-changed', { config });
+    }
+
+    _valueChanged(ev) {
+        ev.stopPropagation();
+        if (!this._config) return;
+        this._emit(ev.detail.value);
+    }
+
+    _pointChanged(index, ev) {
+        ev.stopPropagation();
+        if (!this._config) return;
+        const value = { ...ev.detail.value };
+        value.color = PsychrometricCalculations.rgbToHex(value.color);
+        const points = [...this._points];
+        points[index] = value;
+        this._emit({ ...this._formData(), points });
+    }
+
+    _colorChanged(key, ev) {
+        ev.stopPropagation();
+        const current = this._config?.[key] || this._colorFallback(key);
+        const rgb = ev.detail.value ?? PsychrometricCalculations.colorToRgb(current);
+        this._emit({ ...this._formData(), [key]: PsychrometricCalculations.rgbToCss(rgb, PsychrometricCalculations.colorToAlpha(current)) });
+    }
+
+    _opacityChanged(key, ev) {
+        ev.stopPropagation();
+        const current = this._config?.[key] || this._colorFallback(key);
+        const alpha = (ev.detail.value ?? 100) / 100;
+        this._emit({ ...this._formData(), [key]: PsychrometricCalculations.rgbToCss(PsychrometricCalculations.colorToRgb(current), alpha) });
+    }
+
+    _addPoint() {
+        const points = [...this._points, { temp: '', humidity: '', label: this.t('newPoint') }];
+        this._emit({ ...this._formData(), points });
+    }
+
+    _deletePoint(index) {
+        const points = [...this._points];
+        points.splice(index, 1);
+        this._emit({ ...this._formData(), points });
+    }
+
+    _movePoint(index, offset) {
+        const target = index + offset;
+        const points = [...this._points];
+        if (target < 0 || target >= points.length) return;
+        [points[index], points[target]] = [points[target], points[index]];
+        this._emit({ ...this._formData(), points });
+    }
+
+    // ========================================
+    // RENDU
+    // ========================================
+
+    _renderColorRow(key) {
+        const value = this._config?.[key] || this._colorFallback(key);
+        const alpha = Math.round(PsychrometricCalculations.colorToAlpha(value) * 100);
+        return b`
+            <div class="color-row">
+                <span class="color-label">${this.t(key)}</span>
+                <ha-selector
+                    class="color-picker"
+                    .hass=${this.hass}
+                    .selector=${{ color_rgb: {} }}
+                    .value=${PsychrometricCalculations.colorToRgb(value)}
+                    @value-changed=${(ev) => this._colorChanged(key, ev)}
+                ></ha-selector>
+                <ha-selector
+                    class="color-opacity"
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'slider', unit_of_measurement: '%' } }}
+                    .label=${this.t('opacity')}
+                    .value=${alpha}
+                    @value-changed=${(ev) => this._opacityChanged(key, ev)}
+                ></ha-selector>
             </div>
         `;
     }
 
-    /**
-     * Met à jour tous les pickers avec hass
-     */
-    _updateEntityPickers() {
-        if (!this._hass || !this.shadowRoot) return;
-        
-        const pickers = this.shadowRoot.querySelectorAll('ha-entity-picker');
-        pickers.forEach(picker => {
-            if (picker.hass !== this._hass) {
-                picker.hass = this._hass;
-            }
-        });
-    }
-
-    /**
-     * Applique les valeurs en attente aux pickers
-     */
-    _applyPendingValues() {
-        if (!this.shadowRoot || !this._hass) return;
-        
-        const pickers = this.shadowRoot.querySelectorAll('ha-entity-picker');
-        pickers.forEach(picker => {
-            const index = picker.dataset.index;
-            const field = picker.dataset.field;
-            const value = this._pendingValue.get(`${index}-${field}`);
-            
-            if (value && picker.value !== value) {
-                picker.value = value;
-            }
-            
-            // Assure que hass est assigné
-            if (this._hass && picker.hass !== this._hass) {
-                picker.hass = this._hass;
-            }
-        });
-    }
-
-    /**
-     * Sauvegarde l'état des éléments details ouverts
-     */
-    _saveDetailsState() {
-        if (!this.shadowRoot) return;
-        this._openDetails.clear();
-        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
-            if (details.open) {
-                this._openDetails.add(index);
-            }
-        });
-    }
-
-    /**
-     * Restaure l'état des éléments details
-     */
-    _restoreDetailsState() {
-        if (!this.shadowRoot) return;
-        this.shadowRoot.querySelectorAll('details').forEach((details, index) => {
-            if (this._openDetails.has(index)) {
-                details.open = true;
-            }
-        });
+    _renderPoint(point, index) {
+        const title = point.label || `${this.t('point')} ${index + 1}`;
+        return b`
+            <ha-expansion-panel outlined>
+                <div slot="header" class="point-header">
+                    <ha-icon .icon=${point.icon || 'mdi:thermometer'}></ha-icon>
+                    <span>${title}</span>
+                </div>
+                <div class="point-content">
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${this._pointFormData(point)}
+                        .schema=${this._pointSchema()}
+                        .computeLabel=${this._computeLabel}
+                        @value-changed=${(ev) => this._pointChanged(index, ev)}
+                    ></ha-form>
+                    <div class="point-actions">
+                        <ha-icon-button
+                            .label=${this.t('moveUp')}
+                            .disabled=${index === 0}
+                            @click=${() => this._movePoint(index, -1)}
+                        ><ha-icon icon="mdi:arrow-up"></ha-icon></ha-icon-button>
+                        <ha-icon-button
+                            .label=${this.t('moveDown')}
+                            .disabled=${index === this._points.length - 1}
+                            @click=${() => this._movePoint(index, 1)}
+                        ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>
+                        <ha-icon-button
+                            class="delete"
+                            .label=${this.t('delete')}
+                            @click=${() => this._deletePoint(index)}
+                        ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
+                    </div>
+                </div>
+            </ha-expansion-panel>
+        `;
     }
 
     render() {
-        if (!this._config) return;
+        if (!this._config || !this.hass) return b``;
+        const data = this._formData();
 
-        // Sauvegarde l'état des details avant le re-render
-        this._saveDetailsState();
-
-        this.shadowRoot.innerHTML = `
-            <style>
-                .card-config {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                    padding: 16px;
-                    color: var(--primary-text-color);
-                    background-color: var(--card-background-color);
-                }
-                .section {
-                    border: 1px solid var(--divider-color, #e0e0e0);
-                    padding: 16px;
-                    border-radius: 8px;
-                    background-color: var(--card-background-color);
-                }
-                .section-title {
-                    font-weight: bold;
-                    margin-bottom: 12px;
-                    display: block;
-                    font-size: 1.1em;
-                    color: var(--primary-text-color);
-                }
-                .form-row {
-                    display: flex;
-                    align-items: center;
-                    margin-bottom: 12px;
-                    gap: 8px;
-                }
-                .form-row label {
-                    flex: 1;
-                    color: var(--primary-text-color);
-                }
-                .form-row input[type="text"],
-                .form-row input[type="number"],
-                .select-input {
-                    flex: 2;
-                    padding: 8px;
-                    border: 1px solid var(--divider-color, #ccc);
-                    border-radius: 4px;
-                    background-color: var(--card-background-color);
-                    color: var(--primary-text-color);
-                }
-                .form-row input[type="checkbox"] {
-                    width: 20px;
-                    height: 20px;
-                }
-                .point-row {
-                    background: var(--secondary-background-color, #f5f5f5);
-                    padding: 10px;
-                    border-radius: 4px;
-                    margin-bottom: 8px;
-                    border-left: 4px solid var(--primary-color, #2196F3);
-                }
-                .point-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 8px;
-                    color: var(--primary-text-color);
-                }
-                button {
-                    cursor: pointer;
-                    padding: 8px 16px;
-                    background-color: var(--primary-color, #2196F3);
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    font-weight: 500;
-                }
-                button.delete {
-                    background-color: var(--error-color, #F44336);
-                    padding: 4px 8px;
-                    font-size: 12px;
-                }
-                button.add {
-                    background-color: var(--success-color, #4CAF50);
-                    width: 100%;
-                    margin-top: 8px;
-                }
-                .help-text {
-                    font-size: 0.8em;
-                    color: var(--secondary-text-color);
-                    margin-top: -8px;
-                    margin-bottom: 12px;
-                }
-                ha-entity-picker {
-                    flex: 2;
-                }
-            </style>
+        return b`
             <div class="card-config">
                 <div class="section">
                     <span class="section-title">${this.t('general')}</span>
-                    <div class="form-row">
-                        <label>${this.t('title')}</label>
-                        <input type="text" id="chartTitle" value="${this._title}">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('language')}</label>
-                        <select id="language" class="select-input">
-                            <option value="fr" ${this._config.language === 'fr' ? 'selected' : ''}>Français</option>
-                            <option value="en" ${this._config.language === 'en' ? 'selected' : ''}>English</option>
-                            <option value="es" ${this._config.language === 'es' ? 'selected' : ''}>Español</option>
-                            <option value="de" ${this._config.language === 'de' ? 'selected' : ''}>Deutsch</option>
-                        </select>
-                    </div>
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${data}
+                        .schema=${this._generalSchema()}
+                        .computeLabel=${this._computeLabel}
+                        .computeHelper=${this._computeHelper}
+                        @value-changed=${this._valueChanged}
+                    ></ha-form>
                 </div>
 
                 <div class="section">
                     <span class="section-title">${this.t('measurementPoints')}</span>
-                    <div id="points-container">
-                        ${this._points.map((point, index) => `
-                            <div class="point-row">
-                                <div class="point-header">
-                                    <strong>${this.t('point')} ${index + 1}</strong>
-                                    <button class="delete" data-index="${index}">${this.t('delete')}</button>
-                                </div>
-                                <div class="form-row">
-                                    <label>${this.t('label')}</label>
-                                    <input type="text" class="point-input point-label" data-index="${index}" data-field="label" value="${point.label || ''}" placeholder="Ex: Salon">
-                                </div>
-                                <div class="form-row">
-                                    <label>${this.t('tempEntity')}</label>
-                                    <ha-entity-picker
-                                        class="entity-picker"
-                                        data-index="${index}"
-                                        data-field="temp"
-                                        allow-custom-entity
-                                    ></ha-entity-picker>
-                                </div>
-                                <div class="form-row">
-                                    <label>${this.t('humEntity')}</label>
-                                    <ha-entity-picker
-                                        class="entity-picker"
-                                        data-index="${index}"
-                                        data-field="humidity"
-                                        allow-custom-entity
-                                    ></ha-entity-picker>
-                                </div>
-                                <div class="form-row">
-                                    <label>${this.t('color')}</label>
-                                    <div style="display: flex; gap: 8px; flex: 2; align-items: center;">
-                                        <input type="color" 
-                                               class="point-color-hex" 
-                                               data-index="${index}" 
-                                               value="${this._getHexFromColor(point.color || '#000000')}"
-                                               style="flex: 1; height: 30px; padding: 0;">
-                                        <input type="range" 
-                                               class="point-color-alpha" 
-                                               data-index="${index}" 
-                                               min="0" max="100" 
-                                               value="${Math.round(this._getAlphaFromColor(point.color || '#000000') * 100)}"
-                                               style="flex: 1;">
-                                        <span style="width: 35px; text-align: right; font-size: 0.8em;">
-                                            ${Math.round(this._getAlphaFromColor(point.color || '#000000') * 100)}%
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <label>${this.t('icon')}</label>
-                                    <input type="text" class="point-input point-icon" data-index="${index}" data-field="icon" value="${point.icon || 'mdi:thermometer'}" placeholder="mdi:thermometer">
-                                </div>
-
-                                <details data-index="${index}">
-                                    <summary>${this.t('customDisplay')}</summary>
-                                    <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 10px; background: rgba(0,0,0,0.05);">
-                                        ${this._renderDetailCheckbox(index, point, 'dewPoint', this.t('dewPoint'))}
-                                        ${this._renderDetailCheckbox(index, point, 'wetBulb', this.t('wetBulb'))}
-                                        ${this._renderDetailCheckbox(index, point, 'enthalpy', this.t('enthalpy'))}
-                                        ${this._renderDetailCheckbox(index, point, 'absHumidity', this.t('absHumidity'))}
-                                        ${this._renderDetailCheckbox(index, point, 'waterContent', this.t('waterContent'))}
-                                        ${this._renderDetailCheckbox(index, point, 'specificVolume', this.t('specificVolume'))}
-                                        ${this._renderDetailCheckbox(index, point, 'pmvIndex', this.t('pmvIndex'))}
-                                        ${this._renderDetailCheckbox(index, point, 'moldRisk', this.t('moldRisk'))}
-                                        ${this._renderDetailCheckbox(index, point, 'action', this.t('action'))}
-                                    </div>
-                                </details>
-                            </div>
-                        `).join('')}
+                    ${this._points.length
+                ? this._points.map((point, index) => this._renderPoint(point, index))
+                : b`<div class="empty">${this.t('noPoints')}</div>`}
+                    <div class="actions">
+                        <ha-button @click=${this._addPoint}>
+                            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                            ${this.t('addPoint')}
+                        </ha-button>
                     </div>
-                    <button class="add" id="addPoint">${this.t('addPoint')}</button>
                 </div>
 
                 <div class="section">
-                    <span class="section-title">${this.t('appearance')}</span>
-                    <div class="form-row">
-                        <label>${this.t('theme')}</label>
-                        <select id="theme" class="select-input">
-                            <option value="modern" ${(this._config.theme || 'modern') === 'modern' ? 'selected' : ''}>${this.t('themeModern')}</option>
-                            <option value="classic" ${this._config.theme === 'classic' ? 'selected' : ''}>${this.t('themeClassic')}</option>
-                            <option value="compact" ${this._config.theme === 'compact' ? 'selected' : ''}>${this.t('themeCompact')}</option>
-                        </select>
-                    </div>
-                    ${this._renderColorInput(this.t('bgColor'), 'bgColor', this._config.bgColor || '#ffffff')}
-                    ${this._renderColorInput(this.t('textColor'), 'textColor', this._config.textColor || '#333333')}
-                    ${this._renderColorInput(this.t('gridColor'), 'gridColor', this._config.gridColor || '#e0e0e0')}
-                    ${this._renderColorInput(this.t('curveColor'), 'curveColor', this._config.curveColor || '#e0e0e0')}
-                    ${this._renderColorInput(this.t('enthalpyColor'), 'enthalpyColor', this._config.enthalpyColor || '')}
-                    ${this._renderColorInput(this.t('comfortColor'), 'comfortColor', this._config.comfortColor || 'rgba(100, 180, 100, 0.3)')}
+                    <span class="section-title">${this.t('comfort')}</span>
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${data}
+                        .schema=${this._comfortSchema()}
+                        .computeLabel=${this._computeLabel}
+                        .computeHelper=${this._computeHelper}
+                        @value-changed=${this._valueChanged}
+                    ></ha-form>
                 </div>
 
                 <div class="section">
                     <span class="section-title">${this.t('displayOptions')}</span>
-                    <div class="form-row">
-                        <label>${this.t('showEnthalpy')}</label>
-                        <input type="checkbox" id="showEnthalpy" ${this._config.showEnthalpy !== false ? 'checked' : ''}>
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('showVaporPressure')}</label>
-                        <input type="checkbox" id="showVaporPressure" ${this._config.showVaporPressure !== false ? 'checked' : ''}>
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('showDewPoint')}</label>
-                        <input type="checkbox" id="showDewPoint" ${this._config.showDewPoint !== false ? 'checked' : ''}>
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('showWetBulb')}</label>
-                        <input type="checkbox" id="showWetBulb" ${this._config.showWetBulb !== false ? 'checked' : ''}>
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('showMoldRisk')}</label>
-                        <input type="checkbox" id="showMoldRisk" ${this._config.showMoldRisk !== false ? 'checked' : ''}>
-                    </div>
-                     <div class="form-row">
-                        <label>${this.t('showLegend')}</label>
-                        <input type="checkbox" id="showLegend" ${this._config.showLegend !== false ? 'checked' : ''}>
-                    </div>
-                     <div class="form-row">
-                        <label>${this.t('showCalculatedData')}</label>
-                        <input type="checkbox" id="showCalculatedData" ${this._config.showCalculatedData !== false ? 'checked' : ''}>
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('forceDarkMode')}</label>
-                        <input type="checkbox" id="darkMode" ${this._config.darkMode ? 'checked' : ''}>
-                    </div>
-                    <div class="help-text">${this.t('darkModeHelp')}</div>
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${data}
+                        .schema=${this._displaySchema()}
+                        .computeLabel=${this._computeLabel}
+                        .computeHelper=${this._computeHelper}
+                        @value-changed=${this._valueChanged}
+                    ></ha-form>
                 </div>
 
-                 <div class="section">
+                <div class="section">
+                    <span class="section-title">${this.t('appearance')}</span>
+                    ${COLOR_KEYS.map(key => this._renderColorRow(key))}
+                </div>
+
+                <div class="section">
                     <span class="section-title">${this.t('zoomPan')}</span>
-                    <div class="form-row">
-                        <label>${this.t('minTemp')}</label>
-                        <input type="number" id="zoom_temp_min" value="${this._config.zoom_temp_min || ''}" placeholder="Ex: 15">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('maxTemp')}</label>
-                        <input type="number" id="zoom_temp_max" value="${this._config.zoom_temp_max || ''}" placeholder="Ex: 30">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('minHum')}</label>
-                        <input type="number" id="zoom_humidity_min" value="${this._config.zoom_humidity_min || ''}" placeholder="Ex: 30">
-                    </div>
-                    <div class="form-row">
-                        <label>${this.t('maxHum')}</label>
-                        <input type="number" id="zoom_humidity_max" value="${this._config.zoom_humidity_max || ''}" placeholder="Ex: 70">
-                    </div>
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${data}
+                        .schema=${this._zoomSchema()}
+                        .computeLabel=${this._computeLabel}
+                        @value-changed=${this._valueChanged}
+                    ></ha-form>
                 </div>
             </div>
         `;
-
-        this._addEventListeners();
-        
-        // Restaure l'état des details après le rendu
-        this._restoreDetailsState();
-        
-        // Applique hass et les valeurs si disponibles
-        if (this._hass) {
-            this._updateEntityPickers();
-            this._applyPendingValues();
-        }
     }
 
-    _renderDetailCheckbox(index, point, field, label) {
-        const isChecked = point.details && point.details.includes(field);
-        return `
-            <label style="display: flex; align-items: center; font-size: 0.9em;">
-                <input type="checkbox" 
-                       class="point-detail-checkbox" 
-                       data-index="${index}" 
-                       data-value="${field}" 
-                       ${isChecked ? 'checked' : ''}>
-                ${label}
-            </label>
-        `;
-    }
-
-    _addEventListeners() {
-        // Global inputs
-        this.shadowRoot.getElementById('chartTitle')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('language')?.addEventListener('change', this._valueChanged.bind(this));
-
-        // Theme
-        this.shadowRoot.getElementById('theme')?.addEventListener('change', this._valueChanged.bind(this));
-        
-        // Appearance - Colors
-        this.shadowRoot.querySelectorAll('.color-hex-input').forEach(input => {
-            input.addEventListener('input', this._colorChanged.bind(this));
-        });
-        this.shadowRoot.querySelectorAll('.color-alpha-input').forEach(input => {
-            input.addEventListener('input', this._colorChanged.bind(this));
-        });
-
-        this.shadowRoot.getElementById('showEnthalpy')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showVaporPressure')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showDewPoint')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showWetBulb')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showMoldRisk')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showLegend')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('showCalculatedData')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('darkMode')?.addEventListener('change', this._valueChanged.bind(this));
-
-        // Zoom inputs
-        this.shadowRoot.getElementById('zoom_temp_min')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_temp_max')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_humidity_min')?.addEventListener('change', this._valueChanged.bind(this));
-        this.shadowRoot.getElementById('zoom_humidity_max')?.addEventListener('change', this._valueChanged.bind(this));
-
-        // Add point button
-        this.shadowRoot.getElementById('addPoint')?.addEventListener('click', this._addPoint.bind(this));
-
-        // Point inputs (label and icon only - temp/humidity use ha-entity-picker)
-        this.shadowRoot.querySelectorAll('.point-label, .point-icon').forEach(input => {
-            input.addEventListener('change', this._pointChanged.bind(this));
-        });
-
-        // Entity pickers - add event listeners for value-changed
-        this.shadowRoot.querySelectorAll('.entity-picker').forEach(picker => {
-            picker.addEventListener('value-changed', this._entityPickerChanged.bind(this));
-        });
-
-        // Point colors
-        this.shadowRoot.querySelectorAll('.point-color-hex, .point-color-alpha').forEach(input => {
-            input.addEventListener('input', this._pointColorChanged.bind(this));
-        });
-
-        // Point details checkboxes
-        this.shadowRoot.querySelectorAll('.point-detail-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', this._pointDetailChanged.bind(this));
-        });
-
-        // Delete buttons
-        this.shadowRoot.querySelectorAll('.delete').forEach(btn => {
-            btn.addEventListener('click', this._deletePoint.bind(this));
-        });
-    }
-
-    _pointDetailChanged(e) {
-        const index = parseInt(e.target.dataset.index);
-        const value = e.target.dataset.value;
-        const checked = e.target.checked;
-
-        const points = this._points.map(p => ({ ...p, details: p.details ? [...p.details] : [] }));
-
-        if (!points[index].details) {
-            points[index].details = [];
-        }
-
-        if (checked) {
-            if (!points[index].details.includes(value)) {
-                points[index].details.push(value);
+    static get styles() {
+        return i$3`
+            .card-config {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
             }
-        } else {
-            points[index].details = points[index].details.filter(v => v !== value);
-        }
-
-        this._config = { ...this._config, points };
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _colorChanged(e) {
-        if (!this._config) return;
-        const target = e.target;
-        const baseId = target.dataset.baseId;
-
-        const hexInput = this.shadowRoot.getElementById(`${baseId}_hex`);
-        const alphaInput = this.shadowRoot.getElementById(`${baseId}_alpha`);
-        const alphaDisplay = this.shadowRoot.getElementById(`${baseId}_alpha_display`);
-
-        if (alphaDisplay) {
-            alphaDisplay.textContent = `${alphaInput.value}%`;
-        }
-
-        const color = this._combineColor(hexInput.value, parseInt(alphaInput.value) / 100);
-
-        this._config = {
-            ...this._config,
-            [baseId]: color
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _pointColorChanged(e) {
-        if (!this._config) return;
-        const target = e.target;
-        const index = parseInt(target.dataset.index);
-        const row = target.closest('.form-row');
-
-        const hexInput = row.querySelector('.point-color-hex');
-        const alphaInput = row.querySelector('.point-color-alpha');
-        const alphaDisplay = row.querySelector('span');
-
-        if (alphaDisplay) {
-            alphaDisplay.textContent = `${alphaInput.value}%`;
-        }
-
-        const color = this._combineColor(hexInput.value, parseInt(alphaInput.value) / 100);
-
-        const newPoints = [...(this._config.points || [])];
-        if (!newPoints[index]) newPoints[index] = {};
-
-        newPoints[index] = {
-            ...newPoints[index],
-            color: color
-        };
-
-        this._config = {
-            ...this._config,
-            points: newPoints
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _valueChanged(e) {
-        if (!this._config) return;
-        const target = e.target;
-        const key = target.id;
-        const value = target.type === 'checkbox' ? target.checked : target.value;
-
-        this._config = {
-            ...this._config,
-            [key]: value
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _pointChanged(e) {
-        if (!this._config) return;
-        const target = e.target;
-        const index = parseInt(target.dataset.index);
-        const field = target.dataset.field;
-        const value = target.value;
-
-        const newPoints = [...(this._config.points || [])];
-        if (!newPoints[index]) newPoints[index] = {};
-
-        newPoints[index] = {
-            ...newPoints[index],
-            [field]: value
-        };
-
-        this._config = {
-            ...this._config,
-            points: newPoints
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _entityPickerChanged(e) {
-        if (!this._config) return;
-        const target = e.target;
-        const index = parseInt(target.dataset.index);
-        const field = target.dataset.field;
-        const value = e.detail?.value || '';
-
-        const newPoints = [...(this._config.points || [])];
-        if (!newPoints[index]) newPoints[index] = {};
-
-        newPoints[index] = {
-            ...newPoints[index],
-            [field]: value
-        };
-
-        this._config = {
-            ...this._config,
-            points: newPoints
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _addPoint() {
-        const newPoints = [...(this._config.points || [])];
-        newPoints.push({
-            temp: '',
-            humidity: '',
-            label: 'Nouveau point',
-            color: '#FF0000'
-        });
-
-        this._config = {
-            ...this._config,
-            points: newPoints
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
-    }
-
-    _deletePoint(e) {
-        const index = parseInt(e.target.dataset.index);
-        const newPoints = [...(this._config.points || [])];
-        newPoints.splice(index, 1);
-
-        this._config = {
-            ...this._config,
-            points: newPoints
-        };
-
-        fireEvent(this, 'config-changed', { config: this._config });
+            .section {
+                border: 1px solid var(--divider-color, #e0e0e0);
+                border-radius: 8px;
+                padding: 16px;
+            }
+            .section-title {
+                display: block;
+                margin-bottom: 12px;
+                font-weight: 500;
+                font-size: 1.05em;
+                color: var(--primary-text-color);
+            }
+            ha-form {
+                display: block;
+            }
+            ha-expansion-panel {
+                margin-bottom: 8px;
+            }
+            .point-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 500;
+                color: var(--primary-text-color);
+            }
+            .point-content {
+                padding: 8px 4px 4px;
+            }
+            .point-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 4px;
+                margin-top: 8px;
+            }
+            .point-actions .delete {
+                color: var(--error-color, #f44336);
+            }
+            .actions {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 8px;
+            }
+            .color-row {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 8px;
+            }
+            .color-label {
+                flex: 1;
+                color: var(--primary-text-color);
+            }
+            .color-picker {
+                width: 80px;
+            }
+            .color-opacity {
+                flex: 1;
+                min-width: 140px;
+            }
+            .empty {
+                padding: 8px 0;
+                color: var(--secondary-text-color);
+                font-style: italic;
+            }
+        `;
     }
 }
 
@@ -1356,7 +1427,7 @@ customElements.define("psychrometric-chart-editor", PsychrometricChartEditor);
  * A Home Assistant custom card that displays a psychrometric chart with real-time entity data.
  * Built with LitElement for performance.
  */
-class PsychrometricChartEnhanced extends LitElement {
+class PsychrometricChartEnhanced extends i {
     static get properties() {
         return {
             /** Home Assistant object */
@@ -1371,17 +1442,19 @@ class PsychrometricChartEnhanced extends LitElement {
             _selectedEntity: { state: true },
             /** Currently selected type (temperature/humidity) */
             _selectedType: { state: true },
-            /** Current zoom level */
-            zoomLevel: { state: true },
-            /** Current pan X offset */
-            panX: { state: true },
-            /** Current pan Y offset */
-            panY: { state: true },
+            /** Canvas width in CSS pixels, driven by the resize observer */
+            _canvasWidth: { state: true },
+            /** Canvas height in CSS pixels, driven by the resize observer */
+            _canvasHeight: { state: true },
+            /** Point currently hovered on the canvas, if any */
+            _hoveredPoint: { state: true },
+            /** Viewport position of the tooltip */
+            _tooltipPos: { state: true },
         };
     }
 
     static get styles() {
-        return css`
+        return i$3`
             :host {
                 display: block;
             }
@@ -1408,10 +1481,7 @@ class PsychrometricChartEnhanced extends LitElement {
             }
             canvas {
                 max-width: 100%;
-                height: auto;
                 cursor: crosshair;
-                transition: transform 0.2s;
-                border-left: 4px solid transparent;
             }
             
             /* Enhanced Data Display Styles */
@@ -1553,6 +1623,62 @@ class PsychrometricChartEnhanced extends LitElement {
                 height: 300px;
                 margin-top: 20px;
             }
+            .history-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                margin-top: 15px;
+            }
+            .history-stat {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                padding: 10px;
+                border-radius: 10px;
+                background: rgba(127, 127, 127, 0.12);
+            }
+            .history-stat-label {
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                opacity: 0.7;
+            }
+            .history-stat-value {
+                font-size: 1.2em;
+                font-weight: 600;
+            }
+            .history-empty {
+                padding: 30px 0;
+                text-align: center;
+                opacity: 0.7;
+            }
+            .card-message {
+                padding: 24px 16px 32px;
+                text-align: center;
+                opacity: 0.8;
+            }
+            .tooltip {
+                position: fixed;
+                background: rgba(0, 0, 0, 0.9);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-size: 13px;
+                z-index: 10000;
+                pointer-events: none;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                border-left: 3px solid transparent;
+            }
+            .tooltip-title {
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            .tooltip-hint {
+                margin-top: 5px;
+                font-size: 11px;
+                opacity: 0.8;
+            }
             .legend-box {
                 position: absolute;
                 top: 10px;
@@ -1575,6 +1701,11 @@ class PsychrometricChartEnhanced extends LitElement {
                 display: inline-block;
                 margin-right: 8px;
                 border-radius: 50%;
+            }
+            /* La zone de confort est une surface, pas un point : carré plutôt que pastille. */
+            .legend-comfort {
+                border-radius: 3px;
+                border: 1px solid rgba(127, 127, 127, 0.5);
             }
             @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @media (max-width: 768px) {
@@ -1645,19 +1776,19 @@ class PsychrometricChartEnhanced extends LitElement {
 
     constructor() {
         super();
-        this.canvasWidth = 800;
-        this.canvasHeight = 600;
+        this._canvasWidth = 800;
+        this._canvasHeight = 600;
         this.resizeObserver = null;
         this._resizeDebounceTimer = null;
         this._language = 'fr';
         this._temperatureUnit = null;
-
-        // Zoom defaults
-        this.zoomLevel = 1.0;
-        this.panX = 0;
-        this.panY = 0;
-        this.minZoom = 0.5;
-        this.maxZoom = 3.0;
+        this._currentPoints = [];
+        this._hoveredPoint = null;
+        this._tooltipPos = { x: 0, y: 0 };
+        // Références stables pour pouvoir retirer les écouteurs au démontage.
+        this._onMouseMove = this._handleMouseMove.bind(this);
+        this._onMouseLeave = this._handleMouseLeave.bind(this);
+        this._onCanvasClick = this._handleCanvasClick.bind(this);
 
         this.translations = {
             fr: {
@@ -1675,8 +1806,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRisk: 'Moisissure',
                 action: 'Action',
                 power: 'Puissance totale',
-                heating: 'Chauffage',
-                cooling: 'Refroidissement',
                 humidification: 'Humidification',
                 dehumidification: 'Déshumidification',
                 idealSetpoint: 'Consigne idéale',
@@ -1688,12 +1817,17 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Hors confort',
                 comfortZone: 'Zone de confort',
                 legend: 'Légende',
-                clickToViewHistory: '.',
+                clickToViewHistory: 'Cliquez pour voir l\'historique',
                 warm: 'Réchauffer',
                 cool: 'Refroidir',
                 andHumidify: 'et Humidifier',
                 andDehumidify: 'et Déshumidifier',
                 historyLast24h: 'Historique des dernières 24h',
+                historyLoading: 'Chargement…',
+                historyEmpty: 'Aucune donnée sur les dernières 24h.',
+                statMin: 'Min',
+                statMax: 'Max',
+                statAvg: 'Moyenne',
                 moldRiskNone: 'Aucun',
                 moldRiskVeryLow: 'Très faible',
                 moldRiskLow: 'Faible',
@@ -1717,8 +1851,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRisk: 'Mold risk',
                 action: 'Action',
                 power: 'Total power',
-                heating: 'Heating',
-                cooling: 'Cooling',
                 humidification: 'Humidification',
                 dehumidification: 'Dehumidification',
                 idealSetpoint: 'Ideal setpoint',
@@ -1730,12 +1862,17 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Out of comfort',
                 comfortZone: 'Comfort zone',
                 legend: 'Legend',
-                clickToViewHistory: '.',
+                clickToViewHistory: 'Click to view history',
                 warm: 'Warm up',
                 cool: 'Cool down',
                 andHumidify: 'and Humidify',
                 andDehumidify: 'and Dehumidify',
                 historyLast24h: 'History of the last 24 hours',
+                historyLoading: 'Loading…',
+                historyEmpty: 'No data for the last 24 hours.',
+                statMin: 'Min',
+                statMax: 'Max',
+                statAvg: 'Average',
                 moldRiskNone: 'No risk',
                 moldRiskVeryLow: 'Very low',
                 moldRiskLow: 'Low',
@@ -1759,8 +1896,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRisk: 'Moho',
                 action: 'Acción',
                 power: 'Potencia total',
-                heating: 'Calefacción',
-                cooling: 'Refrigeración',
                 humidification: 'Humidificación',
                 dehumidification: 'Deshumidificación',
                 idealSetpoint: 'Consigna ideal',
@@ -1772,12 +1907,17 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Fuera de confort',
                 comfortZone: 'Zona de confort',
                 legend: 'Leyenda',
-                clickToViewHistory: '.',
+                clickToViewHistory: 'Haga clic para ver el historial',
                 warm: 'Calentar',
                 cool: 'Enfriar',
                 andHumidify: 'y Humidificar',
                 andDehumidify: 'y Deshumidificar',
                 historyLast24h: 'Historial de las últimas 24 horas',
+                historyLoading: 'Cargando…',
+                historyEmpty: 'Sin datos en las últimas 24 horas.',
+                statMin: 'Mín',
+                statMax: 'Máx',
+                statAvg: 'Media',
                 moldRiskNone: 'Sin riesgo',
                 moldRiskVeryLow: 'Muy bajo',
                 moldRiskLow: 'Bajo',
@@ -1801,8 +1941,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRisk: 'Schimmel',
                 action: 'Aktion',
                 power: 'Gesamtleistung',
-                heating: 'Heizung',
-                cooling: 'Kühlung',
                 humidification: 'Befeuchtung',
                 dehumidification: 'Entfeuchtung',
                 idealSetpoint: 'Idealer Sollwert',
@@ -1814,12 +1952,17 @@ class PsychrometricChartEnhanced extends LitElement {
                 outOfComfort: 'Außerhalb Komfort',
                 comfortZone: 'Komfortzone',
                 legend: 'Legende',
-                clickToViewHistory: '.',
+                clickToViewHistory: 'Zum Anzeigen des Verlaufs klicken',
                 warm: 'Erwärmen',
                 cool: 'Abkühlen',
                 andHumidify: 'und Befeuchten',
                 andDehumidify: 'und Entfeuchten',
                 historyLast24h: 'Verlauf der letzten 24 Stunden',
+                historyLoading: 'Wird geladen…',
+                historyEmpty: 'Keine Daten für die letzten 24 Stunden.',
+                statMin: 'Min',
+                statMax: 'Max',
+                statAvg: 'Mittelwert',
                 moldRiskNone: 'Kein Risiko',
                 moldRiskVeryLow: 'Sehr niedrig',
                 moldRiskLow: 'Niedrig',
@@ -1836,20 +1979,29 @@ class PsychrometricChartEnhanced extends LitElement {
      * @param {Object} config - The configuration object
      */
     setConfig(config) {
-        if (!config.points || config.points.length === 0) {
-            throw new Error("La configuration doit contenir des points !");
+        if (config.points !== undefined && !Array.isArray(config.points)) {
+            throw new Error("`points` doit être une liste. / `points` must be a list.");
         }
-        this.config = config;
-        this._language = config.language || 'fr';
+        // Une liste vide n'est pas une erreur de configuration mais une carte en cours
+        // de réglage : render() affiche alors `noPointsConfigured` plutôt qu'une erreur
+        // rouge, ce qui est aussi l'état du stub servi au sélecteur de cartes.
 
-        if (config.zoom_temp_min !== undefined && config.zoom_temp_max !== undefined) {
-            this.configuredZoomRange = {
-                tempMin: config.zoom_temp_min,
-                tempMax: config.zoom_temp_max,
-                humidityMin: config.zoom_humidity_min,
-                humidityMax: config.zoom_humidity_max
-            };
+        const language = config.language || 'fr';
+        // Une langue inconnue ne doit pas faire planter chaque appel à t().
+        this._language = this.translations[language] ? language : 'fr';
+
+        const bounds = this._resolveBounds(config);
+        if (bounds.minTemp >= bounds.maxTemp) {
+            throw new Error(`zoom_temp_min (${bounds.minTemp}) doit être strictement inférieur à zoom_temp_max (${bounds.maxTemp}).`);
         }
+        if (bounds.minHum >= bounds.maxHum) {
+            throw new Error(`zoom_humidity_min (${bounds.minHum}) doit être strictement inférieur à zoom_humidity_max (${bounds.maxHum}).`);
+        }
+
+        this.config = config;
+        // L'unité peut changer avec la config : forcer une nouvelle détection.
+        this._temperatureUnit = null;
+        this._wetBulbCache = null;
     }
 
     /**
@@ -1890,26 +2042,93 @@ class PsychrometricChartEnhanced extends LitElement {
      * Initializes the resize observer and canvas listeners.
      */
     firstUpdated() {
+        this._observeResize();
+
+        const canvas = this.shadowRoot.getElementById('psychroChart');
+        if (canvas) {
+            canvas.addEventListener('mousemove', this._onMouseMove);
+            canvas.addEventListener('mouseleave', this._onMouseLeave);
+            canvas.addEventListener('click', this._onCanvasClick);
+        }
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        // firstUpdated ne rejoue pas après un remontage : ré-observer explicitement.
+        if (this.shadowRoot?.querySelector('ha-card')) this._observeResize();
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this.resizeObserver?.disconnect();
+        this.resizeObserver = null;
+        clearTimeout(this._resizeDebounceTimer);
+        this._resizeDebounceTimer = null;
+        this._hoveredPoint = null;
+    }
+
+    /**
+     * Observe the card width and keep the canvas at a 4:3 ratio.
+     */
+    _observeResize() {
+        if (this.resizeObserver) return;
+        const card = this.shadowRoot?.querySelector('ha-card');
+        if (!card) return;
+
         this.resizeObserver = new ResizeObserver(entries => {
-            if (this._resizeDebounceTimer) clearTimeout(this._resizeDebounceTimer);
+            clearTimeout(this._resizeDebounceTimer);
             this._resizeDebounceTimer = setTimeout(() => {
-                for (let entry of entries) {
+                for (const entry of entries) {
                     const width = entry.contentRect.width;
                     if (width > 0) {
-                        this.canvasWidth = width;
-                        this.canvasHeight = width * 0.75; // 4:3 aspect ratio
-                        this.requestUpdate();
+                        this._canvasWidth = width;
+                        this._canvasHeight = width * 0.75; // 4:3 aspect ratio
                     }
                 }
             }, 100);
         });
-        this.resizeObserver.observe(this.shadowRoot.querySelector('ha-card'));
+        this.resizeObserver.observe(card);
+    }
 
-        // Setup canvas interactions
-        const canvas = this.shadowRoot.getElementById('psychroChart');
-        if (canvas) {
-            canvas.addEventListener('mousemove', this._handleMouseMove.bind(this));
-            canvas.addEventListener('mouseleave', this._handleMouseLeave.bind(this));
+    /**
+     * Entity IDs the card actually depends on.
+     * @returns {string[]} List of entity IDs
+     */
+    _watchedEntityIds() {
+        if (!this.config?.points) return [];
+        const ids = [];
+        for (const point of this.config.points) {
+            if (point.temp) ids.push(point.temp);
+            if (point.humidity) ids.push(point.humidity);
+        }
+        return ids;
+    }
+
+    /**
+     * Home Assistant replaces `hass` on every state change of *any* entity in the
+     * installation. Without this gate the whole chart would be recomputed and
+     * redrawn dozens of times per second for entities the card never displays.
+     * @param {Map} changedProperties - Map of changed properties
+     * @returns {boolean} True when the card must re-render
+     */
+    shouldUpdate(changedProperties) {
+        if (!changedProperties.has('hass')) return true;
+        if (changedProperties.size > 1) return true;
+
+        const oldHass = changedProperties.get('hass');
+        if (!oldHass || !this.config) return true;
+
+        return this._watchedEntityIds().some(id => oldHass.states[id] !== this.hass.states[id]);
+    }
+
+    /**
+     * Lifecycle method called before update.
+     * Computes the points once per cycle, for both `render()` and `_drawChart()`.
+     * @param {Map} changedProperties - Map of changed properties
+     */
+    willUpdate(changedProperties) {
+        if (changedProperties.has('hass') || changedProperties.has('config') || !this._currentPoints) {
+            this._currentPoints = this._calculatePoints();
         }
     }
 
@@ -1919,13 +2138,16 @@ class PsychrometricChartEnhanced extends LitElement {
      * @param {Map} changedProperties - Map of changed properties
      */
     updated(changedProperties) {
-        if (changedProperties.has('hass') || changedProperties.has('config') || changedProperties.has('zoomLevel') || changedProperties.has('panX') || changedProperties.has('panY')) {
+        if (changedProperties.has('hass') || changedProperties.has('config')
+            || changedProperties.has('_canvasWidth') || changedProperties.has('_canvasHeight')) {
             this._drawChart();
         }
 
-        if ((changedProperties.has('_modalOpen') || changedProperties.has('_historyData')) && this._modalOpen && this._historyData) {
-            // Wait for modal render
-            setTimeout(() => this._drawHistoryChart(), 50);
+        if ((changedProperties.has('_modalOpen') || changedProperties.has('_historyData'))
+            && this._modalOpen && this._historyData) {
+            // Une frame d'attente pour que la modale soit mise en page et que
+            // offsetWidth soit exploitable (remplace un setTimeout arbitraire).
+            requestAnimationFrame(() => this._drawHistoryChart());
         }
     }
 
@@ -1935,7 +2157,7 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {string} Translated text
      */
     t(key) {
-        return this.translations[this._language][key] || this.translations['fr'][key] || key;
+        return this.translations[this._language]?.[key] ?? this.translations.fr[key] ?? key;
     }
 
     /**
@@ -2017,6 +2239,23 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
+     * Describe *why* a point sits outside the comfort zone.
+     * Temperature takes precedence over humidity, being the dominant sensation.
+     * @param {number} temp - Temperature in Celsius
+     * @param {number} humidity - Humidity in %
+     * @param {Object} comfortRange - Comfort range definition
+     * @returns {string} Translation key describing the comfort status
+     */
+    getComfortStatus(temp, humidity, comfortRange) {
+        if (this.isInComfortZone(temp, humidity, comfortRange)) return 'comfortOptimal';
+        if (temp > comfortRange.tempMax) return 'comfortTooHot';
+        if (temp < comfortRange.tempMin) return 'comfortTooCold';
+        if (humidity > comfortRange.rhMax) return 'comfortTooHumid';
+        if (humidity < comfortRange.rhMin) return 'comfortTooDry';
+        return 'outOfComfort';
+    }
+
+    /**
      * Get color for mold risk level.
      * @param {number} riskLevel - Risk level (0-6)
      * @param {boolean} darkMode - Whether dark mode is enabled
@@ -2057,8 +2296,15 @@ class PsychrometricChartEnhanced extends LitElement {
             if (!tempState || !humState) return null;
 
             const tempRaw = parseFloat(tempState.state);
+            const humidityRaw = parseFloat(humState.state);
+
+            // Un capteur en 'unavailable' / 'unknown' donne NaN : sans cette garde le
+            // NaN se propage dans tous les calculs et s'affiche tel quel sur la carte.
+            if (!Number.isFinite(tempRaw) || !Number.isFinite(humidityRaw)) return null;
+
             const temp = this.toInternalTemp(tempRaw);
-            const humidity = parseFloat(humState.state);
+            // Une humidité nulle rendrait le point de rosée infini (log(0)).
+            const humidity = Math.min(100, Math.max(0.01, humidityRaw));
 
             const comfortRange = this.config.comfortRange ? {
                 tempMin: this.toInternalTemp(this.config.comfortRange.tempMin),
@@ -2107,13 +2353,20 @@ class PsychrometricChartEnhanced extends LitElement {
             const pmv = PsychrometricCalculations.calculatePMV(temp, humidity);
             const idealSetpoint = PsychrometricCalculations.calculateIdealSetpoint(temp, humidity, comfortRange);
 
+            // Normalisation en hex : le dessin concatène `color + '40'` pour le halo et
+            // le rendu interpole `${color}15` dans un dégradé — un rgba() hérité d'une
+            // ancienne config y produirait une couleur invalide, silencieusement ignorée.
+            const rawColor = point.color || PsychrometricCalculations.generateColorFromHash(`${point.temp}_${point.humidity}`);
+            const color = PsychrometricCalculations.rgbToHex(PsychrometricCalculations.colorToRgb(rawColor));
+
             return {
                 temp, humidity, action, power, heatingPower, coolingPower, humidificationPower, dehumidificationPower,
                 dewPoint, waterContent, enthalpy, absoluteHumidity, wetBulbTemp, specificVolume, moldRisk, pmv, idealSetpoint,
-                color: point.color || PsychrometricCalculations.generateColorFromHash(`${point.temp}_${point.humidity}`),
+                color,
                 label: point.label || `${point.temp} & ${point.humidity}`,
                 icon: point.icon || "mdi:thermometer",
                 inComfortZone: this.isInComfortZone(temp, humidity, comfortRange),
+                comfortStatus: this.getComfortStatus(temp, humidity, comfortRange),
                 tempEntityId: point.temp,
                 humidityEntityId: point.humidity,
                 details: point.details // Pass through details config
@@ -2125,31 +2378,41 @@ class PsychrometricChartEnhanced extends LitElement {
      * Calculate chart boundaries based on config.
      * @returns {Object} Bounds object { minTemp, maxTemp, minHum, maxHum, maxPv }
      */
+    _resolveBounds(config) {
+        /**
+         * Reads one numeric bound, falling back to the default when absent or unparseable.
+         * @param {*} value - Raw config value
+         * @param {number} fallback - Default bound
+         * @returns {number} Resolved bound
+         */
+        const read = (value, fallback) => {
+            if (value === undefined || value === null || value === '') return fallback;
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+
+        return {
+            minTemp: read(config?.zoom_temp_min, -10),
+            maxTemp: read(config?.zoom_temp_max, 50),
+            minHum: read(config?.zoom_humidity_min, 0),
+            maxHum: read(config?.zoom_humidity_max, 100),
+        };
+    }
+
+    /**
+     * Calculate chart boundaries based on config.
+     * The Y axis maps vapor pressure, so the humidity bounds are converted into a
+     * pressure window taken at `maxTemp` — the warmest column of the chart.
+     * @returns {Object} Bounds object { minTemp, maxTemp, minHum, maxHum, minPv, maxPv }
+     */
     _calculateChartBounds() {
-        const defaultMinTemp = -10;
-        const defaultMaxTemp = 50;
-        const defaultMinHum = 0;
-        const defaultMaxHum = 100;
+        const { minTemp, maxTemp, minHum, maxHum } = this._resolveBounds(this.config);
 
-        let minTemp = defaultMinTemp;
-        let maxTemp = defaultMaxTemp;
-        let minHum = defaultMinHum;
-        let maxHum = defaultMaxHum;
-
-        if (this.config) {
-            if (this.config.zoom_temp_min !== undefined && this.config.zoom_temp_min !== '') minTemp = parseFloat(this.config.zoom_temp_min);
-            if (this.config.zoom_temp_max !== undefined && this.config.zoom_temp_max !== '') maxTemp = parseFloat(this.config.zoom_temp_max);
-            if (this.config.zoom_humidity_min !== undefined && this.config.zoom_humidity_min !== '') minHum = parseFloat(this.config.zoom_humidity_min);
-            if (this.config.zoom_humidity_max !== undefined && this.config.zoom_humidity_max !== '') maxHum = parseFloat(this.config.zoom_humidity_max);
-        }
-
-        // Calculate max Vapor Pressure based on max Temp and max Humidity
-        // Saturation pressure at maxTemp
-        const P_sat_max = 0.61078 * Math.exp((17.27 * maxTemp) / (maxTemp + 237.3));
-        // Max vapor pressure to display
+        const P_sat_max = PsychrometricCalculations.calculateSaturationPressure(maxTemp);
+        const minPv = (minHum / 100) * P_sat_max;
         const maxPv = (maxHum / 100) * P_sat_max;
 
-        return { minTemp, maxTemp, minHum, maxHum, maxPv };
+        return { minTemp, maxTemp, minHum, maxHum, minPv, maxPv };
     }
 
     /**
@@ -2160,21 +2423,21 @@ class PsychrometricChartEnhanced extends LitElement {
         if (!canvas) return;
 
         const ctx = canvas.getContext("2d");
-        const width = this.canvasWidth;
-        const height = this.canvasHeight;
+        const width = this._canvasWidth;
+        const height = this._canvasHeight;
 
-        canvas.width = width;
-        canvas.height = height;
+        // Rendu net sur écrans HiDPI : le canvas travaille en pixels physiques,
+        // la transformation ramène toutes les coordonnées de dessin en pixels CSS.
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const points = this._calculatePoints();
-        this._currentPoints = points; // Store for tooltip
+        const points = this._currentPoints || [];
 
         const {
-            bgColor = "#ffffff",
-            gridColor = "#cccccc",
-            curveColor = "#1f77b4",
-            textColor = "#333333",
-            comfortColor = "rgba(144, 238, 144, 0.5)",
             showEnthalpy = true,
             showWetBulb = true,
             showDewPoint = true,
@@ -2231,23 +2494,11 @@ class PsychrometricChartEnhanced extends LitElement {
             else if (bounds.maxPv > 5) pvStep = 1;
 
             for (let i = 0; i <= bounds.maxPv + pvStep; i += pvStep) {
-                // We need to find a Y coordinate for this Vapor Pressure
-                // Since Y is linear with Pv (mostly, in this simplified chart projection),
-                // we can map Pv directly to Y.
-                // However, humidityToY takes (temp, rh).
-                // Pv = rh * Psat(temp). So rh = Pv / Psat(temp).
-                // Let's pick a reference temp, say maxTemp.
-
-                const P_sat_ref = 0.61078 * Math.exp((17.27 * bounds.maxTemp) / (bounds.maxTemp + 237.3));
+                // L'axe Y porte la pression de vapeur : on la convertit en humidité
+                // relative à la température de référence (maxTemp) pour réutiliser
+                // humidityToY, qui est la seule projection Pv -> Y du graphique.
+                const P_sat_ref = PsychrometricCalculations.calculateSaturationPressure(bounds.maxTemp);
                 const rh = (i / P_sat_ref) * 100;
-
-                // If rh > 100, we might be off chart, but humidityToY handles scaling.
-                // Actually, humidityToY logic:
-                // const P_v = (humidity / 100) * P_sat;
-                // const baseY = 550 * scaleY - (P_v / 4) * 500 * scaleY;
-                // It seems the original chart hardcoded max Pv to ~4kPa (550 - 4/4*500 = 50).
-                // We need to adjust humidityToY to be dynamic first.
-
                 const y = this.humidityToY(bounds.maxTemp, rh);
 
                 if (y > topPadding && y < bottomEdge) {
@@ -2341,9 +2592,8 @@ class PsychrometricChartEnhanced extends LitElement {
                 for (let t = bounds.minTemp; t <= bounds.maxTemp; t += 0.5) {
                     const W = (h - 1.006 * t) / (2501 + 1.84 * t);
                     if (W < 0) continue;
-                    const P_v = (W * 101.325) / (0.622 + W);
-                    const P_sat = 0.61078 * Math.exp((17.27 * t) / (t + 237.3));
-                    const rh = (P_v / P_sat) * 100;
+                    const P_v = PsychrometricCalculations.waterContentToVaporPressure(W);
+                    const rh = (P_v / PsychrometricCalculations.calculateSaturationPressure(t)) * 100;
 
                     const y = this.humidityToY(t, rh);
                     if (y >= topPadding && y <= bottomEdge) {
@@ -2373,32 +2623,23 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.setLineDash([1 * scale, 4 * scale]);
             ctx.strokeStyle = darkMode ? "rgba(0, 255, 255, 0.4)" : "rgba(0, 100, 255, 0.4)";
 
-            const startTw = Math.floor(bounds.minTemp / 5) * 5;
-            const endTw = Math.ceil(bounds.maxTemp / 5) * 5;
-
-            for (let tw = startTw; tw <= endTw; tw += 5) {
-                const startX = this.tempToX(tw);
-                const startY = this.humidityToY(tw, 100);
-
-                if (startY < topPadding || startY > bottomEdge) continue;
-
+            for (const line of this._wetBulbLines(bounds)) {
+                let started = false;
                 ctx.beginPath();
-                ctx.moveTo(startX, startY);
-
-                let endX = startX, endY = startY;
-                for (let t_search = tw; t_search < bounds.maxTemp + 10; t_search += 0.5) {
-                    for (let rh_search = 100; rh_search > 0; rh_search -= 5) {
-                        const calculatedTw = PsychrometricCalculations.calculateWetBulbTemp(t_search, rh_search);
-                        if (Math.abs(calculatedTw - tw) < 0.2) {
-                            endX = this.tempToX(t_search);
-                            endY = this.humidityToY(t_search, rh_search);
-                            break;
-                        }
+                for (const { temp, rh } of line) {
+                    const y = this.humidityToY(temp, rh);
+                    if (y < topPadding || y > bottomEdge) {
+                        started = false;
+                        continue;
+                    }
+                    const x = this.tempToX(temp);
+                    if (started) {
+                        ctx.lineTo(x, y);
+                    } else {
+                        ctx.moveTo(x, y);
+                        started = true;
                     }
                 }
-                if (endY > bottomEdge) endY = bottomEdge;
-
-                ctx.lineTo(endX, endY);
                 ctx.stroke();
             }
             ctx.setLineDash([]);
@@ -2509,56 +2750,77 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
+     * Build the constant-wet-bulb lines as (temp, rh) samples.
+     *
+     * These lines only depend on the temperature bounds, never on the entity states,
+     * so they are cached: the previous implementation re-ran a nested search calling
+     * `calculateWetBulbTemp` ~18 800 times on every redraw.
+     * @param {Object} bounds - Chart bounds
+     * @returns {Array<Array<{temp: number, rh: number}>>} One sample list per line
+     */
+    _wetBulbLines(bounds) {
+        const key = `${bounds.minTemp}/${bounds.maxTemp}`;
+        if (this._wetBulbCache?.key === key) return this._wetBulbCache.lines;
+
+        const lines = [];
+        const startTw = Math.ceil(bounds.minTemp / 5) * 5;
+        const endTw = Math.floor(bounds.maxTemp / 5) * 5;
+
+        for (let tw = startTw; tw <= endTw; tw += 5) {
+            const samples = [];
+            // La ligne part de la saturation (t = tw) et s'étend vers les températures
+            // sèches croissantes ; la teneur en eau y est donnée en forme close.
+            for (let t = tw; t <= bounds.maxTemp; t += 0.5) {
+                const W = PsychrometricCalculations.calculateWaterContentFromWetBulb(t, tw);
+                if (W <= 0) break;
+                const P_v = PsychrometricCalculations.waterContentToVaporPressure(W);
+                const rh = (P_v / PsychrometricCalculations.calculateSaturationPressure(t)) * 100;
+                if (rh <= 0) break;
+                samples.push({ temp: t, rh });
+            }
+            if (samples.length > 1) lines.push(samples);
+        }
+
+        this._wetBulbCache = { key, lines };
+        return lines;
+    }
+
+    /**
      * Convert temperature to X coordinate.
      * @param {number} temp - Temperature in Celsius
      * @returns {number} X coordinate
      */
     tempToX(temp) {
         const bounds = this._currentBounds || this._calculateChartBounds();
-        const scaleX = this.canvasWidth / 800;
+        const scaleX = this._canvasWidth / 800;
 
         const leftPadding = 50 * scaleX;
         const rightEdge = 750 * scaleX;
         const chartWidth = rightEdge - leftPadding;
 
         const tempRange = bounds.maxTemp - bounds.minTemp;
-        const x = leftPadding + ((temp - bounds.minTemp) / tempRange) * chartWidth;
-
-        if (this.zoomLevel !== 1.0 || this.panX !== 0) {
-            const centerX = this.canvasWidth / 2;
-            return (x - centerX) * this.zoomLevel + centerX + this.panX;
-        }
-        return x;
+        return leftPadding + ((temp - bounds.minTemp) / tempRange) * chartWidth;
     }
 
     /**
      * Convert humidity to Y coordinate.
+     * The Y axis carries vapor pressure: minPv sits on the bottom edge, maxPv on top.
      * @param {number} temp - Temperature in Celsius
      * @param {number} humidity - Relative humidity in %
      * @returns {number} Y coordinate
      */
     humidityToY(temp, humidity) {
         const bounds = this._currentBounds || this._calculateChartBounds();
-        const scaleY = this.canvasHeight / 600;
+        const scaleY = this._canvasHeight / 600;
 
         const topPadding = 50 * scaleY;
         const bottomEdge = 550 * scaleY;
         const chartHeight = bottomEdge - topPadding;
 
-        const P_sat = 0.61078 * Math.exp((17.27 * temp) / (temp + 237.3));
-        const P_v = (humidity / 100) * P_sat;
+        const P_v = PsychrometricCalculations.calculateVaporPressure(temp, humidity);
+        const pvRange = bounds.maxPv - bounds.minPv;
 
-        // Map P_v to Y using maxPv from bounds
-        // 0 Pv -> bottomEdge
-        // maxPv -> topPadding
-
-        const y = bottomEdge - (P_v / bounds.maxPv) * chartHeight;
-
-        if (this.zoomLevel !== 1.0 || this.panY !== 0) {
-            const centerY = this.canvasHeight / 2;
-            return (y - centerY) * this.zoomLevel + centerY + this.panY;
-        }
-        return y;
+        return bottomEdge - ((P_v - bounds.minPv) / pvRange) * chartHeight;
     }
 
     /**
@@ -2567,79 +2829,73 @@ class PsychrometricChartEnhanced extends LitElement {
      */
     _handleMouseMove(e) {
         const canvas = this.shadowRoot.getElementById('psychroChart');
-        if (!canvas || !this._currentPoints) return;
+        if (!canvas) return;
 
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
-
-        let hoveredPoint = null;
-        this._currentPoints.forEach((point, index) => {
-            const pointX = this.tempToX(point.temp);
-            const pointY = this.humidityToY(point.temp, point.humidity);
-            const distance = Math.sqrt((x - pointX) ** 2 + (y - pointY) ** 2);
-            if (distance < 15) {
-                hoveredPoint = { ...point, index };
-            }
-        });
-
-        if (hoveredPoint) {
-            canvas.style.cursor = 'pointer';
-            this._showTooltip(e, hoveredPoint);
-        } else {
-            canvas.style.cursor = 'crosshair';
-            this._hideTooltip();
-        }
+        const point = this._pointAt(e);
+        canvas.style.cursor = point ? 'pointer' : 'crosshair';
+        this._hoveredPoint = point;
+        if (point) this._tooltipPos = { x: e.clientX + 15, y: e.clientY + 15 };
     }
 
     /**
      * Handle mouse leave event on canvas.
      */
     _handleMouseLeave() {
-        this._hideTooltip();
+        this._hoveredPoint = null;
     }
 
     /**
-     * Show tooltip for a point.
-     * @param {MouseEvent} event - Mouse event
-     * @param {Object} point - Point data
+     * Handle click on canvas: open the history of the point under the cursor.
+     * @param {MouseEvent} e - Mouse event
      */
-    _showTooltip(event, point) {
-        this._hideTooltip();
-        const tooltip = document.createElement('div');
-        tooltip.id = 'psychro-tooltip';
-        tooltip.style.cssText = `
-            position: fixed;
-            left: ${event.clientX + 15}px;
-            top: ${event.clientY + 15}px;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 13px;
-            z-index: 10000;
-            pointer-events: none;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            animation: fadeIn 0.2s ease;
-            border-left: 3px solid ${point.color};
-        `;
-        tooltip.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 5px; color: ${point.color};">${point.label}</div>
-            <div>🌡️ ${this.t('temperature')}: <strong>${this.formatTemp(point.temp)}</strong></div>
-            <div>💧 ${this.t('humidity')}: <strong>${point.humidity.toFixed(1)}%</strong></div>
-            <div style="margin-top: 5px; font-size: 11px; opacity: 0.8;">${this.t('clickToViewHistory')}</div>
-        `;
-        document.body.appendChild(tooltip);
+    _handleCanvasClick(e) {
+        const point = this._pointAt(e);
+        if (point) this._openHistory(point.tempEntityId, 'temperature');
     }
 
     /**
-     * Hide the tooltip.
+     * Find the point drawn under the pointer, if any.
+     * @param {MouseEvent} e - Mouse event
+     * @returns {Object|null} Point data, or null when the pointer is over empty space
      */
-    _hideTooltip() {
-        const tooltip = document.getElementById('psychro-tooltip');
-        if (tooltip) tooltip.remove();
+    _pointAt(e) {
+        const canvas = this.shadowRoot.getElementById('psychroChart');
+        if (!canvas || !this._currentPoints?.length) return null;
+
+        // Le contexte dessine en pixels CSS : ramener le pointeur dans ce repère.
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return null;
+        const x = (e.clientX - rect.left) * (this._canvasWidth / rect.width);
+        const y = (e.clientY - rect.top) * (this._canvasHeight / rect.height);
+
+        let found = null;
+        this._currentPoints.forEach((point, index) => {
+            const dx = x - this.tempToX(point.temp);
+            const dy = y - this.humidityToY(point.temp, point.humidity);
+            if (Math.sqrt(dx * dx + dy * dy) < 15) found = { ...point, index };
+        });
+        return found;
+    }
+
+    /**
+     * Render the hover tooltip.
+     * Rendered through Lit inside the shadow root rather than injected into
+     * document.body as HTML: labels stay plain text, no node is created per
+     * mousemove, and the tooltip cannot outlive the card.
+     * @returns {TemplateResult} HTML template
+     */
+    renderTooltip() {
+        const point = this._hoveredPoint;
+        if (!point) return '';
+        return b`
+            <div class="tooltip"
+                 style="left: ${this._tooltipPos.x}px; top: ${this._tooltipPos.y}px; border-left-color: ${point.color}">
+                <div class="tooltip-title" style="color: ${point.color}">${point.label}</div>
+                <div>🌡️ ${this.t('temperature')}: <strong>${this.formatTemp(point.temp)}</strong></div>
+                <div>💧 ${this.t('humidity')}: <strong>${point.humidity.toFixed(1)}%</strong></div>
+                <div class="tooltip-hint">${this.t('clickToViewHistory')}</div>
+            </div>
+        `;
     }
 
     /**
@@ -2651,18 +2907,55 @@ class PsychrometricChartEnhanced extends LitElement {
         this._selectedEntity = entityId;
         this._selectedType = type;
         this._modalOpen = true;
+        this._historyData = null;
 
         const endTime = new Date();
         const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
 
         try {
-            const url = `history/period/${startTime.toISOString()}?filter_entity_id=${entityId}&end_time=${endTime.toISOString()}`;
+            // minimal_response / no_attributes allègent nettement la réponse : seuls
+            // `state` et `last_changed` sont exploités par le tracé.
+            const url = `history/period/${startTime.toISOString()}`
+                + `?filter_entity_id=${encodeURIComponent(entityId)}`
+                + `&end_time=${encodeURIComponent(endTime.toISOString())}`
+                + `&minimal_response&no_attributes`;
             const response = await this.hass.callApi('GET', url);
+            // La requête a pu être doublée par des clics rapides : ignorer une réponse obsolète.
+            if (this._selectedEntity !== entityId) return;
             this._historyData = response && response[0] ? response[0] : [];
         } catch (error) {
             console.error('History error:', error);
-            this._historyData = [];
+            if (this._selectedEntity === entityId) this._historyData = [];
         }
+    }
+
+    /**
+     * Parse the raw history response into usable samples.
+     * Entity states are already expressed in the display unit, so no temperature
+     * conversion is applied here.
+     * @returns {Array<{time: Date, value: number}>} Chronological samples
+     */
+    _historySamples() {
+        if (!Array.isArray(this._historyData)) return [];
+        return this._historyData
+            .map(item => ({ time: new Date(item.last_changed), value: parseFloat(item.state) }))
+            .filter(sample => Number.isFinite(sample.value) && !Number.isNaN(sample.time.getTime()))
+            .sort((a, b) => a.time - b.time);
+    }
+
+    /**
+     * Compute the 24h statistics shown above the history chart.
+     * @param {Array<{value: number}>} samples - History samples
+     * @returns {Object|null} { min, max, avg } or null when there is no data
+     */
+    _historyStats(samples) {
+        if (!samples.length) return null;
+        const values = samples.map(s => s.value);
+        return {
+            min: Math.min(...values),
+            max: Math.max(...values),
+            avg: values.reduce((sum, v) => sum + v, 0) / values.length,
+        };
     }
 
     /**
@@ -2678,36 +2971,40 @@ class PsychrometricChartEnhanced extends LitElement {
      */
     _drawHistoryChart() {
         const canvas = this.shadowRoot.getElementById('historyChart');
-        if (!canvas || !this._historyData) return;
+        if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const samples = this._historySamples();
+        if (samples.length === 0) return;
+
         const width = canvas.offsetWidth;
         const height = 300;
-        canvas.width = width;
-        canvas.height = height;
+        if (!width) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const type = this._selectedType;
         const darkMode = this.config.darkMode;
         const textColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
 
-        const dataPoints = this._historyData.map(item => {
-            let value = parseFloat(item.state);
-            if (type === 'temperature' && !isNaN(value)) {
-                if (this._temperatureUnit === '°F') value = PsychrometricCalculations.celsiusToFahrenheit(value);
-            }
-            return {
-                time: new Date(item.last_changed),
-                value: value
-            };
-        }).filter(p => !isNaN(p.value));
-
-        if (dataPoints.length === 0) return;
-
-        const values = dataPoints.map(p => p.value);
+        const values = samples.map(s => s.value);
         const minVal = Math.min(...values);
         const maxVal = Math.max(...values);
         const range = maxVal - minVal || 1;
         const padding = 40;
+        const plotWidth = width - 2 * padding;
+        const plotHeight = height - 2 * padding;
+
+        // L'axe X porte le temps réel : un espacement par index déformerait la
+        // chronologie, l'historique HA étant échantillonné irrégulièrement.
+        const startTime = samples[0].time.getTime();
+        const endTime = samples[samples.length - 1].time.getTime();
+        const timeSpan = endTime - startTime || 1;
+        const toX = time => padding + ((time - startTime) / timeSpan) * plotWidth;
+        const toY = value => height - padding - ((value - minVal) / range) * plotHeight;
 
         ctx.clearRect(0, 0, width, height);
 
@@ -2721,27 +3018,21 @@ class PsychrometricChartEnhanced extends LitElement {
 
         const steps = 5;
         for (let i = 0; i <= steps; i++) {
-            const y = height - padding - (i / steps) * (height - 2 * padding);
-            const val = minVal + (i / steps) * range;
-
-            // Grid line
+            const y = height - padding - (i / steps) * plotHeight;
             ctx.beginPath();
             ctx.moveTo(padding, y);
             ctx.lineTo(width - padding, y);
             ctx.stroke();
-
-            // Label
-            ctx.fillText(val.toFixed(1), padding - 5, y);
+            ctx.fillText((minVal + (i / steps) * range).toFixed(1), padding - 5, y);
         }
 
         // Draw curve
         ctx.strokeStyle = type === 'temperature' ? '#ff9800' : '#2196f3';
         ctx.lineWidth = 2;
         ctx.beginPath();
-
-        dataPoints.forEach((point, index) => {
-            const x = padding + (width - 2 * padding) * (index / (dataPoints.length - 1));
-            const y = height - padding - ((point.value - minVal) / range) * (height - 2 * padding);
+        samples.forEach((sample, index) => {
+            const x = toX(sample.time.getTime());
+            const y = toY(sample.value);
             if (index === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         });
@@ -2749,18 +3040,22 @@ class PsychrometricChartEnhanced extends LitElement {
 
         // X-axis Labels (Time)
         ctx.fillStyle = textColor;
-        ctx.font = '11px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        [0, Math.floor(dataPoints.length / 2), dataPoints.length - 1].forEach(index => {
-            if (dataPoints[index]) {
-                const x = padding + (width - 2 * padding) * index / (dataPoints.length - 1);
-                ctx.fillText(
-                    dataPoints[index].time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                    x, height - padding + 10
-                );
-            }
-        });
+        for (const fraction of [0, 0.5, 1]) {
+            const time = startTime + fraction * timeSpan;
+            ctx.fillText(this._formatTime(new Date(time)), toX(time), height - padding + 10);
+        }
+    }
+
+    /**
+     * Format a time using the Home Assistant locale rather than a hardcoded one.
+     * @param {Date} date - Date to format
+     * @returns {string} Localized time
+     */
+    _formatTime(date) {
+        const locale = this.hass?.locale?.language || this._language;
+        return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     }
 
     /**
@@ -2768,21 +3063,40 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {TemplateResult} HTML template
      */
     renderHistoryModal() {
-        if (!this._historyData) return html`<div class="modal-overlay"><div class="modal-content">Chargement...</div></div>`;
-
         const type = this._selectedType;
-        type === 'temperature' ? this.getTempUnit() : '%';
+        const unit = type === 'temperature' ? this.getTempUnit() : '%';
         const label = type === 'temperature' ? this.t('temperature') : this.t('humidity');
         const darkMode = this.config.darkMode;
         const textColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
         const bgColor = this.config.bgColor || (darkMode ? "#1c1c1c" : "#ffffff");
 
-        return html`
+        const samples = this._historySamples();
+        const stats = this._historyStats(samples);
+
+        return b`
             <div class="modal-overlay" @click="${(e) => e.target.classList.contains('modal-overlay') && this._closeModal()}">
                 <div class="modal-content" style="background: ${bgColor}; color: ${textColor}">
                     <button class="modal-close" @click="${this._closeModal}" style="color: ${textColor}">×</button>
                     <h2 style="margin-top: 0">${this.t('historyLast24h')} - ${label}</h2>
-                    <canvas id="historyChart" class="history-chart"></canvas>
+                    ${this._historyData === null ? b`<div class="history-empty">${this.t('historyLoading')}</div>` : ''}
+                    ${this._historyData !== null && !stats ? b`<div class="history-empty">${this.t('historyEmpty')}</div>` : ''}
+                    ${stats ? b`
+                        <div class="history-stats">
+                            <div class="history-stat">
+                                <span class="history-stat-label">${this.t('statMin')}</span>
+                                <span class="history-stat-value">${stats.min.toFixed(1)}${unit}</span>
+                            </div>
+                            <div class="history-stat">
+                                <span class="history-stat-label">${this.t('statAvg')}</span>
+                                <span class="history-stat-value">${stats.avg.toFixed(1)}${unit}</span>
+                            </div>
+                            <div class="history-stat">
+                                <span class="history-stat-label">${this.t('statMax')}</span>
+                                <span class="history-stat-value">${stats.max.toFixed(1)}${unit}</span>
+                            </div>
+                        </div>
+                        <canvas id="historyChart" class="history-chart"></canvas>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -2825,21 +3139,31 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     render() {
-        if (!this.config || !this.hass) return html``;
+        if (!this.config || !this.hass) return b``;
 
-        const points = this._calculatePoints();
+        const points = this._currentPoints || [];
         const {
             chartTitle = "Diagramme Psychrométrique",
             showLegend = true,
             showCalculatedData = true,
             darkMode = false,
-            textColor = "#333333",
-            bgColor = "#ffffff",
             theme = "modern"
         } = this.config;
 
         const actualTextColor = this.config.textColor || (darkMode ? "#e0e0e0" : "#333333");
         const actualBgColor = this.config.bgColor || (darkMode ? "#1c1c1c" : "#ffffff");
+
+        // Les entités configurées sont toutes absentes ou invalides : le dire, plutôt
+        // que d'afficher un diagramme vide sans explication.
+        if (points.length === 0) {
+            const message = this.config.points?.length ? this.t('noValidEntity') : this.t('noPointsConfigured');
+            return b`
+                <ha-card class="theme-${theme}" style="background: ${actualBgColor}; color: ${actualTextColor}">
+                    <div class="card-header" style="color: ${actualTextColor}">${chartTitle}</div>
+                    <div class="card-message">⚠️ ${message}</div>
+                </ha-card>
+            `;
+        }
 
         const chartDescription = `Diagramme psychrométrique affichant ${points.length} points. ` + points.map(p =>
             `${p.label}: ${this.formatTemp(p.temp)}, ${p.humidity.toFixed(1)}% d'humidité relative.`
@@ -2862,7 +3186,7 @@ class PsychrometricChartEnhanced extends LitElement {
             ? (darkMode ? 'var(--card-background-color, #2d2d2d)' : 'var(--card-background-color, #ffffff)')
             : (darkMode ? 'rgba(45, 45, 45, 0.9)' : 'rgba(255,255,255,0.9)');
 
-        return html`
+        return b`
             <ha-card class="theme-${theme}" style="background: ${actualBgColor}; color: ${actualTextColor}">
                 <div class="card-header" style="color: ${actualTextColor}">${chartTitle}</div>
                 
@@ -2870,22 +3194,27 @@ class PsychrometricChartEnhanced extends LitElement {
                     <canvas id="psychroChart" role="img" aria-label="${chartDescription}">
                         ${chartDescription}
                     </canvas>
-                    ${showLegend ? html`
+                    ${showLegend ? b`
                         <div class="legend-box" style="background: ${legendBg}; color: ${actualTextColor}">
                             <div style="margin-bottom: 8px; font-weight: bold; color: ${actualTextColor}; font-size: 13px;">📍 ${this.t('legend')}</div>
-                            ${points.map(p => html`
+                            ${points.map(p => b`
                                 <div class="legend-item">
                                     <span class="legend-color" style="background-color: ${p.color}; box-shadow: 0 0 5px ${p.color}"></span>
                                     <span>${p.label}</span>
                                 </div>
                             `)}
+                            <div class="legend-item">
+                                <span class="legend-color legend-comfort"
+                                      style="background-color: ${this.config.comfortColor || (darkMode ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)')}"></span>
+                                <span>${this.t('comfortZone')}</span>
+                            </div>
                         </div>
                     ` : ''}
                 </div>
 
-                ${showCalculatedData ? html`
+                ${showCalculatedData ? b`
                     <div class="psychro-data">
-                        ${points.map((point, index) => html`
+                        ${points.map((point, index) => b`
                             <div class="data-box" 
                                  style="
                                     background: ${dataBoxBg};
@@ -2893,7 +3222,7 @@ class PsychrometricChartEnhanced extends LitElement {
                                     box-shadow: ${dataBoxBoxShadow};
                                     animation: ${isClassic ? 'none' : `fadeInUp 0.5s ease-out ${index * 0.1}s backwards`};
                                  ">
-                                ${!isClassic && !isCompact ? html`<div style="
+                                ${!isClassic && !isCompact ? b`<div style="
                                     position: absolute;
                                     top: 0;
                                     left: 0;
@@ -2904,10 +3233,10 @@ class PsychrometricChartEnhanced extends LitElement {
                                 
                                 <div style="position: relative; z-index: 1;">
                                     <div class="data-header" style="color: ${point.color}">
-                                        <span>${point.icon ? html`<ha-icon icon="${point.icon}" style="margin-right: 8px;"></ha-icon>` : ''} ${point.label}</span>
+                                        <span>${point.icon ? b`<ha-icon icon="${point.icon}" style="margin-right: 8px;"></ha-icon>` : ''} ${point.label}</span>
                                         ${point.inComfortZone ?
-                html`<span class="status-badge" style="background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('comfortOptimal')}</span>` :
-                html`<span class="status-badge" style="background: linear-gradient(135deg, #FF9800, #f57c00); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t('outOfComfort')}</span>`
+                b`<span class="status-badge" style="background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('comfortOptimal')}</span>` :
+                b`<span class="status-badge" style="background: linear-gradient(135deg, #FF9800, #f57c00); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t(point.comfortStatus)}</span>`
             }
                                     </div>
                                     
@@ -2931,15 +3260,15 @@ class PsychrometricChartEnhanced extends LitElement {
                                             <span>💧 ${this.t('humidity')}: <span style="color: ${point.color}; font-weight: 600;">${point.humidity.toFixed(1)}%</span></span>
                                         </div>
                                         
-                                        ${this._shouldShowField(point, 'dewPoint') ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'wetBulb') ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'enthalpy') ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'absHumidity') ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
-                                        ${this._shouldShowField(point, 'waterContent') ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'specificVolume') ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'pmvIndex') ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'dewPoint') ? b`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'wetBulb') ? b`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
+                                        ${this._shouldShowField(point, 'enthalpy') ? b`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'absHumidity') ? b`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
+                                        ${this._shouldShowField(point, 'waterContent') ? b`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'specificVolume') ? b`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
+                                        ${this._shouldShowField(point, 'pmvIndex') ? b`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
                                         
-                                        ${this._shouldShowField(point, 'moldRisk') ? html`
+                                        ${this._shouldShowField(point, 'moldRisk') ? b`
                                             <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
                                                 <span>🍄 ${this.t('moldRisk')}:</span>
                                                 <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
@@ -2949,10 +3278,10 @@ class PsychrometricChartEnhanced extends LitElement {
                                         ` : ''}
                                     </div>
 
-                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action') ? html`
+                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action') ? b`
                                         <div class="action-box" style="border-top-color: ${darkMode ? '#555' : '#ddd'}">
-                                            ${point.action ? html`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
-                                            ${point.power > 0 ? html`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}
+                                            ${point.action ? b`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
+                                            ${point.power > 0 ? b`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}
                                             <div><span class="action-icon">🎯</span>${this.t('idealSetpoint')}: ${this.formatTemp(point.idealSetpoint.temp)}, ${point.idealSetpoint.humidity.toFixed(0)}%</div>
                                         </div>
                                     ` : ''}
@@ -2963,6 +3292,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 ` : ''}
             </ha-card>
             
+            ${this.renderTooltip()}
             ${this._modalOpen ? this.renderHistoryModal() : ''}
         `;
     }

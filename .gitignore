@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Claude Code local settings
 .claude/settings.local.json
+CLAUDE.md
 
 # IDE settings
 .vscode/
@@ -45,3 +46,4 @@ convert_svg_to_png.py
 HACS_SUBMISSION.md
 AGENTS.md
 yaml.yaml
+CLAUDE.md
