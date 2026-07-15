@@ -1,4 +1,4 @@
-# CLAUDE.md
+# CLAUDE.md 
 
 Ce fichier fournit des indications à Claude Code (claude.ai/code) pour travailler sur le code de ce dépôt.
 
