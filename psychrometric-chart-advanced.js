@@ -29,6 +29,28 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
  * Contains pure functions for psychrometric conversions and calculations.
  * All temperatures are in Celsius internally.
  */
+/**
+ * Motifs de pointillés des tracés, en pixels CSS avant mise à l'échelle du canvas.
+ * Partagés avec l'éditeur, qui en tire la liste des styles proposés : une seule
+ * table évite qu'un style offert dans l'éditeur soit inconnu de la carte.
+ */
+const LINE_STYLES = {
+    solid: [],
+    dashed: [5, 5],
+    dotted: [1.5, 3.5],
+    dashdot: [7, 3, 1.5, 3],
+};
+
+/** Style de trait par défaut de chaque famille de tracés. */
+const DEFAULT_LINE_STYLES = {
+    gridLineStyle: 'dashed',
+    curveLineStyle: 'solid',
+    enthalpyLineStyle: 'dotted',
+    wetBulbLineStyle: 'dotted',
+    comfortLineStyle: 'solid',
+    pointLineStyle: 'dashed',
+};
+
 class PsychrometricCalculations {
 
     // ========================================
@@ -125,6 +147,30 @@ class PsychrometricCalculations {
             if (match) return parseFloat(match[1]);
         }
         return 1;
+    }
+
+    /**
+     * Nom de l'option d'opacité associée à une option de couleur.
+     *
+     * Opacité et couleur sont deux clés distinctes : tant qu'elles partageaient une
+     * seule chaîne `rgba()`, bouger le curseur d'opacité figeait aussi la couleur du
+     * mode courant, et la bascule clair/sombre restait sans effet ensuite.
+     * @param {string} colorKey - Option de couleur (ex. 'bgColor')
+     * @returns {string} Option d'opacité correspondante (ex. 'bgOpacity')
+     */
+    static opacityKey(colorKey) {
+        return String(colorKey).replace(/Color$/, 'Opacity');
+    }
+
+    /**
+     * Indique si une couleur CSS est analysable par colorToRgb.
+     * Un mot-clé (`white`), un dégradé ou une variable non résolue ne le sont pas :
+     * colorToRgb y répondrait [0, 0, 0], c'est-à-dire du noir.
+     * @param {*} color - Couleur CSS
+     * @returns {boolean} Vrai si la couleur est un hex ou un rgb()/rgba()
+     */
+    static isParsableColor(color) {
+        return typeof color === 'string' && /^(#|rgba?\()/.test(color.trim());
     }
 
     /**
@@ -612,6 +658,12 @@ const DEFAULT_COMFORT_RANGE = { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 }
 /** Clés de couleur globales exposées, avec alpha. */
 const COLOR_KEYS = ['bgColor', 'textColor', 'gridColor', 'curveColor', 'enthalpyColor', 'comfortColor'];
 
+/** Options de style de trait, dans l'ordre du selector. Tirées de la table de la carte. */
+const LINE_STYLE_KEYS = Object.keys(LINE_STYLES);
+
+/** Familles de tracés dont le style est configurable, dans l'ordre d'affichage. */
+const LINE_STYLE_OPTIONS = Object.keys(DEFAULT_LINE_STYLES);
+
 /** Domaines proposés dans les sélecteurs d'entités. */
 const SENSOR_DOMAINS = ['sensor', 'input_number', 'number'];
 
@@ -665,6 +717,20 @@ const editorTranslations = {
         enthalpyColor: "Couleur des enthalpies",
         comfortColor: "Couleur zone confort",
         opacity: "Opacité",
+        resetColor: "Suivre le thème",
+        lineStyles: "Styles de trait",
+        gridLineStyle: "Trait de la grille",
+        curveLineStyle: "Trait des courbes d'humidité",
+        enthalpyLineStyle: "Trait des enthalpies",
+        wetBulbLineStyle: "Trait des temp. humides",
+        comfortLineStyle: "Trait de la zone de confort",
+        pointLineStyle: "Trait des projections de points",
+        lineSolid: "Continu",
+        lineDashed: "Tirets",
+        lineDotted: "Pointillés",
+        lineDashdot: "Tiret-point",
+        tempSubdivisions: "Sous-multiples des températures sèches",
+        tempSubdivisionsHelp: "Traits intermédiaires entre deux graduations de l'axe des températures. 1 n'en ajoute aucun ; 5 découpe chaque pas de 5 °C en degrés.",
         displayOptions: "Options d'affichage",
         displayMode: "Niveau de détail",
         displayModeHelp: "Personnalisé applique les champs cochés sur chaque point. Minimal n'affiche que température, humidité et confort ; Détaillé affiche tous les champs.",
@@ -742,6 +808,20 @@ const editorTranslations = {
         enthalpyColor: "Enthalpy color",
         comfortColor: "Comfort zone color",
         opacity: "Opacity",
+        resetColor: "Follow the theme",
+        lineStyles: "Line styles",
+        gridLineStyle: "Grid line",
+        curveLineStyle: "Humidity curve line",
+        enthalpyLineStyle: "Enthalpy line",
+        wetBulbLineStyle: "Wet bulb line",
+        comfortLineStyle: "Comfort zone outline",
+        pointLineStyle: "Point projection line",
+        lineSolid: "Solid",
+        lineDashed: "Dashed",
+        lineDotted: "Dotted",
+        lineDashdot: "Dash-dot",
+        tempSubdivisions: "Dry-bulb temperature subdivisions",
+        tempSubdivisionsHelp: "Minor lines drawn between two graduations of the temperature axis. 1 adds none; 5 splits each 5 °C step into degrees.",
         displayOptions: "Display options",
         displayMode: "Detail level",
         displayModeHelp: "Custom applies the fields ticked on each point. Minimal only shows temperature, humidity and comfort; Detailed shows every field.",
@@ -819,6 +899,20 @@ const editorTranslations = {
         enthalpyColor: "Color de las entalpías",
         comfortColor: "Color zona confort",
         opacity: "Opacidad",
+        resetColor: "Seguir el tema",
+        lineStyles: "Estilos de línea",
+        gridLineStyle: "Línea de la cuadrícula",
+        curveLineStyle: "Línea de las curvas de humedad",
+        enthalpyLineStyle: "Línea de las entalpías",
+        wetBulbLineStyle: "Línea de temp. húmedas",
+        comfortLineStyle: "Contorno de la zona de confort",
+        pointLineStyle: "Línea de proyección de los puntos",
+        lineSolid: "Continua",
+        lineDashed: "Discontinua",
+        lineDotted: "Punteada",
+        lineDashdot: "Raya-punto",
+        tempSubdivisions: "Subdivisiones de las temperaturas secas",
+        tempSubdivisionsHelp: "Líneas intermedias entre dos graduaciones del eje de temperaturas. 1 no añade ninguna; 5 divide cada paso de 5 °C en grados.",
         displayOptions: "Opciones de visualización",
         displayMode: "Nivel de detalle",
         displayModeHelp: "Personalizado aplica los campos marcados en cada punto. Mínimo solo muestra temperatura, humedad y confort; Detallado muestra todos los campos.",
@@ -896,6 +990,20 @@ const editorTranslations = {
         enthalpyColor: "Enthalpiefarbe",
         comfortColor: "Komfortzonenfarbe",
         opacity: "Deckkraft",
+        resetColor: "Dem Thema folgen",
+        lineStyles: "Linienstile",
+        gridLineStyle: "Gitterlinie",
+        curveLineStyle: "Feuchtekurvenlinie",
+        enthalpyLineStyle: "Enthalpielinie",
+        wetBulbLineStyle: "Feuchtkugellinie",
+        comfortLineStyle: "Umriss der Komfortzone",
+        pointLineStyle: "Projektionslinie der Punkte",
+        lineSolid: "Durchgezogen",
+        lineDashed: "Gestrichelt",
+        lineDotted: "Gepunktet",
+        lineDashdot: "Strichpunkt",
+        tempSubdivisions: "Unterteilungen der Trockentemperaturen",
+        tempSubdivisionsHelp: "Zwischenlinien zwischen zwei Graduierungen der Temperaturachse. 1 fügt keine hinzu; 5 unterteilt jeden 5-°C-Schritt in Grad.",
         displayOptions: "Anzeigeoptionen",
         displayMode: "Detailgrad",
         displayModeHelp: "Benutzerdefiniert wendet die pro Punkt angehakten Felder an. Minimal zeigt nur Temperatur, Luftfeuchte und Komfort; Detailliert zeigt alle Felder.",
@@ -1160,6 +1268,33 @@ class PsychrometricChartEditor extends i {
         ];
     }
 
+    /**
+     * Styles de trait, une ligne par famille de tracés.
+     * Les options viennent de LINE_STYLES : un style proposé ici est forcément
+     * connu de la carte.
+     * @returns {Array<Object>} Schéma ha-form
+     */
+    _lineStyleSchema() {
+        const options = LINE_STYLE_KEYS.map(style => ({
+            value: style,
+            label: this.t(`line${style.charAt(0).toUpperCase()}${style.slice(1)}`),
+        }));
+        return [
+            {
+                type: 'grid',
+                name: '',
+                schema: LINE_STYLE_OPTIONS.map(name => ({
+                    name,
+                    selector: { select: { mode: 'dropdown', options } },
+                })),
+            },
+            {
+                name: 'tempSubdivisions',
+                selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
+            },
+        ];
+    }
+
     _zoomSchema() {
         return [
             {
@@ -1187,8 +1322,16 @@ class PsychrometricChartEditor extends i {
      */
     _formData() {
         const config = this._config || {};
+        // Styles de trait : le défaut de la carte, sinon les selectors s'ouvriraient
+        // vides alors qu'un style est bien appliqué au graphique.
+        const lineStyles = {};
+        for (const [name, fallback] of Object.entries(DEFAULT_LINE_STYLES)) {
+            lineStyles[name] = config[name] ?? fallback;
+        }
         return {
             ...config,
+            ...lineStyles,
+            tempSubdivisions: config.tempSubdivisions ?? 1,
             chartTitle: config.chartTitle ?? 'Diagramme Psychrométrique',
             language: config.language ?? 'fr',
             temperatureUnit: config.temperatureUnit ?? 'auto',
@@ -1276,18 +1419,67 @@ class PsychrometricChartEditor extends i {
         this._emit({ ...this._formData(), points });
     }
 
+    /**
+     * Opacité affichée pour une couleur, en pourcentage.
+     * L'option dédiée prime ; à défaut on lit l'alpha éventuellement intégré à la
+     * couleur, ce qui couvre les configurations écrites avant leur séparation.
+     * @param {string} key - Option de couleur
+     * @returns {number} Opacité entre 0 et 100
+     */
+    _opacityOf(key) {
+        const stored = this._config?.[PsychrometricCalculations.opacityKey(key)];
+        if (stored !== undefined && stored !== null && stored !== '') {
+            const percent = parseFloat(stored);
+            if (Number.isFinite(percent)) return Math.min(100, Math.max(0, percent));
+        }
+        const color = this._config?.[key] || this._colorFallback(key);
+        return Math.round(PsychrometricCalculations.colorToAlpha(color) * 100);
+    }
+
+    /**
+     * Écrit la teinte seule, sans alpha.
+     * L'opacité éventuellement portée par l'ancienne valeur `rgba()` est reportée
+     * dans l'option dédiée, pour que l'aspect ne saute pas au premier réglage.
+     * @param {string} key - Option de couleur
+     * @param {CustomEvent} ev - Événement du sélecteur
+     */
     _colorChanged(key, ev) {
         ev.stopPropagation();
         const current = this._config?.[key] || this._colorFallback(key);
         const rgb = ev.detail.value ?? PsychrometricCalculations.colorToRgb(current);
-        this._emit({ ...this._formData(), [key]: PsychrometricCalculations.rgbToCss(rgb, PsychrometricCalculations.colorToAlpha(current)) });
+        this._emit({
+            ...this._formData(),
+            [key]: PsychrometricCalculations.rgbToHex(rgb),
+            [PsychrometricCalculations.opacityKey(key)]: this._opacityOf(key),
+        });
     }
 
+    /**
+     * Écrit l'opacité seule, sans jamais figer la teinte.
+     * C'est la raison d'être de l'option séparée : régler la transparence ne doit pas
+     * enregistrer la couleur du mode courant, sinon la bascule clair/sombre se trouve
+     * neutralisée et il faut passer par l'éditeur YAML pour s'en sortir.
+     * @param {string} key - Option de couleur
+     * @param {CustomEvent} ev - Événement du sélecteur
+     */
     _opacityChanged(key, ev) {
         ev.stopPropagation();
-        const current = this._config?.[key] || this._colorFallback(key);
-        const alpha = (ev.detail.value ?? 100) / 100;
-        this._emit({ ...this._formData(), [key]: PsychrometricCalculations.rgbToCss(PsychrometricCalculations.colorToRgb(current), alpha) });
+        this._emit({
+            ...this._formData(),
+            [PsychrometricCalculations.opacityKey(key)]: ev.detail.value ?? 100,
+        });
+    }
+
+    /**
+     * Rend une couleur au thème : les deux options sont retirées de la configuration.
+     * @param {string} key - Option de couleur
+     */
+    _resetColor(key) {
+        this._emit({
+            ...this._formData(),
+            [key]: undefined,
+            [PsychrometricCalculations.opacityKey(key)]: undefined,
+        });
     }
 
     _addPoint() {
@@ -1315,7 +1507,9 @@ class PsychrometricChartEditor extends i {
 
     _renderColorRow(key) {
         const value = this._config?.[key] || this._colorFallback(key);
-        const alpha = Math.round(PsychrometricCalculations.colorToAlpha(value) * 100);
+        // Une couleur « suit le thème » tant qu'aucune des deux options n'est posée.
+        const overridden = Boolean(this._config?.[key])
+            || this._config?.[PsychrometricCalculations.opacityKey(key)] !== undefined;
         return b`
             <div class="color-row">
                 <span class="color-label">${this.t(key)}</span>
@@ -1331,9 +1525,16 @@ class PsychrometricChartEditor extends i {
                     .hass=${this.hass}
                     .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'slider', unit_of_measurement: '%' } }}
                     .label=${this.t('opacity')}
-                    .value=${alpha}
+                    .value=${this._opacityOf(key)}
                     @value-changed=${(ev) => this._opacityChanged(key, ev)}
                 ></ha-selector>
+                <ha-icon-button
+                    class="color-reset"
+                    .label=${this.t('resetColor')}
+                    title=${this.t('resetColor')}
+                    ?disabled=${!overridden}
+                    @click=${() => this._resetColor(key)}
+                ><ha-icon icon="mdi:restore"></ha-icon></ha-icon-button>
             </div>
         `;
     }
@@ -1434,6 +1635,15 @@ class PsychrometricChartEditor extends i {
                 <div class="section">
                     <span class="section-title">${this.t('appearance')}</span>
                     ${COLOR_KEYS.map(key => this._renderColorRow(key))}
+                    <span class="subsection-title">${this.t('lineStyles')}</span>
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${data}
+                        .schema=${this._lineStyleSchema()}
+                        .computeLabel=${this._computeLabel}
+                        .computeHelper=${this._computeHelper}
+                        @value-changed=${this._valueChanged}
+                    ></ha-form>
                 </div>
 
                 <div class="section">
@@ -1468,6 +1678,12 @@ class PsychrometricChartEditor extends i {
                 font-weight: 500;
                 font-size: 1.05em;
                 color: var(--primary-text-color);
+            }
+            .subsection-title {
+                display: block;
+                margin: 20px 0 8px;
+                font-weight: 500;
+                color: var(--secondary-text-color);
             }
             ha-form {
                 display: block;
@@ -1515,6 +1731,14 @@ class PsychrometricChartEditor extends i {
             .color-opacity {
                 flex: 1;
                 min-width: 140px;
+            }
+            .color-reset {
+                flex: 0 0 auto;
+                color: var(--secondary-text-color);
+            }
+            .color-reset[disabled] {
+                opacity: 0.3;
+                pointer-events: none;
             }
             .empty {
                 padding: 8px 0;
@@ -2318,6 +2542,11 @@ class PsychrometricChartEnhanced extends i {
      */
     _palette() {
         const dark = this._isDark();
+        // `themeMode: light`/`dark` force un mode qui peut contredire celui de Home
+        // Assistant : dans ce cas les variables CSS du thème sont ignorées, sinon
+        // choisir « clair » sous un thème HA sombre laissait le fond et le texte
+        // sombres — le mode clair semblait sans effet.
+        const forced = this.config?.themeMode === 'light' || this.config?.themeMode === 'dark';
         const styles = getComputedStyle(this);
         /**
          * Reads a CSS custom property, falling back when the theme does not define it.
@@ -2325,21 +2554,73 @@ class PsychrometricChartEnhanced extends i {
          * @param {string} fallback - Value to use when unset
          * @returns {string} Resolved colour
          */
-        const readVar = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+        const readVar = (name, fallback) => (forced ? fallback : (styles.getPropertyValue(name).trim() || fallback));
+
+        /**
+         * Résout une couleur : surcharge de configuration si présente, défaut sinon,
+         * puis applique l'opacité indépendante `<clé>Opacity` quand elle est réglée.
+         *
+         * L'opacité est volontairement une clé distincte : intégrée à la couleur, elle
+         * obligeait à figer aussi la teinte du mode courant, si bien qu'un simple
+         * réglage de transparence bloquait ensuite la bascule clair/sombre.
+         * @param {string} key - Option de couleur (ex. 'bgColor')
+         * @param {string} fallback - Couleur du mode courant
+         * @returns {string} Couleur CSS finale
+         */
+        const resolve = (key, fallback) => {
+            const color = this.config?.[key] || fallback;
+            const raw = this.config?.[PsychrometricCalculations.opacityKey(key)];
+            if (raw === undefined || raw === null || raw === '') return color;
+            const percent = parseFloat(raw);
+            // Une couleur non analysable (mot-clé CSS, dégradé) virerait au noir.
+            if (!Number.isFinite(percent) || !PsychrometricCalculations.isParsableColor(color)) return color;
+            const alpha = Math.min(1, Math.max(0, percent / 100));
+            return PsychrometricCalculations.rgbToCss(PsychrometricCalculations.colorToRgb(color), alpha);
+        };
 
         return {
             dark,
-            bg: this.config.bgColor
-                || readVar('--ha-card-background', readVar('--card-background-color', dark ? '#1c1c1c' : '#ffffff')),
-            text: this.config.textColor || readVar('--primary-text-color', dark ? '#e0e0e0' : '#333333'),
-            grid: this.config.gridColor || (dark ? '#444444' : '#cccccc'),
-            curve: this.config.curveColor || (dark ? '#4fc3f7' : '#1f77b4'),
-            comfort: this.config.comfortColor || (dark ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)'),
-            enthalpy: this.config.enthalpyColor || (dark ? 'rgba(255, 165, 0, 0.7)' : 'rgba(255, 99, 71, 0.7)'),
+            forced,
+            bg: resolve('bgColor', readVar('--ha-card-background', readVar('--card-background-color', dark ? '#1c1c1c' : '#ffffff'))),
+            text: resolve('textColor', readVar('--primary-text-color', dark ? '#e0e0e0' : '#333333')),
+            grid: resolve('gridColor', dark ? '#444444' : '#cccccc'),
+            curve: resolve('curveColor', dark ? '#4fc3f7' : '#1f77b4'),
+            comfort: resolve('comfortColor', dark ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)'),
+            enthalpy: resolve('enthalpyColor', dark ? 'rgba(255, 165, 0, 0.7)' : 'rgba(255, 99, 71, 0.7)'),
             wetBulb: dark ? 'rgba(0, 255, 255, 0.4)' : 'rgba(0, 100, 255, 0.4)',
             saturation: dark ? 'rgba(80, 180, 255, 0.9)' : 'rgba(30, 144, 255, 0.8)',
             pointOutline: dark ? '#ffffff' : '#000000',
         };
+    }
+
+    /**
+     * Motif de pointillés d'une famille de tracés, mis à l'échelle du canvas.
+     *
+     * Les longueurs de LINE_STYLES sont en pixels CSS de référence : les multiplier
+     * par `scale` garde le même aspect quelle que soit la taille rendue, comme le
+     * faisaient les motifs codés en dur qu'elle remplace.
+     * @param {string} option - Nom de l'option de configuration (ex. 'gridLineStyle')
+     * @param {number} scale - Facteur d'échelle du canvas
+     * @returns {number[]} Motif à passer à ctx.setLineDash
+     */
+    _lineDash(option, scale) {
+        const name = this.config?.[option] ?? DEFAULT_LINE_STYLES[option];
+        const pattern = LINE_STYLES[name] ?? LINE_STYLES[DEFAULT_LINE_STYLES[option]];
+        return pattern.map(segment => segment * scale);
+    }
+
+    /**
+     * Nombre de sous-multiples tracés entre deux graduations de température sèche.
+     *
+     * 1 signifie « aucun trait intermédiaire », soit l'aspect historique du
+     * graphique. La valeur est bornée : au-delà d'une dizaine, les traits se
+     * confondent en aplat et la grille cesse d'être lisible.
+     * @returns {number} Nombre entier de sous-multiples, entre 1 et 10
+     */
+    _tempSubdivisions() {
+        const parsed = parseInt(this.config?.tempSubdivisions, 10);
+        if (!Number.isFinite(parsed)) return 1;
+        return Math.min(10, Math.max(1, parsed));
     }
 
     /**
@@ -2665,7 +2946,7 @@ class PsychrometricChartEnhanced extends i {
         // Draw axes and grid
         ctx.strokeStyle = actualGridColor;
         ctx.lineWidth = 1 * scale;
-        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.setLineDash(this._lineDash('gridLineStyle', scale));
 
         // Vertical grid (vapor pressure)
         if (showVaporPressure !== false) {
@@ -2700,6 +2981,30 @@ class PsychrometricChartEnhanced extends i {
         const startT = Math.ceil(bounds.minTemp / tempStep) * tempStep;
         const endT = Math.floor(bounds.maxTemp / tempStep) * tempStep;
 
+        // Sous-multiples : traits intermédiaires entre deux graduations, tracés avant
+        // elles pour rester dessous, plus fins et atténués, et jamais étiquetés — les
+        // étiquettes se chevaucheraient et l'axe deviendrait illisible.
+        const subdivisions = this._tempSubdivisions();
+        if (subdivisions > 1) {
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            ctx.lineWidth = 0.5 * scale;
+            // Boucle indexée plutôt qu'un incrément de `tempStep / subdivisions` :
+            // l'accumulation de flottants décalerait les derniers traits.
+            for (let major = startT - tempStep; major < endT + tempStep; major += tempStep) {
+                for (let k = 1; k < subdivisions; k++) {
+                    const displayTemp = major + (k * tempStep) / subdivisions;
+                    const x = this.tempToX(this.toInternalTemp(displayTemp));
+                    if (x < leftPadding || x > rightEdge) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(x, bottomEdge);
+                    ctx.lineTo(x, topPadding);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
         for (let displayTemp = startT; displayTemp <= endT; displayTemp += tempStep) {
             const tempC = this.toInternalTemp(displayTemp);
             const x = this.tempToX(tempC);
@@ -2714,7 +3019,7 @@ class PsychrometricChartEnhanced extends i {
         }
 
         // Draw relative humidity curves
-        ctx.setLineDash([]);
+        ctx.setLineDash(this._lineDash('curveLineStyle', scale));
         ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
 
         // Use zoom bounds for humidity curves if configured
@@ -2766,7 +3071,7 @@ class PsychrometricChartEnhanced extends i {
 
         // Draw enthalpy curves
         if (showEnthalpy && !minimal) {
-            ctx.setLineDash([2 * scale, 3 * scale]);
+            ctx.setLineDash(this._lineDash('enthalpyLineStyle', scale));
             ctx.strokeStyle = actualEnthalpyColor;
 
             for (let h = 0; h <= 150; h += 10) {
@@ -2802,7 +3107,7 @@ class PsychrometricChartEnhanced extends i {
 
         // Draw Wet Bulb lines
         if (showWetBulb && !minimal) {
-            ctx.setLineDash([1 * scale, 4 * scale]);
+            ctx.setLineDash(this._lineDash('wetBulbLineStyle', scale));
             ctx.strokeStyle = palette.wetBulb;
 
             for (const line of this._wetBulbLines(bounds)) {
@@ -2828,6 +3133,9 @@ class PsychrometricChartEnhanced extends i {
         }
 
         // Draw comfort zone
+        // Le motif est posé explicitement : les blocs précédents sont conditionnels,
+        // sans quoi le contour hériterait du pointillé du dernier tracé dessiné.
+        ctx.setLineDash(this._lineDash('comfortLineStyle', scale));
         ctx.beginPath();
         const comfortPoints = [
             { temp: comfortRange.tempMin, rh: comfortRange.rhMin },
@@ -2867,6 +3175,9 @@ class PsychrometricChartEnhanced extends i {
         ctx.stroke();
 
         // Draw points
+        // Les pastilles et leur halo restent toujours pleins, quel que soit le style
+        // choisi pour le contour de la zone de confort dessinée juste avant.
+        ctx.setLineDash([]);
         points.forEach(point => {
             const x = this.tempToX(point.temp);
             const y = this.humidityToY(point.temp, point.humidity);
@@ -2891,7 +3202,7 @@ class PsychrometricChartEnhanced extends i {
 
             // Lines
             ctx.strokeStyle = point.color;
-            ctx.setLineDash([5 * scale, 5 * scale]);
+            ctx.setLineDash(this._lineDash('pointLineStyle', scale));
             ctx.lineWidth = 1 * scale;
             ctx.beginPath();
             ctx.moveTo(x, bottomEdge);
@@ -2914,7 +3225,7 @@ class PsychrometricChartEnhanced extends i {
                     ctx.fillStyle = "rgba(0, 0, 255, 0.5)";
                     ctx.fill();
                     ctx.beginPath();
-                    ctx.setLineDash([3 * scale, 3 * scale]);
+                    ctx.setLineDash(this._lineDash('pointLineStyle', scale));
                     ctx.strokeStyle = "rgba(0, 0, 255, 0.5)";
                     ctx.moveTo(x, y);
                     ctx.lineTo(dewX, dewY);
@@ -3415,9 +3726,12 @@ class PsychrometricChartEnhanced extends i {
         const darkMode = palette.dark;
         // Sans couleur explicitement configurée, on ne pose aucun style : ha-card et
         // ses descendants héritent alors du thème de Home Assistant, quel qu'il soit.
+        // Exception : `themeMode` forcé, où l'héritage donnerait justement le thème
+        // que l'utilisateur vient de refuser — on pose alors les couleurs résolues.
+        const styled = (key) => this.config[key] || this.config[PsychrometricCalculations.opacityKey(key)] !== undefined;
         const cardStyle = [
-            this.config.bgColor ? `background: ${this.config.bgColor}` : '',
-            this.config.textColor ? `color: ${this.config.textColor}` : '',
+            (styled('bgColor') || palette.forced) ? `background: ${palette.bg}` : '',
+            (styled('textColor') || palette.forced) ? `color: ${palette.text}` : '',
         ].filter(Boolean).join('; ');
 
         // Les entités configurées sont toutes absentes ou invalides : le dire, plutôt
@@ -3443,7 +3757,7 @@ class PsychrometricChartEnhanced extends i {
         // Surfaces translucides plutôt que des blancs/gris opaques : elles se posent
         // correctement sur le fond du thème courant, quel qu'il soit.
         const dataBoxBg = isClassic
-            ? 'var(--card-background-color, transparent)'
+            ? (palette.forced ? palette.bg : 'var(--card-background-color, transparent)')
             : (darkMode
                 ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
                 : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
@@ -3475,7 +3789,7 @@ class PsychrometricChartEnhanced extends i {
                             `)}
                             <div class="legend-item">
                                 <span class="legend-color legend-comfort"
-                                      style="background-color: ${this.config.comfortColor || (darkMode ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)')}"></span>
+                                      style="background-color: ${palette.comfort}"></span>
                                 <span>${this.t('comfortZone')}</span>
                             </div>
                         </div>

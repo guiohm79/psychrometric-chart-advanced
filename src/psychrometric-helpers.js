@@ -3,6 +3,28 @@
  * Contains pure functions for psychrometric conversions and calculations.
  * All temperatures are in Celsius internally.
  */
+/**
+ * Motifs de pointillés des tracés, en pixels CSS avant mise à l'échelle du canvas.
+ * Partagés avec l'éditeur, qui en tire la liste des styles proposés : une seule
+ * table évite qu'un style offert dans l'éditeur soit inconnu de la carte.
+ */
+export const LINE_STYLES = {
+    solid: [],
+    dashed: [5, 5],
+    dotted: [1.5, 3.5],
+    dashdot: [7, 3, 1.5, 3],
+};
+
+/** Style de trait par défaut de chaque famille de tracés. */
+export const DEFAULT_LINE_STYLES = {
+    gridLineStyle: 'dashed',
+    curveLineStyle: 'solid',
+    enthalpyLineStyle: 'dotted',
+    wetBulbLineStyle: 'dotted',
+    comfortLineStyle: 'solid',
+    pointLineStyle: 'dashed',
+};
+
 export class PsychrometricCalculations {
 
     // ========================================
@@ -99,6 +121,30 @@ export class PsychrometricCalculations {
             if (match) return parseFloat(match[1]);
         }
         return 1;
+    }
+
+    /**
+     * Nom de l'option d'opacité associée à une option de couleur.
+     *
+     * Opacité et couleur sont deux clés distinctes : tant qu'elles partageaient une
+     * seule chaîne `rgba()`, bouger le curseur d'opacité figeait aussi la couleur du
+     * mode courant, et la bascule clair/sombre restait sans effet ensuite.
+     * @param {string} colorKey - Option de couleur (ex. 'bgColor')
+     * @returns {string} Option d'opacité correspondante (ex. 'bgOpacity')
+     */
+    static opacityKey(colorKey) {
+        return String(colorKey).replace(/Color$/, 'Opacity');
+    }
+
+    /**
+     * Indique si une couleur CSS est analysable par colorToRgb.
+     * Un mot-clé (`white`), un dégradé ou une variable non résolue ne le sont pas :
+     * colorToRgb y répondrait [0, 0, 0], c'est-à-dire du noir.
+     * @param {*} color - Couleur CSS
+     * @returns {boolean} Vrai si la couleur est un hex ou un rgb()/rgba()
+     */
+    static isParsableColor(color) {
+        return typeof color === 'string' && /^(#|rgba?\()/.test(color.trim());
     }
 
     /**

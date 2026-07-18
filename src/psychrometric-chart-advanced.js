@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { PsychrometricCalculations } from "./psychrometric-helpers.js";
+import { PsychrometricCalculations, LINE_STYLES, DEFAULT_LINE_STYLES } from "./psychrometric-helpers.js";
 import "./psychrometric-chart-editor.js";
 
 /**
@@ -793,6 +793,11 @@ class PsychrometricChartEnhanced extends LitElement {
      */
     _palette() {
         const dark = this._isDark();
+        // `themeMode: light`/`dark` force un mode qui peut contredire celui de Home
+        // Assistant : dans ce cas les variables CSS du thème sont ignorées, sinon
+        // choisir « clair » sous un thème HA sombre laissait le fond et le texte
+        // sombres — le mode clair semblait sans effet.
+        const forced = this.config?.themeMode === 'light' || this.config?.themeMode === 'dark';
         const styles = getComputedStyle(this);
         /**
          * Reads a CSS custom property, falling back when the theme does not define it.
@@ -800,21 +805,73 @@ class PsychrometricChartEnhanced extends LitElement {
          * @param {string} fallback - Value to use when unset
          * @returns {string} Resolved colour
          */
-        const readVar = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+        const readVar = (name, fallback) => (forced ? fallback : (styles.getPropertyValue(name).trim() || fallback));
+
+        /**
+         * Résout une couleur : surcharge de configuration si présente, défaut sinon,
+         * puis applique l'opacité indépendante `<clé>Opacity` quand elle est réglée.
+         *
+         * L'opacité est volontairement une clé distincte : intégrée à la couleur, elle
+         * obligeait à figer aussi la teinte du mode courant, si bien qu'un simple
+         * réglage de transparence bloquait ensuite la bascule clair/sombre.
+         * @param {string} key - Option de couleur (ex. 'bgColor')
+         * @param {string} fallback - Couleur du mode courant
+         * @returns {string} Couleur CSS finale
+         */
+        const resolve = (key, fallback) => {
+            const color = this.config?.[key] || fallback;
+            const raw = this.config?.[PsychrometricCalculations.opacityKey(key)];
+            if (raw === undefined || raw === null || raw === '') return color;
+            const percent = parseFloat(raw);
+            // Une couleur non analysable (mot-clé CSS, dégradé) virerait au noir.
+            if (!Number.isFinite(percent) || !PsychrometricCalculations.isParsableColor(color)) return color;
+            const alpha = Math.min(1, Math.max(0, percent / 100));
+            return PsychrometricCalculations.rgbToCss(PsychrometricCalculations.colorToRgb(color), alpha);
+        };
 
         return {
             dark,
-            bg: this.config.bgColor
-                || readVar('--ha-card-background', readVar('--card-background-color', dark ? '#1c1c1c' : '#ffffff')),
-            text: this.config.textColor || readVar('--primary-text-color', dark ? '#e0e0e0' : '#333333'),
-            grid: this.config.gridColor || (dark ? '#444444' : '#cccccc'),
-            curve: this.config.curveColor || (dark ? '#4fc3f7' : '#1f77b4'),
-            comfort: this.config.comfortColor || (dark ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)'),
-            enthalpy: this.config.enthalpyColor || (dark ? 'rgba(255, 165, 0, 0.7)' : 'rgba(255, 99, 71, 0.7)'),
+            forced,
+            bg: resolve('bgColor', readVar('--ha-card-background', readVar('--card-background-color', dark ? '#1c1c1c' : '#ffffff'))),
+            text: resolve('textColor', readVar('--primary-text-color', dark ? '#e0e0e0' : '#333333')),
+            grid: resolve('gridColor', dark ? '#444444' : '#cccccc'),
+            curve: resolve('curveColor', dark ? '#4fc3f7' : '#1f77b4'),
+            comfort: resolve('comfortColor', dark ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)'),
+            enthalpy: resolve('enthalpyColor', dark ? 'rgba(255, 165, 0, 0.7)' : 'rgba(255, 99, 71, 0.7)'),
             wetBulb: dark ? 'rgba(0, 255, 255, 0.4)' : 'rgba(0, 100, 255, 0.4)',
             saturation: dark ? 'rgba(80, 180, 255, 0.9)' : 'rgba(30, 144, 255, 0.8)',
             pointOutline: dark ? '#ffffff' : '#000000',
         };
+    }
+
+    /**
+     * Motif de pointillés d'une famille de tracés, mis à l'échelle du canvas.
+     *
+     * Les longueurs de LINE_STYLES sont en pixels CSS de référence : les multiplier
+     * par `scale` garde le même aspect quelle que soit la taille rendue, comme le
+     * faisaient les motifs codés en dur qu'elle remplace.
+     * @param {string} option - Nom de l'option de configuration (ex. 'gridLineStyle')
+     * @param {number} scale - Facteur d'échelle du canvas
+     * @returns {number[]} Motif à passer à ctx.setLineDash
+     */
+    _lineDash(option, scale) {
+        const name = this.config?.[option] ?? DEFAULT_LINE_STYLES[option];
+        const pattern = LINE_STYLES[name] ?? LINE_STYLES[DEFAULT_LINE_STYLES[option]];
+        return pattern.map(segment => segment * scale);
+    }
+
+    /**
+     * Nombre de sous-multiples tracés entre deux graduations de température sèche.
+     *
+     * 1 signifie « aucun trait intermédiaire », soit l'aspect historique du
+     * graphique. La valeur est bornée : au-delà d'une dizaine, les traits se
+     * confondent en aplat et la grille cesse d'être lisible.
+     * @returns {number} Nombre entier de sous-multiples, entre 1 et 10
+     */
+    _tempSubdivisions() {
+        const parsed = parseInt(this.config?.tempSubdivisions, 10);
+        if (!Number.isFinite(parsed)) return 1;
+        return Math.min(10, Math.max(1, parsed));
     }
 
     /**
@@ -1140,7 +1197,7 @@ class PsychrometricChartEnhanced extends LitElement {
         // Draw axes and grid
         ctx.strokeStyle = actualGridColor;
         ctx.lineWidth = 1 * scale;
-        ctx.setLineDash([5 * scale, 5 * scale]);
+        ctx.setLineDash(this._lineDash('gridLineStyle', scale));
 
         // Vertical grid (vapor pressure)
         if (showVaporPressure !== false) {
@@ -1175,6 +1232,30 @@ class PsychrometricChartEnhanced extends LitElement {
         const startT = Math.ceil(bounds.minTemp / tempStep) * tempStep;
         const endT = Math.floor(bounds.maxTemp / tempStep) * tempStep;
 
+        // Sous-multiples : traits intermédiaires entre deux graduations, tracés avant
+        // elles pour rester dessous, plus fins et atténués, et jamais étiquetés — les
+        // étiquettes se chevaucheraient et l'axe deviendrait illisible.
+        const subdivisions = this._tempSubdivisions();
+        if (subdivisions > 1) {
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            ctx.lineWidth = 0.5 * scale;
+            // Boucle indexée plutôt qu'un incrément de `tempStep / subdivisions` :
+            // l'accumulation de flottants décalerait les derniers traits.
+            for (let major = startT - tempStep; major < endT + tempStep; major += tempStep) {
+                for (let k = 1; k < subdivisions; k++) {
+                    const displayTemp = major + (k * tempStep) / subdivisions;
+                    const x = this.tempToX(this.toInternalTemp(displayTemp));
+                    if (x < leftPadding || x > rightEdge) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(x, bottomEdge);
+                    ctx.lineTo(x, topPadding);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
         for (let displayTemp = startT; displayTemp <= endT; displayTemp += tempStep) {
             const tempC = this.toInternalTemp(displayTemp);
             const x = this.tempToX(tempC);
@@ -1189,7 +1270,7 @@ class PsychrometricChartEnhanced extends LitElement {
         }
 
         // Draw relative humidity curves
-        ctx.setLineDash([]);
+        ctx.setLineDash(this._lineDash('curveLineStyle', scale));
         ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
 
         // Use zoom bounds for humidity curves if configured
@@ -1241,7 +1322,7 @@ class PsychrometricChartEnhanced extends LitElement {
 
         // Draw enthalpy curves
         if (showEnthalpy && !minimal) {
-            ctx.setLineDash([2 * scale, 3 * scale]);
+            ctx.setLineDash(this._lineDash('enthalpyLineStyle', scale));
             ctx.strokeStyle = actualEnthalpyColor;
 
             for (let h = 0; h <= 150; h += 10) {
@@ -1277,7 +1358,7 @@ class PsychrometricChartEnhanced extends LitElement {
 
         // Draw Wet Bulb lines
         if (showWetBulb && !minimal) {
-            ctx.setLineDash([1 * scale, 4 * scale]);
+            ctx.setLineDash(this._lineDash('wetBulbLineStyle', scale));
             ctx.strokeStyle = palette.wetBulb;
 
             for (const line of this._wetBulbLines(bounds)) {
@@ -1303,6 +1384,9 @@ class PsychrometricChartEnhanced extends LitElement {
         }
 
         // Draw comfort zone
+        // Le motif est posé explicitement : les blocs précédents sont conditionnels,
+        // sans quoi le contour hériterait du pointillé du dernier tracé dessiné.
+        ctx.setLineDash(this._lineDash('comfortLineStyle', scale));
         ctx.beginPath();
         const comfortPoints = [
             { temp: comfortRange.tempMin, rh: comfortRange.rhMin },
@@ -1342,6 +1426,9 @@ class PsychrometricChartEnhanced extends LitElement {
         ctx.stroke();
 
         // Draw points
+        // Les pastilles et leur halo restent toujours pleins, quel que soit le style
+        // choisi pour le contour de la zone de confort dessinée juste avant.
+        ctx.setLineDash([]);
         points.forEach(point => {
             const x = this.tempToX(point.temp);
             const y = this.humidityToY(point.temp, point.humidity);
@@ -1366,7 +1453,7 @@ class PsychrometricChartEnhanced extends LitElement {
 
             // Lines
             ctx.strokeStyle = point.color;
-            ctx.setLineDash([5 * scale, 5 * scale]);
+            ctx.setLineDash(this._lineDash('pointLineStyle', scale));
             ctx.lineWidth = 1 * scale;
             ctx.beginPath();
             ctx.moveTo(x, bottomEdge);
@@ -1389,7 +1476,7 @@ class PsychrometricChartEnhanced extends LitElement {
                     ctx.fillStyle = "rgba(0, 0, 255, 0.5)";
                     ctx.fill();
                     ctx.beginPath();
-                    ctx.setLineDash([3 * scale, 3 * scale]);
+                    ctx.setLineDash(this._lineDash('pointLineStyle', scale));
                     ctx.strokeStyle = "rgba(0, 0, 255, 0.5)";
                     ctx.moveTo(x, y);
                     ctx.lineTo(dewX, dewY);
@@ -1890,9 +1977,12 @@ class PsychrometricChartEnhanced extends LitElement {
         const darkMode = palette.dark;
         // Sans couleur explicitement configurée, on ne pose aucun style : ha-card et
         // ses descendants héritent alors du thème de Home Assistant, quel qu'il soit.
+        // Exception : `themeMode` forcé, où l'héritage donnerait justement le thème
+        // que l'utilisateur vient de refuser — on pose alors les couleurs résolues.
+        const styled = (key) => this.config[key] || this.config[PsychrometricCalculations.opacityKey(key)] !== undefined;
         const cardStyle = [
-            this.config.bgColor ? `background: ${this.config.bgColor}` : '',
-            this.config.textColor ? `color: ${this.config.textColor}` : '',
+            (styled('bgColor') || palette.forced) ? `background: ${palette.bg}` : '',
+            (styled('textColor') || palette.forced) ? `color: ${palette.text}` : '',
         ].filter(Boolean).join('; ');
 
         // Les entités configurées sont toutes absentes ou invalides : le dire, plutôt
@@ -1918,7 +2008,7 @@ class PsychrometricChartEnhanced extends LitElement {
         // Surfaces translucides plutôt que des blancs/gris opaques : elles se posent
         // correctement sur le fond du thème courant, quel qu'il soit.
         const dataBoxBg = isClassic
-            ? 'var(--card-background-color, transparent)'
+            ? (palette.forced ? palette.bg : 'var(--card-background-color, transparent)')
             : (darkMode
                 ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
                 : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
@@ -1950,7 +2040,7 @@ class PsychrometricChartEnhanced extends LitElement {
                             `)}
                             <div class="legend-item">
                                 <span class="legend-color legend-comfort"
-                                      style="background-color: ${this.config.comfortColor || (darkMode ? 'rgba(100, 200, 100, 0.3)' : 'rgba(144, 238, 144, 0.5)')}"></span>
+                                      style="background-color: ${palette.comfort}"></span>
                                 <span>${this.t('comfortZone')}</span>
                             </div>
                         </div>

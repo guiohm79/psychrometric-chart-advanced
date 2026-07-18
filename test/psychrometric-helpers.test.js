@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PsychrometricCalculations as P } from '../src/psychrometric-helpers.js';
+import { PsychrometricCalculations as P, LINE_STYLES, DEFAULT_LINE_STYLES } from '../src/psychrometric-helpers.js';
 
 /**
  * Les valeurs de référence proviennent de tables psychrométriques standard
@@ -325,4 +325,43 @@ test('generateColorFromHash est déterministe et rend un hex exploitable', () =>
     assert.notEqual(color, P.generateColorFromHash('sensor.cuisine_temp_sensor.cuisine_hum'), 'entrées distinctes');
     // La carte concatène `point.color + '40'` pour le halo : le format hex 6 chiffres est obligatoire.
     assert.match(color, /^#[0-9a-f]{6}$/, 'hex 6 chiffres en minuscules');
+});
+
+test('chaque style de trait par défaut existe dans la table des motifs', () => {
+    // L'éditeur tire ses options de LINE_STYLES et ses valeurs initiales de
+    // DEFAULT_LINE_STYLES : un défaut absent de la table ouvrirait un selector
+    // sur une valeur que la carte ne sait pas dessiner.
+    for (const [option, style] of Object.entries(DEFAULT_LINE_STYLES)) {
+        assert.ok(style in LINE_STYLES, `${option} référence un style inconnu : ${style}`);
+    }
+    for (const [style, pattern] of Object.entries(LINE_STYLES)) {
+        assert.ok(Array.isArray(pattern), `${style} doit être un motif setLineDash`);
+        assert.ok(pattern.every(segment => segment > 0), `${style} ne doit contenir que des longueurs positives`);
+    }
+});
+
+test('opacityKey associe chaque couleur à son option d’opacité', () => {
+    assert.equal(P.opacityKey('bgColor'), 'bgOpacity');
+    assert.equal(P.opacityKey('comfortColor'), 'comfortOpacity');
+    // Le suffixe n'est remplacé qu'en fin de nom.
+    assert.equal(P.opacityKey('curveColor'), 'curveOpacity');
+});
+
+test('isParsableColor écarte ce que colorToRgb rendrait noir', () => {
+    for (const color of ['#fff', '#1c1c1c', 'rgb(1, 2, 3)', 'rgba(1, 2, 3, 0.5)']) {
+        assert.equal(P.isParsableColor(color), true, `${color} devrait être analysable`);
+    }
+    // Ces valeurs peuvent sortir d'une variable de thème : leur appliquer une opacité
+    // via colorToRgb donnerait du noir translucide au lieu de la teinte attendue.
+    for (const color of ['white', 'var(--x)', 'linear-gradient(#fff, #000)', '', undefined, null]) {
+        assert.equal(P.isParsableColor(color), false, `${color} ne devrait pas être analysable`);
+    }
+});
+
+test('une opacité séparée n’altère jamais la teinte résolue', () => {
+    // Reproduit ce que fait _palette() : la teinte vient du mode courant, l'opacité
+    // d'une option distincte. Le mode clair doit rester atteignable après réglage.
+    const applied = P.rgbToCss(P.colorToRgb('#ffffff'), 46 / 100);
+    assert.equal(applied, 'rgba(255, 255, 255, 0.46)');
+    assert.deepEqual(P.colorToRgb(applied), [255, 255, 255], 'la teinte claire est préservée');
 });

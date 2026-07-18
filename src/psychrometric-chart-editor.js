@@ -1,5 +1,5 @@
 import { LitElement, html, css } from 'lit';
-import { PsychrometricCalculations } from './psychrometric-helpers.js';
+import { PsychrometricCalculations, LINE_STYLES, DEFAULT_LINE_STYLES } from './psychrometric-helpers.js';
 
 /**
  * Éditeur visuel de la carte Psychrometric Chart Advanced.
@@ -44,6 +44,12 @@ const DEFAULT_COMFORT_RANGE = { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 }
 
 /** Clés de couleur globales exposées, avec alpha. */
 const COLOR_KEYS = ['bgColor', 'textColor', 'gridColor', 'curveColor', 'enthalpyColor', 'comfortColor'];
+
+/** Options de style de trait, dans l'ordre du selector. Tirées de la table de la carte. */
+const LINE_STYLE_KEYS = Object.keys(LINE_STYLES);
+
+/** Familles de tracés dont le style est configurable, dans l'ordre d'affichage. */
+const LINE_STYLE_OPTIONS = Object.keys(DEFAULT_LINE_STYLES);
 
 /** Domaines proposés dans les sélecteurs d'entités. */
 const SENSOR_DOMAINS = ['sensor', 'input_number', 'number'];
@@ -98,6 +104,20 @@ const editorTranslations = {
         enthalpyColor: "Couleur des enthalpies",
         comfortColor: "Couleur zone confort",
         opacity: "Opacité",
+        resetColor: "Suivre le thème",
+        lineStyles: "Styles de trait",
+        gridLineStyle: "Trait de la grille",
+        curveLineStyle: "Trait des courbes d'humidité",
+        enthalpyLineStyle: "Trait des enthalpies",
+        wetBulbLineStyle: "Trait des temp. humides",
+        comfortLineStyle: "Trait de la zone de confort",
+        pointLineStyle: "Trait des projections de points",
+        lineSolid: "Continu",
+        lineDashed: "Tirets",
+        lineDotted: "Pointillés",
+        lineDashdot: "Tiret-point",
+        tempSubdivisions: "Sous-multiples des températures sèches",
+        tempSubdivisionsHelp: "Traits intermédiaires entre deux graduations de l'axe des températures. 1 n'en ajoute aucun ; 5 découpe chaque pas de 5 °C en degrés.",
         displayOptions: "Options d'affichage",
         displayMode: "Niveau de détail",
         displayModeHelp: "Personnalisé applique les champs cochés sur chaque point. Minimal n'affiche que température, humidité et confort ; Détaillé affiche tous les champs.",
@@ -175,6 +195,20 @@ const editorTranslations = {
         enthalpyColor: "Enthalpy color",
         comfortColor: "Comfort zone color",
         opacity: "Opacity",
+        resetColor: "Follow the theme",
+        lineStyles: "Line styles",
+        gridLineStyle: "Grid line",
+        curveLineStyle: "Humidity curve line",
+        enthalpyLineStyle: "Enthalpy line",
+        wetBulbLineStyle: "Wet bulb line",
+        comfortLineStyle: "Comfort zone outline",
+        pointLineStyle: "Point projection line",
+        lineSolid: "Solid",
+        lineDashed: "Dashed",
+        lineDotted: "Dotted",
+        lineDashdot: "Dash-dot",
+        tempSubdivisions: "Dry-bulb temperature subdivisions",
+        tempSubdivisionsHelp: "Minor lines drawn between two graduations of the temperature axis. 1 adds none; 5 splits each 5 °C step into degrees.",
         displayOptions: "Display options",
         displayMode: "Detail level",
         displayModeHelp: "Custom applies the fields ticked on each point. Minimal only shows temperature, humidity and comfort; Detailed shows every field.",
@@ -252,6 +286,20 @@ const editorTranslations = {
         enthalpyColor: "Color de las entalpías",
         comfortColor: "Color zona confort",
         opacity: "Opacidad",
+        resetColor: "Seguir el tema",
+        lineStyles: "Estilos de línea",
+        gridLineStyle: "Línea de la cuadrícula",
+        curveLineStyle: "Línea de las curvas de humedad",
+        enthalpyLineStyle: "Línea de las entalpías",
+        wetBulbLineStyle: "Línea de temp. húmedas",
+        comfortLineStyle: "Contorno de la zona de confort",
+        pointLineStyle: "Línea de proyección de los puntos",
+        lineSolid: "Continua",
+        lineDashed: "Discontinua",
+        lineDotted: "Punteada",
+        lineDashdot: "Raya-punto",
+        tempSubdivisions: "Subdivisiones de las temperaturas secas",
+        tempSubdivisionsHelp: "Líneas intermedias entre dos graduaciones del eje de temperaturas. 1 no añade ninguna; 5 divide cada paso de 5 °C en grados.",
         displayOptions: "Opciones de visualización",
         displayMode: "Nivel de detalle",
         displayModeHelp: "Personalizado aplica los campos marcados en cada punto. Mínimo solo muestra temperatura, humedad y confort; Detallado muestra todos los campos.",
@@ -329,6 +377,20 @@ const editorTranslations = {
         enthalpyColor: "Enthalpiefarbe",
         comfortColor: "Komfortzonenfarbe",
         opacity: "Deckkraft",
+        resetColor: "Dem Thema folgen",
+        lineStyles: "Linienstile",
+        gridLineStyle: "Gitterlinie",
+        curveLineStyle: "Feuchtekurvenlinie",
+        enthalpyLineStyle: "Enthalpielinie",
+        wetBulbLineStyle: "Feuchtkugellinie",
+        comfortLineStyle: "Umriss der Komfortzone",
+        pointLineStyle: "Projektionslinie der Punkte",
+        lineSolid: "Durchgezogen",
+        lineDashed: "Gestrichelt",
+        lineDotted: "Gepunktet",
+        lineDashdot: "Strichpunkt",
+        tempSubdivisions: "Unterteilungen der Trockentemperaturen",
+        tempSubdivisionsHelp: "Zwischenlinien zwischen zwei Graduierungen der Temperaturachse. 1 fügt keine hinzu; 5 unterteilt jeden 5-°C-Schritt in Grad.",
         displayOptions: "Anzeigeoptionen",
         displayMode: "Detailgrad",
         displayModeHelp: "Benutzerdefiniert wendet die pro Punkt angehakten Felder an. Minimal zeigt nur Temperatur, Luftfeuchte und Komfort; Detailliert zeigt alle Felder.",
@@ -593,6 +655,33 @@ export class PsychrometricChartEditor extends LitElement {
         ];
     }
 
+    /**
+     * Styles de trait, une ligne par famille de tracés.
+     * Les options viennent de LINE_STYLES : un style proposé ici est forcément
+     * connu de la carte.
+     * @returns {Array<Object>} Schéma ha-form
+     */
+    _lineStyleSchema() {
+        const options = LINE_STYLE_KEYS.map(style => ({
+            value: style,
+            label: this.t(`line${style.charAt(0).toUpperCase()}${style.slice(1)}`),
+        }));
+        return [
+            {
+                type: 'grid',
+                name: '',
+                schema: LINE_STYLE_OPTIONS.map(name => ({
+                    name,
+                    selector: { select: { mode: 'dropdown', options } },
+                })),
+            },
+            {
+                name: 'tempSubdivisions',
+                selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
+            },
+        ];
+    }
+
     _zoomSchema() {
         return [
             {
@@ -620,8 +709,16 @@ export class PsychrometricChartEditor extends LitElement {
      */
     _formData() {
         const config = this._config || {};
+        // Styles de trait : le défaut de la carte, sinon les selectors s'ouvriraient
+        // vides alors qu'un style est bien appliqué au graphique.
+        const lineStyles = {};
+        for (const [name, fallback] of Object.entries(DEFAULT_LINE_STYLES)) {
+            lineStyles[name] = config[name] ?? fallback;
+        }
         return {
             ...config,
+            ...lineStyles,
+            tempSubdivisions: config.tempSubdivisions ?? 1,
             chartTitle: config.chartTitle ?? 'Diagramme Psychrométrique',
             language: config.language ?? 'fr',
             temperatureUnit: config.temperatureUnit ?? 'auto',
@@ -709,18 +806,67 @@ export class PsychrometricChartEditor extends LitElement {
         this._emit({ ...this._formData(), points });
     }
 
+    /**
+     * Opacité affichée pour une couleur, en pourcentage.
+     * L'option dédiée prime ; à défaut on lit l'alpha éventuellement intégré à la
+     * couleur, ce qui couvre les configurations écrites avant leur séparation.
+     * @param {string} key - Option de couleur
+     * @returns {number} Opacité entre 0 et 100
+     */
+    _opacityOf(key) {
+        const stored = this._config?.[PsychrometricCalculations.opacityKey(key)];
+        if (stored !== undefined && stored !== null && stored !== '') {
+            const percent = parseFloat(stored);
+            if (Number.isFinite(percent)) return Math.min(100, Math.max(0, percent));
+        }
+        const color = this._config?.[key] || this._colorFallback(key);
+        return Math.round(PsychrometricCalculations.colorToAlpha(color) * 100);
+    }
+
+    /**
+     * Écrit la teinte seule, sans alpha.
+     * L'opacité éventuellement portée par l'ancienne valeur `rgba()` est reportée
+     * dans l'option dédiée, pour que l'aspect ne saute pas au premier réglage.
+     * @param {string} key - Option de couleur
+     * @param {CustomEvent} ev - Événement du sélecteur
+     */
     _colorChanged(key, ev) {
         ev.stopPropagation();
         const current = this._config?.[key] || this._colorFallback(key);
         const rgb = ev.detail.value ?? PsychrometricCalculations.colorToRgb(current);
-        this._emit({ ...this._formData(), [key]: PsychrometricCalculations.rgbToCss(rgb, PsychrometricCalculations.colorToAlpha(current)) });
+        this._emit({
+            ...this._formData(),
+            [key]: PsychrometricCalculations.rgbToHex(rgb),
+            [PsychrometricCalculations.opacityKey(key)]: this._opacityOf(key),
+        });
     }
 
+    /**
+     * Écrit l'opacité seule, sans jamais figer la teinte.
+     * C'est la raison d'être de l'option séparée : régler la transparence ne doit pas
+     * enregistrer la couleur du mode courant, sinon la bascule clair/sombre se trouve
+     * neutralisée et il faut passer par l'éditeur YAML pour s'en sortir.
+     * @param {string} key - Option de couleur
+     * @param {CustomEvent} ev - Événement du sélecteur
+     */
     _opacityChanged(key, ev) {
         ev.stopPropagation();
-        const current = this._config?.[key] || this._colorFallback(key);
-        const alpha = (ev.detail.value ?? 100) / 100;
-        this._emit({ ...this._formData(), [key]: PsychrometricCalculations.rgbToCss(PsychrometricCalculations.colorToRgb(current), alpha) });
+        this._emit({
+            ...this._formData(),
+            [PsychrometricCalculations.opacityKey(key)]: ev.detail.value ?? 100,
+        });
+    }
+
+    /**
+     * Rend une couleur au thème : les deux options sont retirées de la configuration.
+     * @param {string} key - Option de couleur
+     */
+    _resetColor(key) {
+        this._emit({
+            ...this._formData(),
+            [key]: undefined,
+            [PsychrometricCalculations.opacityKey(key)]: undefined,
+        });
     }
 
     _addPoint() {
@@ -748,7 +894,9 @@ export class PsychrometricChartEditor extends LitElement {
 
     _renderColorRow(key) {
         const value = this._config?.[key] || this._colorFallback(key);
-        const alpha = Math.round(PsychrometricCalculations.colorToAlpha(value) * 100);
+        // Une couleur « suit le thème » tant qu'aucune des deux options n'est posée.
+        const overridden = Boolean(this._config?.[key])
+            || this._config?.[PsychrometricCalculations.opacityKey(key)] !== undefined;
         return html`
             <div class="color-row">
                 <span class="color-label">${this.t(key)}</span>
@@ -764,9 +912,16 @@ export class PsychrometricChartEditor extends LitElement {
                     .hass=${this.hass}
                     .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'slider', unit_of_measurement: '%' } }}
                     .label=${this.t('opacity')}
-                    .value=${alpha}
+                    .value=${this._opacityOf(key)}
                     @value-changed=${(ev) => this._opacityChanged(key, ev)}
                 ></ha-selector>
+                <ha-icon-button
+                    class="color-reset"
+                    .label=${this.t('resetColor')}
+                    title=${this.t('resetColor')}
+                    ?disabled=${!overridden}
+                    @click=${() => this._resetColor(key)}
+                ><ha-icon icon="mdi:restore"></ha-icon></ha-icon-button>
             </div>
         `;
     }
@@ -867,6 +1022,15 @@ export class PsychrometricChartEditor extends LitElement {
                 <div class="section">
                     <span class="section-title">${this.t('appearance')}</span>
                     ${COLOR_KEYS.map(key => this._renderColorRow(key))}
+                    <span class="subsection-title">${this.t('lineStyles')}</span>
+                    <ha-form
+                        .hass=${this.hass}
+                        .data=${data}
+                        .schema=${this._lineStyleSchema()}
+                        .computeLabel=${this._computeLabel}
+                        .computeHelper=${this._computeHelper}
+                        @value-changed=${this._valueChanged}
+                    ></ha-form>
                 </div>
 
                 <div class="section">
@@ -901,6 +1065,12 @@ export class PsychrometricChartEditor extends LitElement {
                 font-weight: 500;
                 font-size: 1.05em;
                 color: var(--primary-text-color);
+            }
+            .subsection-title {
+                display: block;
+                margin: 20px 0 8px;
+                font-weight: 500;
+                color: var(--secondary-text-color);
             }
             ha-form {
                 display: block;
@@ -948,6 +1118,14 @@ export class PsychrometricChartEditor extends LitElement {
             .color-opacity {
                 flex: 1;
                 min-width: 140px;
+            }
+            .color-reset {
+                flex: 0 0 auto;
+                color: var(--secondary-text-color);
+            }
+            .color-reset[disabled] {
+                opacity: 0.3;
+                pointer-events: none;
             }
             .empty {
                 padding: 8px 0;
