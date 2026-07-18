@@ -163,6 +163,32 @@ zoom_humidity_max: 70  # Humidité maximale à afficher (%) - optionnel
 
 ---
 
+## Opacité, styles de trait et grille
+
+Sans réglage, chaque couleur (`bgColor`, `textColor`, `gridColor`, `curveColor`, `enthalpyColor`, `comfortColor`) suit automatiquement le thème clair/sombre de Home Assistant. L'opacité se règle indépendamment de la couleur via `<option>Opacity` (0-100), ce qui évite de figer la teinte du thème quand on ajuste juste la transparence.
+
+Le style de trait de chaque famille de courbes se choisit séparément (`solid`, `dashed`, `dotted` ou `dashdot`), et le nombre de sous-graduations de température (`tempSubdivisions`, 1 à 10) contrôle la finesse de la grille.
+
+```yaml
+# Opacité indépendante de la couleur (0-100)
+gridOpacity: 40
+curveOpacity: 80
+comfortOpacity: 50
+
+# Style de trait par famille de courbes
+gridLineStyle: dashed       # solid, dashed, dotted, dashdot
+curveLineStyle: solid
+enthalpyLineStyle: dotted
+wetBulbLineStyle: dotted
+comfortLineStyle: solid
+pointLineStyle: dashed
+
+# Sous-graduations de température (1 = aucun trait intermédiaire)
+tempSubdivisions: 4
+```
+
+---
+
 ## Modes d'affichage
 
 Le paramètre `displayMode` est un interrupteur maître au-dessus du `details` de chaque point. Trois modes sont disponibles :

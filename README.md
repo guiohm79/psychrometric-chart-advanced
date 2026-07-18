@@ -184,17 +184,26 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | `points[].color` | string | No | Random | Point color (hex format) |
 | `points[].label` | string | No | - | Point label |
 | `points[].icon` | string | No | `mdi:home` | MDI icon |
-| `bgColor` | string | No | `#ffffff` | Background color |
-| `textColor` | string | No | `#000000` | Text color |
-| `gridColor` | string | No | `rgba(0,0,0,0.15)` | Grid color |
-| `curveColor` | string | No | `#3B58DD` | Humidity curves color |
+| `bgColor` | string | No | Theme | Background color |
+| `textColor` | string | No | Theme | Text color |
+| `gridColor` | string | No | Theme | Grid color |
+| `curveColor` | string | No | Theme | Humidity curves color |
+| `bgOpacity` / `textOpacity` / `gridOpacity` / `curveOpacity` / `enthalpyOpacity` / `comfortOpacity` | number | No | - | Opacity (0-100) for the matching `*Color` option, set independently of the color itself. Adjusting opacity never overwrites the color, so it doesn't break light/dark theme switching |
+| `gridLineStyle` | string | No | `dashed` | Grid line style: `solid`, `dashed`, `dotted`, or `dashdot` |
+| `curveLineStyle` | string | No | `solid` | Humidity curves line style |
+| `enthalpyLineStyle` | string | No | `dotted` | Enthalpy lines style |
+| `wetBulbLineStyle` | string | No | `dotted` | Wet bulb lines style |
+| `comfortLineStyle` | string | No | `solid` | Comfort zone outline style |
+| `pointLineStyle` | string | No | `dashed` | Point halo outline style |
+| `tempSubdivisions` | number | No | `1` | Minor gridlines drawn between two temperature ticks (1-10). `1` means no intermediate line |
 | `showCalculatedData` | boolean | No | `true` | Show calculated data cards |
 | `comfortRange` | object | No | - | Comfort zone configuration |
 | `comfortRange.tempMin` | number | No | `18` | Minimum comfort temperature (°C) |
 | `comfortRange.tempMax` | number | No | `22` | Maximum comfort temperature (°C) |
 | `comfortRange.rhMin` | number | No | `40` | Minimum comfort relative humidity (%) |
 | `comfortRange.rhMax` | number | No | `60` | Maximum comfort relative humidity (%) |
-| `comfortColor` | string | No | `rgba(144,238,144,0.3)` | Comfort zone color |
+| `comfortColor` | string | No | Theme | Comfort zone color |
+| `enthalpyColor` | string | No | Theme | Enthalpy lines color |
 | `massFlowRate` | number | No | `0.5` | Mass flow rate (kg/s) for power calculations |
 | `chartTitle` | string | No | `Psychrometric Chart` | Chart title |
 | `themeMode` | string | No | `auto` | Colour theme: `auto` (follows the Home Assistant light/dark theme), `light`, or `dark` |
