@@ -603,7 +603,9 @@ class PsychrometricChartEnhanced extends LitElement {
      * @returns {number} The size of the card
      */
     getCardSize() {
-        return 3;
+        // Sans le graphique, la carte se réduit aux cartes de données : annoncer la
+        // même hauteur laisserait un grand vide dans les mises en page en colonnes.
+        return this.config?.showChart === false ? 1 : 3;
     }
 
     /**
@@ -637,17 +639,12 @@ class PsychrometricChartEnhanced extends LitElement {
 
     /**
      * Lifecycle method called after the first update.
-     * Initializes the resize observer and canvas listeners.
+     * Initializes the resize observer. Les écouteurs du canvas sont posés par le
+     * template Lit : le canvas peut apparaître ou disparaître avec `showChart`,
+     * et un accrochage manuel ici ne serait joué qu'une fois.
      */
     firstUpdated() {
         this._observeResize();
-
-        const canvas = this.shadowRoot.getElementById('psychroChart');
-        if (canvas) {
-            canvas.addEventListener('mousemove', this._onMouseMove);
-            canvas.addEventListener('mouseleave', this._onMouseLeave);
-            canvas.addEventListener('click', this._onCanvasClick);
-        }
     }
 
     connectedCallback() {
@@ -733,6 +730,11 @@ class PsychrometricChartEnhanced extends LitElement {
     willUpdate(changedProperties) {
         if (changedProperties.has('hass') || changedProperties.has('config') || !this._currentPoints) {
             this._currentPoints = this._calculatePoints();
+        }
+        // Masquer le graphique retire le canvas sous le curseur : sans cela, une
+        // infobulle ouverte à cet instant resterait affichée faute de `mouseleave`.
+        if (changedProperties.has('config') && this.config?.showChart === false && this._hoveredPoint) {
+            this._hoveredPoint = null;
         }
     }
 
@@ -1968,6 +1970,7 @@ class PsychrometricChartEnhanced extends LitElement {
         const points = this._currentPoints || [];
         const {
             chartTitle = "Diagramme Psychrométrique",
+            showChart = true,
             showLegend = true,
             showCalculatedData = true,
             theme = "modern"
@@ -2025,8 +2028,12 @@ class PsychrometricChartEnhanced extends LitElement {
             <ha-card class="theme-${theme}" style="${cardStyle}">
                 <div class="card-header">${chartTitle}</div>
 
+                ${showChart ? html`
                 <div class="chart-container">
-                    <canvas id="psychroChart" role="img" aria-label="${chartDescription}">
+                    <canvas id="psychroChart" role="img" aria-label="${chartDescription}"
+                            @mousemove="${this._onMouseMove}"
+                            @mouseleave="${this._onMouseLeave}"
+                            @click="${this._onCanvasClick}">
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? html`
@@ -2046,6 +2053,7 @@ class PsychrometricChartEnhanced extends LitElement {
                         </div>
                     ` : ''}
                 </div>
+                ` : ''}
 
                 ${showCalculatedData ? html`
                     <div class="psychro-data">

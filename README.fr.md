@@ -139,6 +139,7 @@ bgColor: "#000000"
 textColor: "#ffffff"
 gridColor: rgba(0, 238, 254, 0.15)
 curveColor: "#3B58DD"
+showChart: true
 showCalculatedData: true
 comfortRange:
   tempMin: 18
@@ -218,6 +219,21 @@ displayMode: minimal  # ou 'custom' ou 'detailed'
 ```
 
 > `displayMode: standard` était l'ancien nom de `custom` et reste accepté : les configurations existantes continuent de fonctionner.
+
+---
+
+## Masquer le graphique
+
+`showChart: false` retire le diagramme (et sa légende) : la carte ne montre plus que les cartes de données calculées. Pratique pour empiler une carte par pièce sans occuper tout le tableau de bord avec autant de diagrammes identiques.
+
+```yaml
+type: custom:psychrometric-chart-enhanced
+showChart: false
+showCalculatedData: true   # sinon il ne reste que le titre
+# ... autres paramètres
+```
+
+L'option est aussi disponible dans l'éditeur visuel, section « Options d'affichage ». Quand elle est décochée, les réglages qui ne concernent que le tracé (enthalpie, pression de vapeur, légende, labels des points…) disparaissent de l'éditeur.
 
 ---
 

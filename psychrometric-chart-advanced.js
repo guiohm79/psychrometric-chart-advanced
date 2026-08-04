@@ -740,6 +740,8 @@ const editorTranslations = {
         unitAuto: "Automatique (Home Assistant)",
         unitCelsius: "Celsius (°C)",
         unitFahrenheit: "Fahrenheit (°F)",
+        showChart: "Afficher le graphique",
+        showChartHelp: "Décochez pour n'afficher que les cartes de données, sans le diagramme.",
         showEnthalpy: "Afficher Enthalpie",
         showVaporPressure: "Afficher Pression Vapeur",
         showDewPoint: "Afficher Point de Rosée",
@@ -831,6 +833,8 @@ const editorTranslations = {
         unitAuto: "Automatic (Home Assistant)",
         unitCelsius: "Celsius (°C)",
         unitFahrenheit: "Fahrenheit (°F)",
+        showChart: "Show chart",
+        showChartHelp: "Uncheck to show only the data cards, without the diagram.",
         showEnthalpy: "Show enthalpy",
         showVaporPressure: "Show vapor pressure",
         showDewPoint: "Show dew point",
@@ -922,6 +926,8 @@ const editorTranslations = {
         unitAuto: "Automática (Home Assistant)",
         unitCelsius: "Celsius (°C)",
         unitFahrenheit: "Fahrenheit (°F)",
+        showChart: "Mostrar el gráfico",
+        showChartHelp: "Desmarca para mostrar solo las tarjetas de datos, sin el diagrama.",
         showEnthalpy: "Mostrar entalpía",
         showVaporPressure: "Mostrar presión de vapor",
         showDewPoint: "Mostrar punto de rocío",
@@ -1013,6 +1019,8 @@ const editorTranslations = {
         unitAuto: "Automatisch (Home Assistant)",
         unitCelsius: "Celsius (°C)",
         unitFahrenheit: "Fahrenheit (°F)",
+        showChart: "Diagramm anzeigen",
+        showChartHelp: "Abwählen, um nur die Datenkarten ohne Diagramm anzuzeigen.",
         showEnthalpy: "Enthalpie anzeigen",
         showVaporPressure: "Dampfdruck anzeigen",
         showDewPoint: "Taupunkt anzeigen",
@@ -1252,16 +1260,21 @@ class PsychrometricChartEditor extends i {
                     },
                 },
             },
+            { name: 'showChart', selector: { boolean: {} } },
             {
                 type: 'grid',
                 name: '',
                 schema: [
-                    { name: 'showEnthalpy', selector: { boolean: {} } },
-                    { name: 'showVaporPressure', selector: { boolean: {} } },
-                    { name: 'showDewPoint', selector: { boolean: {} } },
-                    { name: 'showWetBulb', selector: { boolean: {} } },
-                    { name: 'showPointLabels', selector: { boolean: {} } },
-                    { name: 'showLegend', selector: { boolean: {} } },
+                    // Ces options ne pilotent que le tracé : les proposer alors que le
+                    // graphique est masqué afficherait des cases sans effet.
+                    ...(this._config?.showChart === false ? [] : [
+                        { name: 'showEnthalpy', selector: { boolean: {} } },
+                        { name: 'showVaporPressure', selector: { boolean: {} } },
+                        { name: 'showDewPoint', selector: { boolean: {} } },
+                        { name: 'showWetBulb', selector: { boolean: {} } },
+                        { name: 'showPointLabels', selector: { boolean: {} } },
+                        { name: 'showLegend', selector: { boolean: {} } },
+                    ]),
                     { name: 'showCalculatedData', selector: { boolean: {} } },
                 ],
             },
@@ -1342,6 +1355,7 @@ class PsychrometricChartEditor extends i {
             // périmée du YAML dès la première modification dans l'éditeur.
             displayMode: config.displayMode === 'standard' ? 'custom' : (config.displayMode ?? 'custom'),
             massFlowRate: config.massFlowRate ?? 0.5,
+            showChart: config.showChart !== false,
             comfortRange: { ...DEFAULT_COMFORT_RANGE, ...(config.comfortRange || {}) },
             showEnthalpy: config.showEnthalpy !== false,
             showVaporPressure: config.showVaporPressure !== false,
@@ -2352,7 +2366,9 @@ class PsychrometricChartEnhanced extends i {
      * @returns {number} The size of the card
      */
     getCardSize() {
-        return 3;
+        // Sans le graphique, la carte se réduit aux cartes de données : annoncer la
+        // même hauteur laisserait un grand vide dans les mises en page en colonnes.
+        return this.config?.showChart === false ? 1 : 3;
     }
 
     /**
@@ -2386,17 +2402,12 @@ class PsychrometricChartEnhanced extends i {
 
     /**
      * Lifecycle method called after the first update.
-     * Initializes the resize observer and canvas listeners.
+     * Initializes the resize observer. Les écouteurs du canvas sont posés par le
+     * template Lit : le canvas peut apparaître ou disparaître avec `showChart`,
+     * et un accrochage manuel ici ne serait joué qu'une fois.
      */
     firstUpdated() {
         this._observeResize();
-
-        const canvas = this.shadowRoot.getElementById('psychroChart');
-        if (canvas) {
-            canvas.addEventListener('mousemove', this._onMouseMove);
-            canvas.addEventListener('mouseleave', this._onMouseLeave);
-            canvas.addEventListener('click', this._onCanvasClick);
-        }
     }
 
     connectedCallback() {
@@ -2482,6 +2493,11 @@ class PsychrometricChartEnhanced extends i {
     willUpdate(changedProperties) {
         if (changedProperties.has('hass') || changedProperties.has('config') || !this._currentPoints) {
             this._currentPoints = this._calculatePoints();
+        }
+        // Masquer le graphique retire le canvas sous le curseur : sans cela, une
+        // infobulle ouverte à cet instant resterait affichée faute de `mouseleave`.
+        if (changedProperties.has('config') && this.config?.showChart === false && this._hoveredPoint) {
+            this._hoveredPoint = null;
         }
     }
 
@@ -3717,6 +3733,7 @@ class PsychrometricChartEnhanced extends i {
         const points = this._currentPoints || [];
         const {
             chartTitle = "Diagramme Psychrométrique",
+            showChart = true,
             showLegend = true,
             showCalculatedData = true,
             theme = "modern"
@@ -3774,8 +3791,12 @@ class PsychrometricChartEnhanced extends i {
             <ha-card class="theme-${theme}" style="${cardStyle}">
                 <div class="card-header">${chartTitle}</div>
 
+                ${showChart ? b`
                 <div class="chart-container">
-                    <canvas id="psychroChart" role="img" aria-label="${chartDescription}">
+                    <canvas id="psychroChart" role="img" aria-label="${chartDescription}"
+                            @mousemove="${this._onMouseMove}"
+                            @mouseleave="${this._onMouseLeave}"
+                            @click="${this._onCanvasClick}">
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? b`
@@ -3795,6 +3816,7 @@ class PsychrometricChartEnhanced extends i {
                         </div>
                     ` : ''}
                 </div>
+                ` : ''}
 
                 ${showCalculatedData ? b`
                     <div class="psychro-data">
