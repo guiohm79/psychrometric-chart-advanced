@@ -149,6 +149,7 @@ bgColor: "#000000"
 textColor: "#ffffff"
 gridColor: rgba(0, 238, 254, 0.15)
 curveColor: "#3B58DD"
+showChart: true
 showCalculatedData: true
 comfortRange:
   tempMin: 18
@@ -196,6 +197,7 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | `comfortLineStyle` | string | No | `solid` | Comfort zone outline style |
 | `pointLineStyle` | string | No | `dashed` | Point halo outline style |
 | `tempSubdivisions` | number | No | `1` | Minor gridlines drawn between two temperature ticks (1-10). `1` means no intermediate line |
+| `showChart` | boolean | No | `true` | Show the psychrometric diagram. Set to `false` to keep only the calculated data cards (useful to stack several compact cards, one per room) |
 | `showCalculatedData` | boolean | No | `true` | Show calculated data cards |
 | `comfortRange` | object | No | - | Comfort zone configuration |
 | `comfortRange.tempMin` | number | No | `18` | Minimum comfort temperature (°C) |

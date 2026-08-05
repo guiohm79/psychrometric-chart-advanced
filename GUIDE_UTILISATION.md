@@ -142,6 +142,7 @@ comfortRange:
 comfortColor: "rgba(144, 238, 144, 0.3)"  # Couleur zone confort
 
 # Options d'affichage
+showChart: true             # Afficher le diagramme (false = données seules)
 showCalculatedData: true     # Afficher les cartes de données
 showEnthalpy: true          # Afficher courbes d'enthalpie
 showMoldRisk: true          # Afficher risque moisissure
