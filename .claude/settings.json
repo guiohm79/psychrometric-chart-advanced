@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -o \"showChart[^,]\\\\{0,60\\\\}\" psychrometric-chart-advanced.js)",
+      "Bash(git -C \"c:/Users/guioh/Documents/cartes_homeassistant/psychrometric-chart-antigravity/psychrometric-chart-advanced\" log --oneline -3)",
+      "Bash(git -C \"c:/Users/guioh/Documents/cartes_homeassistant/psychrometric-chart-antigravity/psychrometric-chart-advanced\" branch -a)"
+    ]
+  }
+}
