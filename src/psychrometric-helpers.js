@@ -25,6 +25,34 @@ export const DEFAULT_LINE_STYLES = {
     pointLineStyle: 'dashed',
 };
 
+/**
+ * Choisit le pas de graduation d'un axe pour que ses étiquettes ne se chevauchent pas.
+ *
+ * Les polices du canvas sont bornées à un minimum lisible : en dessous d'une certaine
+ * taille de carte, elles cessent de rétrécir alors que la zone de tracé, elle, continue.
+ * Garder un pas fixe faisait alors se recouvrir les étiquettes. On remonte donc le pas
+ * sur une échelle de multiples jusqu'à ce que l'espacement tienne la largeur (ou la
+ * hauteur) d'une étiquette.
+ * @param {number} range - Étendue de l'axe, dans son unité (ex. 60 pour -10..50 °C)
+ * @param {number} availablePx - Longueur de l'axe en pixels CSS
+ * @param {number} labelPx - Encombrement minimal d'une étiquette, en pixels CSS
+ * @param {number} baseStep - Pas de référence, dans l'unité de l'axe
+ * @param {number[]} [multipliers] - Multiples autorisés du pas de référence, croissants
+ * @returns {number} Pas à utiliser, toujours un multiple de `baseStep`
+ */
+export function pickAxisStep(range, availablePx, labelPx, baseStep, multipliers = [1, 2, 4, 10]) {
+    // Une entrée non exploitable (canvas pas encore mesuré, axe dégénéré) ne doit pas
+    // produire un pas nul ou négatif : la boucle de tracé ne se terminerait jamais.
+    if (!(range > 0) || !(availablePx > 0) || !(labelPx > 0) || !(baseStep > 0)) return baseStep;
+
+    // Espacement = availablePx * step / range, d'où le pas minimal admissible.
+    const minStep = (labelPx * range) / availablePx;
+    for (const multiplier of multipliers) {
+        if (baseStep * multiplier >= minStep) return baseStep * multiplier;
+    }
+    return baseStep * multipliers[multipliers.length - 1];
+}
+
 export class PsychrometricCalculations {
 
     // ========================================

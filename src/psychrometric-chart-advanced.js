@@ -1,6 +1,34 @@
 import { LitElement, html, css } from 'lit';
-import { PsychrometricCalculations, LINE_STYLES, DEFAULT_LINE_STYLES } from "./psychrometric-helpers.js";
+import { PsychrometricCalculations, LINE_STYLES, DEFAULT_LINE_STYLES, pickAxisStep } from "./psychrometric-helpers.js";
 import "./psychrometric-chart-editor.js";
+
+/**
+ * Taille de police minimale du canvas, en pixels CSS. En dessous, les étiquettes
+ * deviennent illisibles : c'est la densité des graduations qui doit céder, pas la
+ * police (voir `_chartLayout()` et `pickAxisStep`).
+ */
+const MIN_AXIS_FONT = 10;
+
+/** Hauteur minimale du graphique, en pixels CSS. */
+const MIN_CHART_HEIGHT = 150;
+
+/** Rapport largeur/hauteur du graphique quand la carte n'impose pas de hauteur. */
+const DEFAULT_CHART_RATIO = 4 / 3;
+
+/**
+ * Largeur approchée d'un texte Arial, en pixels CSS.
+ *
+ * `measureText` serait exact mais exige un contexte de canvas : la mise en page doit
+ * rester calculable hors dessin, puisque `tempToX`/`humidityToY` la reconstruisent
+ * pour le test de survol. Une approximation stable vaut mieux que deux géométries
+ * divergentes — 0,55 em est l'avance moyenne des chiffres et minuscules en Arial.
+ * @param {string} text - Texte à mesurer
+ * @param {number} fontSize - Taille de police en pixels CSS
+ * @returns {number} Largeur estimée en pixels CSS
+ */
+function estimateTextWidth(text, fontSize) {
+    return text.length * fontSize * 0.55;
+}
 
 /**
  * Psychrometric Chart Enhanced
@@ -53,10 +81,18 @@ class PsychrometricChartEnhanced extends LitElement {
                 text-align: center;
                 color: inherit;
             }
+            /*
+             * La hauteur de repos est posée en style en ligne (voir _chartContainerStyle) ;
+             * flex 1 1 auto la fait ensuite grandir pour remplir une carte plus haute que
+             * son contenu, et min-height 0 autorise la compression quand Home Assistant
+             * impose une carte plus courte — sans quoi le graphique débordait sur la
+             * carte suivante.
+             */
             .chart-container {
                 position: relative;
                 width: 100%;
-                flex: 1;
+                flex: 1 1 auto;
+                min-height: 0;
                 display: flex;
                 justify-content: center;
                 align-items: center;
@@ -369,10 +405,12 @@ class PsychrometricChartEnhanced extends LitElement {
         this._canvasWidth = 800;
         this._canvasHeight = 600;
         this.resizeObserver = null;
+        this._resizeTarget = null;
         this._resizeDebounceTimer = null;
         this._language = 'fr';
         this._temperatureUnit = null;
         this._currentPoints = [];
+        this._currentLayout = null;
         this._hoveredPoint = null;
         this._tooltipPos = { x: 0, y: 0 };
         // Références stables pour pouvoir retirer les écouteurs au démontage.
@@ -592,20 +630,67 @@ class PsychrometricChartEnhanced extends LitElement {
             throw new Error(`zoom_humidity_min (${bounds.minHum}) doit être strictement inférieur à zoom_humidity_max (${bounds.maxHum}).`);
         }
 
+        // Une hauteur ou un rapport d'aspect non numérique donnerait un conteneur de
+        // taille NaN, donc un canvas invisible : le dire plutôt que d'afficher un vide.
+        if (config.chartHeight !== undefined && config.chartHeight !== null && config.chartHeight !== '') {
+            const chartHeight = parseFloat(config.chartHeight);
+            if (!Number.isFinite(chartHeight) || chartHeight <= 0) {
+                throw new Error(`chartHeight (${config.chartHeight}) doit être un nombre de pixels positif.`);
+            }
+        }
+        if (config.chartAspectRatio !== undefined && config.chartAspectRatio !== null && config.chartAspectRatio !== '') {
+            const ratio = parseFloat(config.chartAspectRatio);
+            if (!Number.isFinite(ratio) || ratio <= 0) {
+                throw new Error(`chartAspectRatio (${config.chartAspectRatio}) doit être un nombre positif.`);
+            }
+        }
+
         this.config = config;
         // L'unité peut changer avec la config : forcer une nouvelle détection.
         this._temperatureUnit = null;
         this._wetBulbCache = null;
+        // Les bornes de zoom entrent dans la mise en page (largeur des étiquettes).
+        this._currentLayout = null;
     }
 
     /**
      * Get the card size (height in rows).
+     *
+     * Une unité vaut ~50 px pour Home Assistant, qui s'en sert à équilibrer les colonnes
+     * de la vue masonry. La valeur était figée à 3 (~150 px) pour une carte qui en fait
+     * couramment 600 : les colonnes se remplissaient de travers. On annonce désormais la
+     * hauteur réelle — graphique plus une carte de données par point.
      * @returns {number} The size of the card
      */
     getCardSize() {
+        const pointCount = this.config?.points?.length ?? 0;
+        const dataRows = this.config?.showCalculatedData === false ? 0 : pointCount * 3;
         // Sans le graphique, la carte se réduit aux cartes de données : annoncer la
         // même hauteur laisserait un grand vide dans les mises en page en colonnes.
-        return this.config?.showChart === false ? 1 : 3;
+        if (this.config?.showChart === false) return Math.max(1, dataRows);
+        return Math.max(3, Math.ceil(this._chartBaseHeight() / 50) + dataRows);
+    }
+
+    /**
+     * Placement par défaut dans la vue « sections ».
+     *
+     * Sans cette méthode, Home Assistant ne connaît ni la largeur ni la hauteur
+     * minimales de la carte : `grid_options.rows` pouvait l'écraser jusqu'au
+     * chevauchement, et rien n'empêchait de la réduire à une colonne. `rows: auto`
+     * laisse la carte dicter sa hauteur (graphique + cartes de données) ; l'utilisateur
+     * qui fixe un nombre de lignes obtient un graphique qui s'y adapte, puisque le
+     * conteneur du canvas grandit et rétrécit avec la place disponible.
+     * @returns {Object} Options de grille reconnues par la vue sections
+     */
+    getGridOptions() {
+        return {
+            // 12 colonnes = toute la largeur d'une section, exprimé en nombre plutôt
+            // qu'avec le mot-clé « full » que les versions plus anciennes ignorent.
+            columns: 12,
+            rows: 'auto',
+            min_columns: 6,
+            min_rows: this.config?.showChart === false ? 1 : 3,
+        };
     }
 
     /**
@@ -650,39 +735,54 @@ class PsychrometricChartEnhanced extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         // firstUpdated ne rejoue pas après un remontage : ré-observer explicitement.
-        if (this.shadowRoot?.querySelector('ha-card')) this._observeResize();
+        this._observeResize();
     }
 
     disconnectedCallback() {
         super.disconnectedCallback();
         this.resizeObserver?.disconnect();
         this.resizeObserver = null;
+        this._resizeTarget = null;
         clearTimeout(this._resizeDebounceTimer);
         this._resizeDebounceTimer = null;
         this._hoveredPoint = null;
     }
 
     /**
-     * Observe the card width and keep the canvas at a 4:3 ratio.
+     * Observe la zone du graphique et tient le canvas à la taille réellement disponible.
+     *
+     * C'est le conteneur qui est mesuré, et non la carte : sa hauteur est décidée par le
+     * flux flex — hauteur de repos issue de `_chartBaseHeight()`, puis étirement ou
+     * compression selon la place que Home Assistant accorde à la carte (`grid_options`).
+     * Mesurer la carte ne donnait que sa largeur, d'où une hauteur toujours déduite de
+     * celle-ci : le graphique débordait d'une carte trop courte et ne remplissait pas
+     * une carte trop haute.
+     *
+     * Pas de boucle de rétroaction : la hauteur de repos ne dépend que de la largeur du
+     * conteneur, que le canvas — dessiné à la taille exacte du conteneur, sans mise à
+     * l'échelle CSS — ne peut pas modifier.
      */
     _observeResize() {
-        if (this.resizeObserver) return;
-        const card = this.shadowRoot?.querySelector('ha-card');
-        if (!card) return;
+        const target = this.shadowRoot?.querySelector('.chart-container');
+        if (!target || this._resizeTarget === target) return;
 
+        this.resizeObserver?.disconnect();
+        this._resizeTarget = target;
         this.resizeObserver = new ResizeObserver(entries => {
             clearTimeout(this._resizeDebounceTimer);
             this._resizeDebounceTimer = setTimeout(() => {
                 for (const entry of entries) {
-                    const width = entry.contentRect.width;
-                    if (width > 0) {
+                    const { width, height } = entry.contentRect;
+                    if (width > 0 && height > 0) {
                         this._canvasWidth = width;
-                        this._canvasHeight = width * 0.75; // 4:3 aspect ratio
+                        this._canvasHeight = height;
+                        // La géométrie dépend des deux dimensions : la recalculer.
+                        this._currentLayout = null;
                     }
                 }
             }, 100);
         });
-        this.resizeObserver.observe(card);
+        this.resizeObserver.observe(target);
     }
 
     /**
@@ -744,6 +844,11 @@ class PsychrometricChartEnhanced extends LitElement {
      * @param {Map} changedProperties - Map of changed properties
      */
     updated(changedProperties) {
+        // Le conteneur du graphique apparaît et disparaît avec `showChart` : il faut
+        // ré-observer celui qui est réellement dans le DOM, sinon la carte resterait
+        // dimensionnée d'après un élément détruit.
+        this._observeResize();
+
         if (changedProperties.has('hass') || changedProperties.has('config')
             || changedProperties.has('_canvasWidth') || changedProperties.has('_canvasHeight')) {
             this._drawChart();
@@ -1133,6 +1238,102 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
+     * Rapport largeur/hauteur du graphique quand aucune hauteur n'est imposée.
+     * @returns {number} Rapport borné entre 0,5 et 4
+     */
+    _chartAspectRatio() {
+        const parsed = parseFloat(this.config?.chartAspectRatio);
+        if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_CHART_RATIO;
+        return Math.min(4, Math.max(0.5, parsed));
+    }
+
+    /**
+     * Hauteur demandée par `chartHeight`, si l'option est exploitable.
+     * @returns {number|null} Hauteur en pixels CSS, ou null si l'option est absente
+     */
+    _chartHeightOption() {
+        const parsed = parseFloat(this.config?.chartHeight);
+        return Number.isFinite(parsed) && parsed > 0 ? Math.max(MIN_CHART_HEIGHT, parsed) : null;
+    }
+
+    /**
+     * Hauteur de repos du graphique : celle qu'il prend quand la carte le laisse
+     * dicter sa propre taille (vue masonry, `grid_options.rows: auto`).
+     *
+     * Ce n'est qu'une base : le conteneur est un élément flex qui peut ensuite grandir
+     * pour remplir une carte plus haute, ou rétrécir pour en tenir une plus courte.
+     * @returns {number} Hauteur en pixels CSS
+     */
+    _chartBaseHeight() {
+        return this._chartHeightOption()
+            ?? Math.max(MIN_CHART_HEIGHT, this._canvasWidth / this._chartAspectRatio());
+    }
+
+    /**
+     * Style en ligne du conteneur du graphique.
+     *
+     * La hauteur de repos y est posée explicitement plutôt que laissée au contenu : le
+     * conteneur cesse ainsi de dépendre de la taille du canvas, ce qui rend impossible
+     * toute boucle entre le redimensionnement observé et le redessin.
+     * @returns {string} Déclarations CSS à appliquer au conteneur
+     */
+    _chartContainerStyle() {
+        const height = `height: ${Math.round(this._chartBaseHeight())}px`;
+        // Une hauteur explicite est une consigne, pas une base : la grille de Home
+        // Assistant ne doit pas l'étirer. Seule une carte trop courte la comprime encore,
+        // faute de quoi le graphique déborderait à nouveau sur ses voisines.
+        return this._chartHeightOption() ? `${height}; flex: 0 1 auto` : height;
+    }
+
+    /**
+     * Mise en page du graphique : facteurs d'échelle, police et bords de la zone de tracé.
+     *
+     * Source unique de la géométrie : `_drawChart()` la calcule une fois par dessin et
+     * la mémorise dans `_currentLayout`, d'où `tempToX`/`humidityToY` la relisent. Elle
+     * doit rester **pure** (aucun contexte de canvas, aucun état de dessin) pour que le
+     * test de survol puisse la reconstruire à l'identique.
+     *
+     * Les marges ne sont plus de simples multiples de la géométrie de référence
+     * (800x600) : les polices étant bornées à MIN_AXIS_FONT, elles cessent de rétrécir
+     * avec la carte et les étiquettes finissaient par déborder dans la zone de tracé.
+     * @returns {Object} { scaleX, scaleY, scale, axisFont, compactAxis, axisLabelX, leftPadding, rightEdge, topPadding, bottomEdge }
+     */
+    _chartLayout() {
+        const width = this._canvasWidth;
+        const height = this._canvasHeight;
+        const scaleX = width / 800;
+        const scaleY = height / 600;
+        // Plancher sur l'échelle des symboles : une carte large mais basse (grid_options
+        // avec peu de lignes) donnait un scaleY minuscule, donc des pastilles de deux
+        // pixels sur un graphique par ailleurs immense.
+        const scale = Math.max(0.5, Math.min(scaleX, scaleY));
+        const axisFont = Math.max(MIN_AXIS_FONT, 12 * scale);
+        // La police a dû être relevée au plancher : le texte n'est plus à l'échelle du
+        // dessin, on passe l'axe en version courte (nombres seuls, unité en en-tête).
+        const compactAxis = 12 * scale < MIN_AXIS_FONT;
+
+        const bounds = this._currentBounds || this._calculateChartBounds();
+        const axisLabelX = Math.max(4, 10 * scaleX);
+        const pvLabel = compactAxis ? bounds.maxPv.toFixed(1) : `${bounds.maxPv.toFixed(1)} kPa`;
+        const yLabelWidth = this.config?.showVaporPressure === false
+            ? 0
+            : estimateTextWidth(pvLabel, axisFont);
+
+        // Les marges sont ensuite bornées à une fraction du canvas : une carte très
+        // basse ou très étroite finirait sinon avec une zone de tracé nulle, voire
+        // inversée (bord bas au-dessus du bord haut), et plus rien ne serait dessiné.
+        const leftPadding = Math.min(width * 0.35, Math.max(50 * scaleX, axisLabelX + yLabelWidth + 6 * scale));
+        const rightEdge = width - Math.min(width * 0.15, Math.max(50 * scaleX, axisFont * 2));
+        const topPadding = Math.min(height * 0.2, Math.max(50 * scaleY, axisFont * 1.6));
+        const bottomEdge = height - Math.min(height * 0.25, Math.max(50 * scaleY, axisFont * 2.4));
+
+        return {
+            scaleX, scaleY, scale, axisFont, compactAxis,
+            axisLabelX, leftPadding, rightEdge, topPadding, bottomEdge,
+        };
+    }
+
+    /**
      * Draw the psychrometric chart on the canvas.
      */
     _drawChart() {
@@ -1162,7 +1363,7 @@ class PsychrometricChartEnhanced extends LitElement {
             showPointLabels = true,
         } = this.config;
 
-        const minimal = this._displayMode() === 'minimal';
+        const minimalMode = this._displayMode() === 'minimal';
         const palette = this._palette();
         const darkMode = palette.dark;
         const actualBgColor = palette.bg;
@@ -1182,19 +1383,25 @@ class PsychrometricChartEnhanced extends LitElement {
         const bounds = this._calculateChartBounds();
         this._currentBounds = bounds; // Store for coordinate conversion
 
-        // Scale factors
-        const scaleX = width / 800;
-        const scaleY = height / 600;
-        const scale = Math.min(scaleX, scaleY);
+        // Mise en page : calculée une fois ici, puis relue par tempToX/humidityToY.
+        const layout = this._chartLayout();
+        this._currentLayout = layout;
+        const {
+            scaleX, scaleY, scale, axisFont, compactAxis,
+            axisLabelX, leftPadding, rightEdge, topPadding, bottomEdge,
+        } = layout;
+        const plotWidth = rightEdge - leftPadding;
+        const plotHeight = bottomEdge - topPadding;
+
+        // Zone de tracé trop étroite pour superposer les familles de courbes : on
+        // retombe sur le mode minimal, qui ne garde que la grille et les points. Ce
+        // repli ne concerne que le canvas — les cartes de données, elles, se
+        // réorganisent déjà toutes seules en CSS.
+        const minimal = minimalMode || plotWidth < 300 || plotHeight < 220;
 
         // Clear canvas
         ctx.fillStyle = actualBgColor;
         ctx.fillRect(0, 0, width, height);
-
-        const leftPadding = 50 * scaleX;
-        const rightEdge = 750 * scaleX;
-        const topPadding = 50 * scaleY;
-        const bottomEdge = 550 * scaleY;
 
         // Draw axes and grid
         ctx.strokeStyle = actualGridColor;
@@ -1203,11 +1410,21 @@ class PsychrometricChartEnhanced extends LitElement {
 
         // Vertical grid (vapor pressure)
         if (showVaporPressure !== false) {
-            ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
+            ctx.font = `${axisFont}px Arial`;
             // Determine step size based on maxPv
             let pvStep = 0.5;
             if (bounds.maxPv < 1) pvStep = 0.1;
             else if (bounds.maxPv > 5) pvStep = 1;
+            // ...puis on l'espace assez pour que deux étiquettes ne se touchent pas.
+            pvStep = pickAxisStep(bounds.maxPv - bounds.minPv, plotHeight, axisFont * 1.6, pvStep, [1, 2, 5, 10]);
+
+            // Axe compact : l'unité est écrite une fois en en-tête, les graduations ne
+            // portent plus que le nombre — « 12.3 kPa » à chaque trait mangeait le quart
+            // de la largeur d'une carte étroite.
+            if (compactAxis) {
+                ctx.fillStyle = actualTextColor;
+                ctx.fillText('kPa', axisLabelX, topPadding - axisFont * 0.4);
+            }
 
             for (let i = 0; i <= bounds.maxPv + pvStep; i += pvStep) {
                 // L'axe Y porte la pression de vapeur : on la convertit en humidité
@@ -1223,16 +1440,31 @@ class PsychrometricChartEnhanced extends LitElement {
                     ctx.lineTo(rightEdge, y);
                     ctx.stroke();
                     ctx.fillStyle = actualTextColor;
-                    ctx.fillText(`${i.toFixed(1)} kPa`, 10 * scaleX, y + 5 * scaleY);
+                    const label = compactAxis ? i.toFixed(1) : `${i.toFixed(1)} kPa`;
+                    ctx.fillText(label, axisLabelX, y + axisFont * 0.35);
                 }
             }
         }
 
         // Horizontal grid (temperature)
-        const tempStep = this._temperatureUnit === '°F' ? 9 : 5;
+        // Les graduations sont posées dans l'unité d'affichage : convertir les bornes,
+        // qui sont en Celsius interne, avant d'en déduire le premier et le dernier trait.
+        const minDisplay = this.toDisplayTemp(bounds.minTemp);
+        const maxDisplay = this.toDisplayTemp(bounds.maxTemp);
+        // 10 °F plutôt que 9 (l'équivalent exact de 5 °C) : les graduations tombent sur
+        // des dizaines rondes, comme sur n'importe quel axe en Fahrenheit.
+        const baseTempStep = this._temperatureUnit === '°F' ? 10 : 5;
+        // Un pas fixe faisait se chevaucher les étiquettes dès que la carte descendait
+        // sous ~500 px : on l'élargit tant que « -10°C » ne tient pas entre deux traits.
+        const tempStep = pickAxisStep(
+            maxDisplay - minDisplay,
+            plotWidth,
+            estimateTextWidth(`-00${this.getTempUnit()}`, axisFont) + 8 * scale,
+            baseTempStep
+        );
         // Adjust start/end to be multiples of step
-        const startT = Math.ceil(bounds.minTemp / tempStep) * tempStep;
-        const endT = Math.floor(bounds.maxTemp / tempStep) * tempStep;
+        const startT = Math.ceil(minDisplay / tempStep) * tempStep;
+        const endT = Math.floor(maxDisplay / tempStep) * tempStep;
 
         // Sous-multiples : traits intermédiaires entre deux graduations, tracés avant
         // elles pour rester dessous, plus fins et atténués, et jamais étiquetés — les
@@ -1258,6 +1490,9 @@ class PsychrometricChartEnhanced extends LitElement {
             ctx.restore();
         }
 
+        // Étiquettes centrées sur leur graduation : le décalage fixe de -15 px les
+        // désalignait dès que la police cessait de suivre l'échelle du dessin.
+        ctx.textAlign = 'center';
         for (let displayTemp = startT; displayTemp <= endT; displayTemp += tempStep) {
             const tempC = this.toInternalTemp(displayTemp);
             const x = this.tempToX(tempC);
@@ -1267,17 +1502,23 @@ class PsychrometricChartEnhanced extends LitElement {
                 ctx.lineTo(x, topPadding);
                 ctx.stroke();
                 ctx.fillStyle = actualTextColor;
-                ctx.fillText(`${displayTemp}${this.getTempUnit()}`, x - 15 * scaleX, bottomEdge + 20 * scaleY);
+                ctx.fillText(`${displayTemp}${this.getTempUnit()}`, x, bottomEdge + axisFont * 1.4);
             }
         }
+        ctx.textAlign = 'left';
 
         // Draw relative humidity curves
         ctx.setLineDash(this._lineDash('curveLineStyle', scale));
-        ctx.font = `${Math.max(10, 12 * scale)}px Arial`;
+        ctx.font = `${axisFont}px Arial`;
 
         // Use zoom bounds for humidity curves if configured
         const startRh = bounds.minHum > 10 ? Math.ceil(bounds.minHum / 10) * 10 : 10;
         const endRh = bounds.maxHum < 100 ? Math.floor(bounds.maxHum / 10) * 10 : 100;
+        // Les courbes restent tracées tous les 10 % — ce sont les étiquettes qui se
+        // télescopent quand la hauteur manque, pas les traits : on n'en garde qu'une
+        // sur deux dès que l'écart vertical moyen tombe sous la hauteur d'une ligne.
+        const rhSpacing = plotHeight / Math.max(1, (endRh - startRh) / 10);
+        const rhLabelStep = rhSpacing < axisFont * 2.2 ? 20 : 10;
         for (let rh = startRh; rh <= endRh; rh += 10) {
             ctx.beginPath();
             ctx.strokeStyle = rh === 100 ? palette.saturation : actualCurveColor;
@@ -1316,7 +1557,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 }
             }
 
-            if (labelX !== -1 && labelY !== -1) {
+            if (labelX !== -1 && labelY !== -1 && rh % rhLabelStep === 0) {
                 ctx.fillStyle = actualTextColor;
                 ctx.fillText(`${rh}%`, labelX + 5 * scaleX, labelY - 2 * scaleY);
             }
@@ -1489,7 +1730,7 @@ class PsychrometricChartEnhanced extends LitElement {
 
             if (showPointLabels !== false) {
                 ctx.fillStyle = actualTextColor;
-                ctx.font = `${Math.max(10, 10 * scale)}px Arial`;
+                ctx.font = `${Math.max(MIN_AXIS_FONT, 10 * scale)}px Arial`;
                 ctx.fillText(point.label, x + 10 * scaleX, y - 10 * scaleY);
             }
         });
@@ -1538,10 +1779,10 @@ class PsychrometricChartEnhanced extends LitElement {
      */
     tempToX(temp) {
         const bounds = this._currentBounds || this._calculateChartBounds();
-        const scaleX = this._canvasWidth / 800;
-
-        const leftPadding = 50 * scaleX;
-        const rightEdge = 750 * scaleX;
+        // `_drawChart()` renseigne `_currentLayout` avant tout tracé : la projection et
+        // le dessin partagent ainsi exactement la même géométrie, y compris hors dessin
+        // (test de survol) où la mise en page est simplement recalculée à l'identique.
+        const { leftPadding, rightEdge } = this._currentLayout || this._chartLayout();
         const chartWidth = rightEdge - leftPadding;
 
         const tempRange = bounds.maxTemp - bounds.minTemp;
@@ -1557,10 +1798,7 @@ class PsychrometricChartEnhanced extends LitElement {
      */
     humidityToY(temp, humidity) {
         const bounds = this._currentBounds || this._calculateChartBounds();
-        const scaleY = this._canvasHeight / 600;
-
-        const topPadding = 50 * scaleY;
-        const bottomEdge = 550 * scaleY;
+        const { topPadding, bottomEdge } = this._currentLayout || this._chartLayout();
         const chartHeight = bottomEdge - topPadding;
 
         const P_v = PsychrometricCalculations.calculateVaporPressure(temp, humidity);
@@ -2029,7 +2267,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 <div class="card-header">${chartTitle}</div>
 
                 ${showChart ? html`
-                <div class="chart-container">
+                <div class="chart-container" style="${this._chartContainerStyle()}">
                     <canvas id="psychroChart" role="img" aria-label="${chartDescription}"
                             @mousemove="${this._onMouseMove}"
                             @mouseleave="${this._onMouseLeave}"

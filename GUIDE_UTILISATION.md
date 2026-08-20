@@ -143,6 +143,8 @@ comfortColor: "rgba(144, 238, 144, 0.3)"  # Couleur zone confort
 
 # Options d'affichage
 showChart: true             # Afficher le diagramme (false = données seules)
+chartAspectRatio: 1.33      # Rapport largeur/hauteur quand la hauteur est libre
+# chartHeight: 400          # Hauteur fixe du graphique en pixels (optionnel)
 showCalculatedData: true     # Afficher les cartes de données
 showEnthalpy: true          # Afficher courbes d'enthalpie
 showMoldRisk: true          # Afficher risque moisissure

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PsychrometricCalculations as P, LINE_STYLES, DEFAULT_LINE_STYLES } from '../src/psychrometric-helpers.js';
+import { PsychrometricCalculations as P, LINE_STYLES, DEFAULT_LINE_STYLES, pickAxisStep } from '../src/psychrometric-helpers.js';
 
 /**
  * Les valeurs de référence proviennent de tables psychrométriques standard
@@ -364,4 +364,44 @@ test('une opacité séparée n’altère jamais la teinte résolue', () => {
     const applied = P.rgbToCss(P.colorToRgb('#ffffff'), 46 / 100);
     assert.equal(applied, 'rgba(255, 255, 255, 0.46)');
     assert.deepEqual(P.colorToRgb(applied), [255, 255, 255], 'la teinte claire est préservée');
+});
+
+test('pickAxisStep garde le pas de référence quand la place suffit', () => {
+    // Cas de la carte pleine page : axe -10..50 °C sur ~680 px, étiquettes de ~39 px.
+    // Un pas de 5 °C laisse 56 px entre deux traits : rien à élargir.
+    assert.equal(pickAxisStep(60, 680, 39, 5), 5);
+});
+
+test('pickAxisStep élargit le pas quand les étiquettes se toucheraient', () => {
+    // Même axe sur une carte de ~400 px : 345 px utiles, étiquettes de ~33 px.
+    // Un pas de 5 °C ne laisserait que 29 px, donc chevauchement.
+    assert.equal(pickAxisStep(60, 345, 33, 5), 10);
+    // Carte très étroite : il faut monter d'un cran de plus.
+    assert.equal(pickAxisStep(60, 150, 33, 5), 20);
+});
+
+test('pickAxisStep ne rend que des multiples du pas de référence', () => {
+    for (const availablePx of [80, 150, 260, 400, 700, 1400]) {
+        const step = pickAxisStep(60, availablePx, 33, 5);
+        assert.ok([5, 10, 20, 50].includes(step), `pas inattendu : ${step}`);
+        // La contrainte d'espacement doit être tenue, sauf au dernier cran disponible.
+        if (step !== 50) {
+            assert.ok((availablePx * step) / 60 >= 33, `étiquettes trop serrées à ${availablePx} px`);
+        }
+    }
+});
+
+test('pickAxisStep accepte une autre échelle de multiples', () => {
+    // Axe des pressions : pas de 1 kPa, multiples 1/2/5/10.
+    assert.equal(pickAxisStep(12.3, 250, 16, 1, [1, 2, 5, 10]), 1);
+    assert.equal(pickAxisStep(12.3, 120, 16, 1, [1, 2, 5, 10]), 2);
+    assert.equal(pickAxisStep(12.3, 40, 16, 1, [1, 2, 5, 10]), 5);
+});
+
+test('pickAxisStep retombe sur le pas de référence si la mesure est inexploitable', () => {
+    // Canvas pas encore mesuré : un pas nul ou négatif ferait boucler le tracé.
+    for (const availablePx of [0, -10, NaN]) {
+        assert.equal(pickAxisStep(60, availablePx, 33, 5), 5);
+    }
+    assert.equal(pickAxisStep(0, 400, 33, 5), 5);
 });

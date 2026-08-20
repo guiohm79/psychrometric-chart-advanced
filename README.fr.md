@@ -140,6 +140,8 @@ textColor: "#ffffff"
 gridColor: rgba(0, 238, 254, 0.15)
 curveColor: "#3B58DD"
 showChart: true
+chartAspectRatio: 1.33      # Rapport largeur/hauteur du graphique
+# chartHeight: 400         # Hauteur fixe en pixels (optionnel)
 showCalculatedData: true
 comfortRange:
   tempMin: 18
@@ -234,6 +236,28 @@ showCalculatedData: true   # sinon il ne reste que le titre
 ```
 
 L'option est aussi disponible dans l'éditeur visuel, section « Options d'affichage ». Quand elle est décochée, les réglages qui ne concernent que le tracé (enthalpie, pression de vapeur, légende, labels des points…) disparaissent de l'éditeur.
+
+---
+
+## Taille de la carte
+
+Par défaut, le graphique **suit la place que Home Assistant accorde à la carte** :
+
+- dans une vue *masonry* ou avec `grid_options: {rows: auto}`, il prend sa hauteur de repos, soit sa largeur divisée par `chartAspectRatio` (4:3 par défaut) ;
+- avec `grid_options: {rows: N}`, il s'étire pour remplir les lignes accordées, ou se comprime pour y tenir — il ne déborde plus sur la carte suivante ;
+- `chartHeight: 400` fixe la hauteur en pixels. Elle n'est plus étirée par la grille ; seule une carte trop courte pour la contenir la comprime encore.
+
+```yaml
+type: custom:psychrometric-chart-enhanced
+chartHeight: 420        # hauteur fixe, en pixels
+# ou :
+chartAspectRatio: 2     # deux fois plus large que haut, hauteur libre
+grid_options:
+  columns: full
+  rows: 8               # le graphique remplit les 8 lignes
+```
+
+Sur une carte étroite, le graphique **allège automatiquement son tracé** plutôt que d'empiler des étiquettes illisibles : les graduations de température s'espacent (5 °C → 10 °C → 20 °C), l'axe des pressions passe en notation courte (unité en en-tête), une courbe d'humidité sur deux est étiquetée, et sous ~300 px de zone de tracé les couches auxiliaires (enthalpie, températures humides, points de rosée) s'effacent comme en mode `minimal`. Les cartes de données, elles, se réorganisent déjà d'elles-mêmes en une colonne.
 
 ---
 

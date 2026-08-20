@@ -129,6 +129,10 @@ const editorTranslations = {
         unitFahrenheit: "Fahrenheit (°F)",
         showChart: "Afficher le graphique",
         showChartHelp: "Décochez pour n'afficher que les cartes de données, sans le diagramme.",
+        chartHeight: "Hauteur du graphique (px)",
+        chartHeightHelp: "Vide : le graphique suit la place disponible. Une valeur fixe la hauteur, que seule une carte trop courte comprime encore.",
+        chartAspectRatio: "Rapport largeur/hauteur",
+        chartAspectRatioHelp: "Utilisé quand aucune hauteur n'est imposée : 1.33 = 4:3, 2 = deux fois plus large que haut.",
         showEnthalpy: "Afficher Enthalpie",
         showVaporPressure: "Afficher Pression Vapeur",
         showDewPoint: "Afficher Point de Rosée",
@@ -222,6 +226,10 @@ const editorTranslations = {
         unitFahrenheit: "Fahrenheit (°F)",
         showChart: "Show chart",
         showChartHelp: "Uncheck to show only the data cards, without the diagram.",
+        chartHeight: "Chart height (px)",
+        chartHeightHelp: "Empty: the chart follows the space available. A value pins the height, which only a too-short card still compresses.",
+        chartAspectRatio: "Width/height ratio",
+        chartAspectRatioHelp: "Used when no height is imposed: 1.33 = 4:3, 2 = twice as wide as tall.",
         showEnthalpy: "Show enthalpy",
         showVaporPressure: "Show vapor pressure",
         showDewPoint: "Show dew point",
@@ -315,6 +323,10 @@ const editorTranslations = {
         unitFahrenheit: "Fahrenheit (°F)",
         showChart: "Mostrar el gráfico",
         showChartHelp: "Desmarca para mostrar solo las tarjetas de datos, sin el diagrama.",
+        chartHeight: "Altura del gráfico (px)",
+        chartHeightHelp: "Vacío: el gráfico sigue el espacio disponible. Un valor fija la altura, que solo una tarjeta demasiado corta comprime.",
+        chartAspectRatio: "Relación ancho/alto",
+        chartAspectRatioHelp: "Se usa cuando no se impone ninguna altura: 1.33 = 4:3, 2 = el doble de ancho que de alto.",
         showEnthalpy: "Mostrar entalpía",
         showVaporPressure: "Mostrar presión de vapor",
         showDewPoint: "Mostrar punto de rocío",
@@ -408,6 +420,10 @@ const editorTranslations = {
         unitFahrenheit: "Fahrenheit (°F)",
         showChart: "Diagramm anzeigen",
         showChartHelp: "Abwählen, um nur die Datenkarten ohne Diagramm anzuzeigen.",
+        chartHeight: "Diagrammhöhe (px)",
+        chartHeightHelp: "Leer: Das Diagramm folgt dem verfügbaren Platz. Ein Wert legt die Höhe fest, die nur eine zu kurze Karte noch staucht.",
+        chartAspectRatio: "Verhältnis Breite/Höhe",
+        chartAspectRatioHelp: "Gilt, wenn keine Höhe vorgegeben ist: 1.33 = 4:3, 2 = doppelt so breit wie hoch.",
         showEnthalpy: "Enthalpie anzeigen",
         showVaporPressure: "Dampfdruck anzeigen",
         showDewPoint: "Taupunkt anzeigen",
@@ -648,6 +664,23 @@ export class PsychrometricChartEditor extends LitElement {
                 },
             },
             { name: 'showChart', selector: { boolean: {} } },
+            // Taille du graphique : sans objet quand il est masqué.
+            ...(this._config?.showChart === false ? [] : [
+                {
+                    type: 'grid',
+                    name: '',
+                    schema: [
+                        {
+                            name: 'chartHeight',
+                            selector: { number: { min: 150, max: 1200, step: 10, mode: 'box', unit_of_measurement: 'px' } },
+                        },
+                        {
+                            name: 'chartAspectRatio',
+                            selector: { number: { min: 0.5, max: 4, step: 0.05, mode: 'box' } },
+                        },
+                    ],
+                },
+            ]),
             {
                 type: 'grid',
                 name: '',
@@ -743,6 +776,9 @@ export class PsychrometricChartEditor extends LitElement {
             displayMode: config.displayMode === 'standard' ? 'custom' : (config.displayMode ?? 'custom'),
             massFlowRate: config.massFlowRate ?? 0.5,
             showChart: config.showChart !== false,
+            // `chartHeight` n'a volontairement pas de défaut : le champ vide signifie
+            // « le graphique suit la place disponible », qui est le comportement normal.
+            chartAspectRatio: config.chartAspectRatio ?? 1.33,
             comfortRange: { ...DEFAULT_COMFORT_RANGE, ...(config.comfortRange || {}) },
             showEnthalpy: config.showEnthalpy !== false,
             showVaporPressure: config.showVaporPressure !== false,
