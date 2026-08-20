@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PsychrometricCalculations as P, LINE_STYLES, DEFAULT_LINE_STYLES, pickAxisStep } from '../src/psychrometric-helpers.js';
+import { PsychrometricCalculations as P, LINE_STYLES, DEFAULT_LINE_STYLES, pickAxisStep, alignSeries, timeOutsideRange } from '../src/psychrometric-helpers.js';
 
 /**
  * Les valeurs de référence proviennent de tables psychrométriques standard
@@ -404,4 +404,58 @@ test('pickAxisStep retombe sur le pas de référence si la mesure est inexploita
         assert.equal(pickAxisStep(60, availablePx, 33, 5), 5);
     }
     assert.equal(pickAxisStep(0, 400, 33, 5), 5);
+});
+
+test('alignSeries reporte la dernière valeur connue de chaque série', () => {
+    const temp = [{ time: 0, value: 20 }, { time: 30, value: 22 }];
+    const hum = [{ time: 10, value: 50 }, { time: 40, value: 55 }];
+    assert.deepEqual(alignSeries(temp, hum), [
+        // Avant t=10, l'humidité est inconnue : aucun couple n'est produit.
+        { time: 10, a: 20, b: 50 },
+        { time: 30, a: 22, b: 50 },
+        { time: 40, a: 22, b: 55 },
+    ]);
+});
+
+test('alignSeries fusionne les horodatages simultanés en un seul couple', () => {
+    const a = [{ time: 0, value: 1 }, { time: 5, value: 2 }];
+    const b = [{ time: 0, value: 10 }, { time: 5, value: 20 }];
+    assert.deepEqual(alignSeries(a, b), [
+        { time: 0, a: 1, b: 10 },
+        { time: 5, a: 2, b: 20 },
+    ]);
+});
+
+test('alignSeries rend une liste vide si une série manque', () => {
+    assert.deepEqual(alignSeries([], [{ time: 0, value: 1 }]), []);
+    assert.deepEqual(alignSeries([{ time: 0, value: 1 }], []), []);
+    assert.deepEqual(alignSeries(undefined, undefined), []);
+});
+
+test('timeOutsideRange pèse chaque échantillon par sa durée, pas par son nombre', () => {
+    // Trois relevés rapprochés hors bornes, puis un long palier dans les bornes :
+    // compter les échantillons donnerait 75 % hors confort, la durée en donne 3 %.
+    const samples = [
+        { time: 0, value: 30 },
+        { time: 1, value: 30 },
+        { time: 2, value: 30 },
+        { time: 3, value: 21 },
+    ];
+    const fraction = timeOutsideRange(samples, 18, 22, 100);
+    assert.equal(fraction, 3 / 100);
+});
+
+test('timeOutsideRange compte les deux côtés de l’intervalle', () => {
+    const samples = [
+        { time: 0, value: 10 },   // sous la borne basse, 10 unités de temps
+        { time: 10, value: 20 },  // dans les bornes, 10 unités
+        { time: 20, value: 30 },  // au-dessus, 10 unités
+    ];
+    assert.equal(timeOutsideRange(samples, 18, 22, 30), 20 / 30);
+});
+
+test('timeOutsideRange rend null sans durée exploitable', () => {
+    assert.equal(timeOutsideRange([], 18, 22, 100), null);
+    assert.equal(timeOutsideRange([{ time: 5, value: 30 }], 18, 22), null);
+    assert.equal(timeOutsideRange(null, 18, 22, 100), null);
 });

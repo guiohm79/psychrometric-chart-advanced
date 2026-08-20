@@ -29,9 +29,13 @@ Ce projet propose une carte personnalisée pour **Home Assistant**, permettant d
 
 ### 📈 Historique des données
 - **Modal popup élégant** affichant l'historique sur 24 heures
-- **Graphiques d'évolution** pour température et humidité
-- **Statistiques détaillées** : min, max, moyenne
-- **Clic sur les valeurs** de température ou humidité pour voir l'historique
+- **Température, humidité et point de rosée superposés** : les deux capteurs du point sur un double axe (°C à gauche, % à droite), plus le point de rosée recalculé à partir des deux séries
+- **Curseur de lecture** : au survol (ou au toucher), une ligne verticale donne l'heure exacte et la valeur de chaque courbe
+- **Bande de confort en fond** du graphique, avec la part du temps passée hors confort
+- **Statistiques détaillées** : min, max, moyenne, tendance sur la période
+- **Repères ▲ / ▼** sur le maximum et le minimum, pour situer *quand* ils sont survenus
+- **Légende cliquable** pour masquer une courbe
+- **Clic sur les valeurs** de température ou humidité pour voir l'historique ; `Échap` referme la fenêtre
 - Intégration native avec l'API History de Home Assistant
 
 ### 🎨 Interface utilisateur améliorée

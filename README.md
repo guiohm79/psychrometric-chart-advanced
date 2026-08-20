@@ -41,9 +41,13 @@ This project provides a custom card for **Home Assistant**, allowing you to visu
 
 ### 📈 Data History
 - **Elegant modal popup** displaying 24-hour history
-- **Evolution charts** for temperature and humidity
-- **Detailed statistics**: min, max, average
-- **Click on values** of temperature or humidity to see history
+- **Temperature, humidity and dew point overlaid**: both of the point's sensors on a dual axis (°C left, % right), plus the dew point recomputed from the two series
+- **Scrubbing cursor**: hovering (or touching) draws a vertical line giving the exact time and every curve's value
+- **Comfort band** behind the chart, with the share of time spent outside comfort
+- **Detailed statistics**: min, max, average, trend over the period
+- **▲ / ▼ markers** on the highest and lowest samples, to see *when* they happened
+- **Clickable legend** to hide a curve
+- **Click on values** of temperature or humidity to see history; `Escape` closes the dialog
 - Native integration with Home Assistant's History API
 
 ### 🎨 Enhanced User Interface
@@ -320,7 +324,7 @@ zoom_humidity_max: 30
 The chart clearly displays the comfort zone with customizable temperature and humidity ranges.
 
 ### Data History Modal
-Click on any temperature or humidity value to open an elegant modal showing the last 24 hours of data with statistics and evolution charts.
+Click on any temperature or humidity value to open an elegant modal showing the last 24 hours of data. Both sensors of the point are drawn together on a dual axis, along with the dew point derived from them; a hover cursor reads every curve at the same instant, the configured comfort zone appears as a background band, and the tiles report min, max, average, trend and time spent outside comfort.
 
 ### Multi-sensor Tracking
 Track multiple rooms or zones simultaneously with color-coded points and detailed information for each sensor.

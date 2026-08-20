@@ -53,6 +53,81 @@ export function pickAxisStep(range, availablePx, labelPx, baseStep, multipliers 
     return baseStep * multipliers[multipliers.length - 1];
 }
 
+/**
+ * Aligne deux séries temporelles échantillonnées indépendamment.
+ *
+ * L'historique de Home Assistant n'enregistre un état que lorsqu'il change : les
+ * horodatages de la température et de l'humidité ne coïncident jamais. Apparier les
+ * échantillons par index donnerait des couples de valeurs prises à des instants
+ * différents — donc un point de rosée faux. On reporte donc la dernière valeur connue
+ * de chaque série (LOCF) sur l'union des deux axes de temps.
+ * @param {Array<{time: number, value: number}>} a - Première série, triée par temps
+ * @param {Array<{time: number, value: number}>} b - Seconde série, triée par temps
+ * @returns {Array<{time: number, a: number, b: number}>} Couples alignés
+ */
+export function alignSeries(a = [], b = []) {
+    if (!a?.length || !b?.length) return [];
+
+    const aligned = [];
+    let i = 0;
+    let j = 0;
+    let lastA = null;
+    let lastB = null;
+    let previousTime = null;
+
+    while (i < a.length || j < b.length) {
+        const timeA = i < a.length ? a[i].time : Infinity;
+        const timeB = j < b.length ? b[j].time : Infinity;
+        const time = Math.min(timeA, timeB);
+
+        // Les échantillons simultanés des deux séries sont consommés ensemble.
+        while (i < a.length && a[i].time === time) lastA = a[i++].value;
+        while (j < b.length && b[j].time === time) lastB = b[j++].value;
+
+        // Avant le premier échantillon de l'une des séries, aucune valeur n'est connue :
+        // extrapoler vers l'arrière inventerait des données.
+        if (lastA === null || lastB === null) continue;
+        if (time === previousTime) aligned[aligned.length - 1] = { time, a: lastA, b: lastB };
+        else aligned.push({ time, a: lastA, b: lastB });
+        previousTime = time;
+    }
+
+    return aligned;
+}
+
+/**
+ * Part du temps passée hors d'un intervalle, sur une série irrégulière.
+ *
+ * Compter les échantillons hors bornes donnerait un résultat faux : un capteur
+ * enregistre beaucoup de points quand la valeur bouge et presque aucun quand elle est
+ * stable. Chaque échantillon pèse donc la durée qui le sépare du suivant.
+ * @param {Array<{time: number, value: number}>} samples - Série triée par temps
+ * @param {number} min - Borne basse de l'intervalle
+ * @param {number} max - Borne haute de l'intervalle
+ * @param {number} [endTime] - Fin de la période, pour peser le dernier échantillon
+ * @returns {number|null} Fraction entre 0 et 1, ou null si la durée totale est nulle
+ */
+export function timeOutsideRange(samples, min, max, endTime) {
+    if (!Array.isArray(samples) || samples.length === 0) return null;
+
+    let total = 0;
+    let outside = 0;
+    for (let i = 0; i < samples.length; i++) {
+        const start = samples[i].time;
+        const end = i + 1 < samples.length
+            ? samples[i + 1].time
+            : (Number.isFinite(endTime) ? endTime : start);
+        const duration = end - start;
+        if (!(duration > 0)) continue;
+
+        total += duration;
+        const value = samples[i].value;
+        if (value < min || value > max) outside += duration;
+    }
+
+    return total > 0 ? outside / total : null;
+}
+
 export class PsychrometricCalculations {
 
     // ========================================

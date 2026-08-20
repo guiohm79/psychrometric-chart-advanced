@@ -79,6 +79,81 @@ function pickAxisStep(range, availablePx, labelPx, baseStep, multipliers = [1, 2
     return baseStep * multipliers[multipliers.length - 1];
 }
 
+/**
+ * Aligne deux séries temporelles échantillonnées indépendamment.
+ *
+ * L'historique de Home Assistant n'enregistre un état que lorsqu'il change : les
+ * horodatages de la température et de l'humidité ne coïncident jamais. Apparier les
+ * échantillons par index donnerait des couples de valeurs prises à des instants
+ * différents — donc un point de rosée faux. On reporte donc la dernière valeur connue
+ * de chaque série (LOCF) sur l'union des deux axes de temps.
+ * @param {Array<{time: number, value: number}>} a - Première série, triée par temps
+ * @param {Array<{time: number, value: number}>} b - Seconde série, triée par temps
+ * @returns {Array<{time: number, a: number, b: number}>} Couples alignés
+ */
+function alignSeries(a = [], b = []) {
+    if (!a?.length || !b?.length) return [];
+
+    const aligned = [];
+    let i = 0;
+    let j = 0;
+    let lastA = null;
+    let lastB = null;
+    let previousTime = null;
+
+    while (i < a.length || j < b.length) {
+        const timeA = i < a.length ? a[i].time : Infinity;
+        const timeB = j < b.length ? b[j].time : Infinity;
+        const time = Math.min(timeA, timeB);
+
+        // Les échantillons simultanés des deux séries sont consommés ensemble.
+        while (i < a.length && a[i].time === time) lastA = a[i++].value;
+        while (j < b.length && b[j].time === time) lastB = b[j++].value;
+
+        // Avant le premier échantillon de l'une des séries, aucune valeur n'est connue :
+        // extrapoler vers l'arrière inventerait des données.
+        if (lastA === null || lastB === null) continue;
+        if (time === previousTime) aligned[aligned.length - 1] = { time, a: lastA, b: lastB };
+        else aligned.push({ time, a: lastA, b: lastB });
+        previousTime = time;
+    }
+
+    return aligned;
+}
+
+/**
+ * Part du temps passée hors d'un intervalle, sur une série irrégulière.
+ *
+ * Compter les échantillons hors bornes donnerait un résultat faux : un capteur
+ * enregistre beaucoup de points quand la valeur bouge et presque aucun quand elle est
+ * stable. Chaque échantillon pèse donc la durée qui le sépare du suivant.
+ * @param {Array<{time: number, value: number}>} samples - Série triée par temps
+ * @param {number} min - Borne basse de l'intervalle
+ * @param {number} max - Borne haute de l'intervalle
+ * @param {number} [endTime] - Fin de la période, pour peser le dernier échantillon
+ * @returns {number|null} Fraction entre 0 et 1, ou null si la durée totale est nulle
+ */
+function timeOutsideRange(samples, min, max, endTime) {
+    if (!Array.isArray(samples) || samples.length === 0) return null;
+
+    let total = 0;
+    let outside = 0;
+    for (let i = 0; i < samples.length; i++) {
+        const start = samples[i].time;
+        const end = i + 1 < samples.length
+            ? samples[i + 1].time
+            : (Number.isFinite(endTime) ? endTime : start);
+        const duration = end - start;
+        if (!(duration > 0)) continue;
+
+        total += duration;
+        const value = samples[i].value;
+        if (value < min || value > max) outside += duration;
+    }
+
+    return total > 0 ? outside / total : null;
+}
+
 class PsychrometricCalculations {
 
     // ========================================
@@ -1881,6 +1956,10 @@ class PsychrometricChartEnhanced extends i {
             _canvasWidth: { state: true },
             /** Canvas height in CSS pixels, driven by the resize observer */
             _canvasHeight: { state: true },
+            /** Pointer position on the history chart, if any */
+            _historyCursor: { state: true },
+            /** Series keys hidden through the history legend */
+            _historyHidden: { state: true },
             /** Point currently hovered on the canvas, if any */
             _hoveredPoint: { state: true },
             /** Viewport position of the tooltip */
@@ -2065,16 +2144,119 @@ class PsychrometricChartEnhanced extends i {
                 transform: rotate(90deg);
                 background: rgba(127, 127, 127, 0.35);
             }
-            .history-chart {
+            /* Le graphique porte un calque de curseur : c'est lui le repère de position. */
+            .history-chart-wrap {
+                position: relative;
+                margin-top: 16px;
+                /* Le survol doit rester possible sans bloquer le défilement vertical
+                   de la modale au doigt. */
+                touch-action: pan-y;
+            }
+            .history-chart,
+            .history-cursor {
                 width: 100%;
-                height: 300px;
-                margin-top: 20px;
+                /* Hauteur adaptative : 300 px en dur débordaient d'une modale de mobile. */
+                height: clamp(200px, 38vh, 320px);
+                display: block;
+            }
+            .history-cursor {
+                position: absolute;
+                top: 0;
+                left: 0;
+                pointer-events: none;
+            }
+            /*
+             * L'infobulle se pose dans le coin haut opposé au curseur plutôt que de le
+             * suivre : collée au trait, elle masquait la courbe qu'on cherchait à lire.
+             */
+            .history-tooltip {
+                position: absolute;
+                top: 4px;
+                z-index: 1;
+                pointer-events: none;
+                padding: 8px 10px;
+                border-radius: 10px;
+                font-size: 12px;
+                white-space: nowrap;
+                border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.35));
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            }
+            .history-tooltip.at-left {
+                left: 8px;
+            }
+            .history-tooltip.at-right {
+                right: 8px;
+            }
+            .history-tooltip-time {
+                font-weight: bold;
+                margin-bottom: 4px;
+                opacity: 0.75;
+            }
+            .history-tooltip-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .history-tooltip-label {
+                opacity: 0.75;
+            }
+            .history-tooltip-value {
+                margin-left: auto;
+                font-weight: bold;
+                padding-left: 10px;
+            }
+            .history-legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 15px;
+            }
+            .history-legend-item {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 5px 10px;
+                border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.35));
+                border-radius: 15px;
+                background: rgba(127, 127, 127, 0.12);
+                color: inherit;
+                font: inherit;
+                font-size: 12px;
+                cursor: pointer;
+                transition: opacity 0.2s;
+            }
+            .history-legend-item.off {
+                opacity: 0.4;
+            }
+            .history-legend-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                flex: 0 0 auto;
+            }
+            /* Le point de rosée est tracé en pointillés : la pastille le rappelle. */
+            .history-legend-dot.dashed {
+                border-radius: 2px;
+                height: 4px;
+                width: 14px;
+                mask-image: repeating-linear-gradient(90deg, #000 0 4px, transparent 4px 7px);
+                -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 4px, transparent 4px 7px);
+            }
+            .history-stats-caption {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 15px;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                opacity: 0.7;
             }
             .history-stats {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
                 gap: 10px;
-                margin-top: 15px;
+                margin-top: 8px;
             }
             .history-stat {
                 display: flex;
@@ -2240,10 +2422,21 @@ class PsychrometricChartEnhanced extends i {
         this._currentLayout = null;
         this._hoveredPoint = null;
         this._tooltipPos = { x: 0, y: 0 };
+        // Modale d'historique
+        this._historyCursor = null;
+        this._historyHidden = [];
+        this._historyPoint = null;
+        this._historyEnd = null;
+        this._historyResizeObserver = null;
+        this._historyResizeTarget = null;
+        this._historyPlot = null;
         // Références stables pour pouvoir retirer les écouteurs au démontage.
         this._onMouseMove = this._handleMouseMove.bind(this);
         this._onMouseLeave = this._handleMouseLeave.bind(this);
         this._onCanvasClick = this._handleCanvasClick.bind(this);
+        this._onHistoryPointer = this._handleHistoryPointer.bind(this);
+        this._onHistoryPointerLeave = () => { this._historyCursor = null; };
+        this._onModalKeyDown = this._handleModalKeyDown.bind(this);
 
         this.translations = {
             fr: {
@@ -2284,6 +2477,9 @@ class PsychrometricChartEnhanced extends i {
                 statMin: 'Min',
                 statMax: 'Max',
                 statAvg: 'Moyenne',
+                statTrend: 'Tendance',
+                statOutOfComfort: 'Hors confort',
+                close: 'Fermer',
                 moldRiskNone: 'Aucun',
                 moldRiskVeryLow: 'Très faible',
                 moldRiskLow: 'Faible',
@@ -2330,6 +2526,9 @@ class PsychrometricChartEnhanced extends i {
                 statMin: 'Min',
                 statMax: 'Max',
                 statAvg: 'Average',
+                statTrend: 'Trend',
+                statOutOfComfort: 'Out of comfort',
+                close: 'Close',
                 moldRiskNone: 'No risk',
                 moldRiskVeryLow: 'Very low',
                 moldRiskLow: 'Low',
@@ -2376,6 +2575,9 @@ class PsychrometricChartEnhanced extends i {
                 statMin: 'Mín',
                 statMax: 'Máx',
                 statAvg: 'Media',
+                statTrend: 'Tendencia',
+                statOutOfComfort: 'Fuera de confort',
+                close: 'Cerrar',
                 moldRiskNone: 'Sin riesgo',
                 moldRiskVeryLow: 'Muy bajo',
                 moldRiskLow: 'Bajo',
@@ -2422,6 +2624,9 @@ class PsychrometricChartEnhanced extends i {
                 statMin: 'Min',
                 statMax: 'Max',
                 statAvg: 'Mittelwert',
+                statTrend: 'Tendenz',
+                statOutOfComfort: 'Außerhalb Komfort',
+                close: 'Schließen',
                 moldRiskNone: 'Kein Risiko',
                 moldRiskVeryLow: 'Sehr niedrig',
                 moldRiskLow: 'Niedrig',
@@ -2573,6 +2778,14 @@ class PsychrometricChartEnhanced extends i {
         clearTimeout(this._resizeDebounceTimer);
         this._resizeDebounceTimer = null;
         this._hoveredPoint = null;
+        // La modale d'historique pose un écouteur sur la fenêtre : le retirer, sinon il
+        // survivrait au démontage de la carte.
+        window.removeEventListener('keydown', this._onModalKeyDown);
+        this._historyResizeObserver?.disconnect();
+        this._historyResizeObserver = null;
+        this._historyResizeTarget = null;
+        clearTimeout(this._historyResizeTimer);
+        this._historyResizeTimer = null;
     }
 
     /**
@@ -2681,12 +2894,43 @@ class PsychrometricChartEnhanced extends i {
             this._drawChart();
         }
 
-        if ((changedProperties.has('_modalOpen') || changedProperties.has('_historyData'))
-            && this._modalOpen && this._historyData) {
+        if (this._modalOpen && this._historyData
+            && (changedProperties.has('_modalOpen') || changedProperties.has('_historyData')
+                || changedProperties.has('_historyHidden'))) {
             // Une frame d'attente pour que la modale soit mise en page et que
             // offsetWidth soit exploitable (remplace un setTimeout arbitraire).
-            requestAnimationFrame(() => this._drawHistoryChart());
+            requestAnimationFrame(() => {
+                this._drawHistoryChart();
+                this._drawHistoryCursor();
+            });
         }
+
+        // Le curseur vit sur son propre calque : le déplacer ne redessine pas les courbes.
+        if (changedProperties.has('_historyCursor')) this._drawHistoryCursor();
+
+        if (this._modalOpen) this._observeHistoryResize();
+    }
+
+    /**
+     * Redraw the history chart when the modal is resized.
+     *
+     * Aucune boucle possible : la taille de rendu du canvas vient du CSS, le dessin ne
+     * touchant que ses attributs `width`/`height` (la définition du bitmap).
+     */
+    _observeHistoryResize() {
+        const target = this.shadowRoot?.querySelector('.history-chart-wrap');
+        if (!target || this._historyResizeTarget === target) return;
+
+        this._historyResizeObserver?.disconnect();
+        this._historyResizeTarget = target;
+        this._historyResizeObserver = new ResizeObserver(() => {
+            clearTimeout(this._historyResizeTimer);
+            this._historyResizeTimer = setTimeout(() => {
+                this._drawHistoryChart();
+                this._drawHistoryCursor();
+            }, 100);
+        });
+        this._historyResizeObserver.observe(target);
     }
 
     /**
@@ -3715,13 +3959,32 @@ class PsychrometricChartEnhanced extends i {
      * @param {string} type - 'temperature' or 'humidity'
      */
     async _openHistory(entityId, type) {
+        // Les deux entités du point sont récupérées ensemble : la modale superpose la
+        // température et l'humidité sur le même axe de temps, et en déduit le point de
+        // rosée. Le point est retrouvé depuis l'entité cliquée, les appelants (carte de
+        // données, clic sur le graphique, clavier) ne transmettant qu'un identifiant.
+        const point = (this._currentPoints || []).find(
+            p => p.tempEntityId === entityId || p.humidityEntityId === entityId
+        ) || null;
+
         this._selectedEntity = entityId;
         this._selectedType = type;
+        this._historyPoint = point;
         this._modalOpen = true;
         this._historyData = null;
+        this._historyCursor = null;
+        this._historyHidden = [];
+        // Échap ferme la modale : l'écouteur est posé sur la fenêtre, le focus pouvant
+        // se trouver n'importe où dans le tableau de bord au moment du clic.
+        window.addEventListener('keydown', this._onModalKeyDown);
 
         const endTime = new Date();
         const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+        this._historyEnd = endTime.getTime();
+
+        const entityIds = point
+            ? [point.tempEntityId, point.humidityEntityId]
+            : [entityId];
 
         try {
             // minimal_response / no_attributes allègent nettement la réponse : seuls
@@ -3731,46 +3994,166 @@ class PsychrometricChartEnhanced extends i {
             // 0.5 °C (1 % en humidité) : la courbe en ressortait quantifiée. On demande
             // donc explicitement la résolution complète.
             const url = `history/period/${startTime.toISOString()}`
-                + `?filter_entity_id=${encodeURIComponent(entityId)}`
+                + `?filter_entity_id=${entityIds.map(encodeURIComponent).join(',')}`
                 + `&end_time=${encodeURIComponent(endTime.toISOString())}`
                 + `&significant_changes_only=0`
                 + `&minimal_response&no_attributes`;
             const response = await this.hass.callApi('GET', url);
             // La requête a pu être doublée par des clics rapides : ignorer une réponse obsolète.
             if (this._selectedEntity !== entityId) return;
-            this._historyData = response && response[0] ? response[0] : [];
+            this._historyData = this._parseHistory(response, point, type);
         } catch (error) {
             console.error('History error:', error);
-            if (this._selectedEntity === entityId) this._historyData = [];
+            if (this._selectedEntity === entityId) this._historyData = { temperature: [], humidity: [], dewPoint: [] };
         }
     }
 
     /**
-     * Parse the raw history response into usable samples.
+     * Parse the raw history response into the three drawable series.
+     *
      * Entity states are already expressed in the display unit, so no temperature
-     * conversion is applied here.
-     * @returns {Array<{time: Date, value: number}>} Chronological samples
+     * conversion is applied to them. The dew point is the exception: it is computed
+     * here, once, rather than at each draw — a 24 h window holds a few thousand samples.
+     * @param {Array<Array<Object>>} response - Raw Home Assistant history response
+     * @param {Object|null} point - Card point owning the entities, when known
+     * @param {string} type - 'temperature' or 'humidity', the clicked series
+     * @returns {Object} { temperature, humidity, dewPoint } sample lists
      */
-    _historySamples() {
-        if (!Array.isArray(this._historyData)) return [];
-        return this._historyData
-            .map(item => ({ time: new Date(item.last_changed), value: parseFloat(item.state) }))
-            .filter(sample => Number.isFinite(sample.value) && !Number.isNaN(sample.time.getTime()))
-            .sort((a, b) => a.time - b.time);
+    _parseHistory(response, point, type) {
+        const byEntity = {};
+        for (const list of response || []) {
+            if (!Array.isArray(list) || list.length === 0) continue;
+            // `minimal_response` ne conserve `entity_id` que sur le premier état : c'est
+            // lui qui identifie la série, l'ordre des listes n'étant pas garanti.
+            const id = list[0]?.entity_id;
+            if (!id) continue;
+            byEntity[id] = list
+                .map(item => ({ time: new Date(item.last_changed).getTime(), value: parseFloat(item.state) }))
+                .filter(sample => Number.isFinite(sample.value) && Number.isFinite(sample.time))
+                .sort((a, b) => a.time - b.time);
+        }
+
+        // Sans point retrouvé, la seule série disponible est celle qui a été cliquée.
+        const temperature = point ? (byEntity[point.tempEntityId] || []) : (type === 'temperature' ? byEntity[this._selectedEntity] || [] : []);
+        const humidity = point ? (byEntity[point.humidityEntityId] || []) : (type === 'humidity' ? byEntity[this._selectedEntity] || [] : []);
+
+        return { temperature, humidity, dewPoint: this._dewPointSeries(temperature, humidity) };
+    }
+
+    /**
+     * Derive the dew point series from the temperature and humidity histories.
+     *
+     * Les deux capteurs n'enregistrent pas aux mêmes instants : `alignSeries` reporte la
+     * dernière valeur connue de chacun avant de les apparier. Le calcul exige des
+     * Celsius, alors que les états — et l'affichage — peuvent être en Fahrenheit.
+     * @param {Array<{time: number, value: number}>} temperature - Temperature samples
+     * @param {Array<{time: number, value: number}>} humidity - Humidity samples
+     * @returns {Array<{time: number, value: number}>} Dew point samples, display unit
+     */
+    _dewPointSeries(temperature, humidity) {
+        return alignSeries(temperature, humidity).map(({ time, a, b }) => {
+            // Une humidité nulle rendrait le point de rosée infini (log(0)).
+            const rh = Math.min(100, Math.max(0.01, b));
+            const dewC = PsychrometricCalculations.calculateDewPoint(this.toInternalTemp(a), rh);
+            return { time, value: this.toDisplayTemp(dewC) };
+        });
+    }
+
+    /**
+     * Describe every series the history modal can draw.
+     * @returns {Array<Object>} Series descriptors, primary one first
+     */
+    _historySeries() {
+        const data = this._historyData;
+        if (!data) return [];
+
+        const tempUnit = this.getTempUnit();
+        const all = [
+            { key: 'temperature', label: this.t('temperature'), color: '#ff9800', unit: tempUnit, axis: 'left', samples: data.temperature || [] },
+            { key: 'humidity', label: this.t('humidity'), color: '#2196f3', unit: '%', axis: 'right', samples: data.humidity || [] },
+            // Le point de rosée est une température : il partage l'axe de gauche, en
+            // trait discontinu pour qu'on ne le confonde pas avec la mesure elle-même.
+            { key: 'dewPoint', label: this.t('dewPoint'), color: '#4dd0e1', unit: tempUnit, axis: 'left', samples: data.dewPoint || [], dashed: true },
+        ].filter(series => series.samples.length > 0);
+
+        // La série cliquée passe devant : c'est elle que portent les tuiles de
+        // statistiques, la bande de confort et les repères min/max.
+        return all
+            .map(series => ({ ...series, primary: series.key === this._selectedType }))
+            .sort((a, b) => Number(b.primary) - Number(a.primary));
+    }
+
+    /**
+     * Series actually drawn, once the legend toggles are applied.
+     * @returns {Array<Object>} Visible series descriptors
+     */
+    _visibleHistorySeries() {
+        const hidden = this._historyHidden || [];
+        return this._historySeries().filter(series => !hidden.includes(series.key));
+    }
+
+    /**
+     * Toggle one series from the history legend.
+     * @param {string} key - Series key
+     */
+    _toggleHistorySeries(key) {
+        const hidden = this._historyHidden || [];
+        const next = hidden.includes(key) ? hidden.filter(k => k !== key) : [...hidden, key];
+        // Tout masquer laisserait un graphique vide sans moyen évident de revenir :
+        // la dernière série visible n'est pas décochable.
+        if (next.length >= this._historySeries().length) return;
+        this._historyHidden = next;
+        this._historyCursor = null;
+    }
+
+    /**
+     * Comfort band of the primary series, in display units.
+     * @param {string} key - Series key
+     * @returns {Object|null} { min, max } or null when the series has no comfort range
+     */
+    _historyComfortBand(key) {
+        // `comfortRange` est déjà exprimé dans l'unité d'affichage, comme les états.
+        const range = this.config?.comfortRange || {};
+        if (key === 'temperature') {
+            const min = parseFloat(range.tempMin ?? this.toDisplayTemp(20));
+            const max = parseFloat(range.tempMax ?? this.toDisplayTemp(26));
+            return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null;
+        }
+        if (key === 'humidity') {
+            const min = parseFloat(range.rhMin ?? 40);
+            const max = parseFloat(range.rhMax ?? 60);
+            return Number.isFinite(min) && Number.isFinite(max) && max > min ? { min, max } : null;
+        }
+        return null;
     }
 
     /**
      * Compute the 24h statistics shown above the history chart.
-     * @param {Array<{value: number}>} samples - History samples
-     * @returns {Object|null} { min, max, avg } or null when there is no data
+     * @param {Array<{time: number, value: number}>} samples - History samples
+     * @param {Object|null} band - Comfort band of the series, when it has one
+     * @returns {Object|null} Statistics, or null when there is no data
      */
-    _historyStats(samples) {
-        if (!samples.length) return null;
-        const values = samples.map(s => s.value);
+    _historyStats(samples, band = null) {
+        if (!samples?.length) return null;
+
+        // Un seul balayage : l'étalement `Math.min(...values)` dépasse la pile d'appels
+        // sur les longues séries d'un enregistreur à pleine résolution.
+        let min = Infinity;
+        let max = -Infinity;
+        let sum = 0;
+        for (const sample of samples) {
+            if (sample.value < min) min = sample.value;
+            if (sample.value > max) max = sample.value;
+            sum += sample.value;
+        }
+
         return {
-            min: Math.min(...values),
-            max: Math.max(...values),
-            avg: values.reduce((sum, v) => sum + v, 0) / values.length,
+            min,
+            max,
+            avg: sum / samples.length,
+            // Écart entre le premier et le dernier relevé de la période.
+            trend: samples[samples.length - 1].value - samples[0].value,
+            outside: band ? timeOutsideRange(samples, band.min, band.max, this._historyEnd) : null,
         };
     }
 
@@ -3780,6 +4163,21 @@ class PsychrometricChartEnhanced extends i {
     _closeModal() {
         this._modalOpen = false;
         this._historyData = null;
+        this._historyCursor = null;
+        this._historyPoint = null;
+        this._historyPlot = null;
+        window.removeEventListener('keydown', this._onModalKeyDown);
+        this._historyResizeObserver?.disconnect();
+        this._historyResizeObserver = null;
+        this._historyResizeTarget = null;
+    }
+
+    /**
+     * Close the modal on Escape.
+     * @param {KeyboardEvent} e - Keyboard event
+     */
+    _handleModalKeyDown(e) {
+        if (e.key === 'Escape' && this._modalOpen) this._closeModal();
     }
 
     /**
@@ -3789,12 +4187,185 @@ class PsychrometricChartEnhanced extends i {
         const canvas = this.shadowRoot.getElementById('historyChart');
         if (!canvas) return;
 
-        const samples = this._historySamples();
-        if (samples.length === 0) return;
+        const series = this._visibleHistorySeries();
+        if (series.length === 0) return;
 
+        const layout = this._historyLayout(canvas, series);
+        if (!layout) return;
+        this._historyPlot = layout;
+
+        const { ctx, width, height, padding, textColor, gridColor, axes, toX, startTime, endTime } = layout;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.lineWidth = 1;
+        ctx.font = '11px Arial';
+        ctx.setLineDash([]);
+
+        // Bande de confort de la série principale, tracée en premier : tout le reste se
+        // pose dessus. C'est elle qui rend l'écart au confort lisible d'un coup d'œil.
+        const primary = series.find(s => s.primary) || series[0];
+        const band = this._historyComfortBand(primary.key);
+        const primaryAxis = axes[primary.axis];
+        // L'intersection est vérifiée **avant** l'écrêtage : une journée entièrement
+        // au-dessus de la zone de confort verrait sinon ses bornes ramenées à celles de
+        // l'axe, et la bande couvrirait tout le graphique au lieu de disparaître.
+        if (band && primaryAxis && band.max > primaryAxis.min && band.min < primaryAxis.max) {
+            const top = primaryAxis.toY(Math.min(band.max, primaryAxis.max));
+            const bottom = primaryAxis.toY(Math.max(band.min, primaryAxis.min));
+            ctx.fillStyle = this._palette().dark ? 'rgba(76, 175, 80, 0.14)' : 'rgba(76, 175, 80, 0.18)';
+            ctx.fillRect(padding.left, top, width - padding.left - padding.right, bottom - top);
+        }
+
+        // Grille horizontale + libellés de l'axe de gauche
+        const gridAxis = axes.left || axes.right;
+        ctx.strokeStyle = gridColor;
+        ctx.textBaseline = 'middle';
+        for (let value = gridAxis.min; value <= gridAxis.max + gridAxis.step / 2; value += gridAxis.step) {
+            const y = gridAxis.toY(value);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+        }
+
+        // Chaque axe porte ses propres graduations, du côté de ses séries, et son unité
+        // en tête : deux échelles sur un même cadre restaient sinon impossibles à lire.
+        for (const [side, axis] of Object.entries(axes)) {
+            ctx.fillStyle = axis.color;
+            ctx.textAlign = side === 'left' ? 'right' : 'left';
+            const x = side === 'left' ? padding.left - 6 : width - padding.right + 6;
+            for (let value = axis.min; value <= axis.max + axis.step / 2; value += axis.step) {
+                ctx.fillText(value.toFixed(axis.decimals), x, axis.toY(value));
+            }
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(axis.unit, x, padding.top - 6);
+            ctx.textBaseline = 'middle';
+        }
+
+        // Grille verticale toutes les heures rondes, libellée toutes les 3 h
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        for (const { time, labelled } of this._hourTicks(startTime, endTime)) {
+            const x = toX(time);
+            ctx.strokeStyle = gridColor;
+            ctx.beginPath();
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, height - padding.bottom);
+            ctx.stroke();
+            if (labelled) {
+                ctx.fillStyle = textColor;
+                ctx.fillText(this._formatTime(new Date(time)), x, height - padding.bottom + 8);
+            }
+        }
+
+        // Seule la série principale porte une aire dégradée, et elle est posée avant tous
+        // les traits : peinte après, son voile teintait les autres courbes.
+        if (primaryAxis) {
+            const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+            gradient.addColorStop(0, `${primary.color}40`);
+            gradient.addColorStop(1, `${primary.color}00`);
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(toX(primary.samples[0].time), height - padding.bottom);
+            for (const sample of primary.samples) ctx.lineTo(toX(sample.time), primaryAxis.toY(sample.value));
+            ctx.lineTo(toX(primary.samples[primary.samples.length - 1].time), height - padding.bottom);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Séries : la principale est tracée en dernier, donc au-dessus des autres.
+        for (const item of [...series].reverse()) {
+            const axis = axes[item.axis];
+            if (!axis) continue;
+            const toY = axis.toY;
+
+            ctx.setLineDash(item.dashed ? [4, 3] : []);
+            ctx.strokeStyle = item.color;
+            ctx.lineWidth = item.primary ? 1.8 : 1.3;
+            ctx.globalAlpha = item.primary ? 1 : 0.8;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            item.samples.forEach((sample, index) => {
+                const x = toX(sample.time);
+                const y = toY(sample.value);
+                if (index === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+
+            // Dernière valeur, mise en évidence
+            const last = item.samples[item.samples.length - 1];
+            ctx.fillStyle = item.color;
+            ctx.beginPath();
+            ctx.arc(toX(last.time), toY(last.value), item.primary ? 3 : 2.5, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        this._drawHistoryExtremes(layout, primary);
+    }
+
+    /**
+     * Mark the lowest and highest samples of the primary series.
+     *
+     * Les tuiles donnent déjà les valeurs : les repères disent *quand* elles ont eu lieu,
+     * ce que la courbe seule ne permet pas de situer précisément.
+     * @param {Object} layout - History chart layout
+     * @param {Object} series - Primary series descriptor
+     */
+    _drawHistoryExtremes(layout, series) {
+        const { ctx, axes, toX, padding, width } = layout;
+        const axis = axes[series.axis];
+        if (!axis || series.samples.length < 2) return;
+
+        let lowest = series.samples[0];
+        let highest = series.samples[0];
+        for (const sample of series.samples) {
+            if (sample.value < lowest.value) lowest = sample;
+            if (sample.value > highest.value) highest = sample;
+        }
+        if (lowest.value === highest.value) return;
+
+        ctx.font = '10px Arial';
+        ctx.textBaseline = 'middle';
+        for (const [sample, above] of [[highest, true], [lowest, false]]) {
+            const x = toX(sample.time);
+            const y = axis.toY(sample.value);
+            ctx.beginPath();
+            ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+            ctx.fillStyle = layout.bgColor;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = series.color;
+            ctx.stroke();
+
+            const label = `${above ? '▲' : '▼'} ${sample.value.toFixed(1)}${series.unit}`;
+            // L'étiquette bascule du côté où il reste de la place, sans quoi un extremum
+            // survenu en début ou en fin de période sortirait du cadre.
+            const textWidth = ctx.measureText(label).width;
+            ctx.textAlign = x + textWidth + 10 > width - padding.right ? 'right' : 'left';
+            const offset = ctx.textAlign === 'right' ? -8 : 8;
+            ctx.fillStyle = series.color;
+            ctx.fillText(label, x + offset, above ? y - 10 : y + 10);
+        }
+        ctx.textAlign = 'left';
+    }
+
+    /**
+     * Geometry of the history chart: canvas sizing, axes and time projection.
+     *
+     * Mémorisée dans `_historyPlot` par `_drawHistoryChart()` : le curseur de survol s'en
+     * sert pour retrouver l'instant sous le pointeur sans recalculer la mise en page.
+     * @param {HTMLCanvasElement} canvas - Chart canvas
+     * @param {Array<Object>} series - Visible series
+     * @returns {Object|null} Layout, or null when the canvas has no usable size
+     */
+    _historyLayout(canvas, series) {
         const width = canvas.offsetWidth;
-        const height = 300;
-        if (!width) return;
+        // La hauteur vient du CSS (clamp responsive) et non plus d'un 300 px codé en dur.
+        const height = canvas.offsetHeight || 300;
+        if (!width || !height) return null;
 
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.round(width * dpr);
@@ -3802,95 +4373,165 @@ class PsychrometricChartEnhanced extends i {
         const ctx = canvas.getContext('2d');
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const type = this._selectedType;
         const palette = this._palette();
-        const textColor = palette.text;
-        const gridColor = palette.dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
-        const lineColor = type === 'temperature' ? '#ff9800' : '#2196f3';
+        const hasRight = series.some(s => s.axis === 'right');
+        const hasLeft = series.some(s => s.axis === 'left');
+        const padding = { left: hasLeft ? 44 : 16, right: hasRight ? 44 : 16, top: 28, bottom: 30 };
+        const plotHeight = height - padding.top - padding.bottom;
+        const plotWidth = width - padding.left - padding.right;
 
-        const values = samples.map(s => s.value);
-        const padding = 44;
-        const plotWidth = width - 2 * padding;
-        const plotHeight = height - 2 * padding;
+        /**
+         * Build one Y axis over the series that share it.
+         * @param {string} side - 'left' or 'right'
+         * @returns {Object|null} Axis with its projection, or null when unused
+         */
+        const buildAxis = (side) => {
+            const sides = series.filter(s => s.axis === side);
+            if (!sides.length) return null;
+            // Balayage plutôt que `Math.min(...values)` : une fenêtre de 24 h à pleine
+            // résolution porte des milliers d'échantillons, et l'étalement en arguments
+            // finit par dépasser la pile d'appels.
+            let min = Infinity;
+            let max = -Infinity;
+            for (const item of sides) {
+                for (const sample of item.samples) {
+                    if (sample.value < min) min = sample.value;
+                    if (sample.value > max) max = sample.value;
+                }
+            }
+            if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+            // Graduations sur des valeurs rondes : l'échelle se calait auparavant sur
+            // `min + i/5 · plage`, d'où des repères illisibles du type 26.1 / 28.1 / 30.1.
+            const scale = PsychrometricCalculations.niceScale(min, max, 6);
+            const span = (scale.max - scale.min) || 1;
+            return {
+                ...scale,
+                // Les séries d'un même axe partagent forcément l'unité : température et
+                // point de rosée à gauche, humidité à droite.
+                unit: sides[0].unit,
+                // L'axe de droite reprend la couleur de sa série : deux échelles
+                // différentes sur un même cadre seraient sinon impossibles à attribuer.
+                color: side === 'right'
+                    ? (series.find(s => s.axis === 'right')?.color ?? palette.text)
+                    : palette.text,
+                toY: value => height - padding.bottom - ((value - scale.min) / span) * plotHeight,
+            };
+        };
 
-        // Graduations sur des valeurs rondes : l'échelle se calait auparavant sur
-        // `min + i/5 · plage`, d'où des repères illisibles du type 26.1 / 28.1 / 30.1.
-        const axis = PsychrometricCalculations.niceScale(Math.min(...values), Math.max(...values), 6);
+        const axes = {};
+        const left = buildAxis('left');
+        const right = buildAxis('right');
+        if (left) axes.left = left;
+        if (right) axes.right = right;
 
         // L'axe X porte le temps réel : un espacement par index déformerait la
         // chronologie, l'historique HA étant échantillonné irrégulièrement.
-        const startTime = samples[0].time.getTime();
-        const endTime = samples[samples.length - 1].time.getTime();
+        const times = series.flatMap(s => [s.samples[0].time, s.samples[s.samples.length - 1].time]);
+        const startTime = Math.min(...times);
+        const endTime = Math.max(...times);
         const timeSpan = endTime - startTime || 1;
-        const toX = time => padding + ((time - startTime) / timeSpan) * plotWidth;
-        const toY = value => height - padding - ((value - axis.min) / (axis.max - axis.min)) * plotHeight;
 
+        return {
+            ctx, width, height, padding, plotWidth, plotHeight, axes,
+            startTime, endTime, timeSpan,
+            textColor: palette.text,
+            bgColor: palette.bg,
+            gridColor: palette.dark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)',
+            toX: time => padding.left + ((time - startTime) / timeSpan) * plotWidth,
+        };
+    }
+
+    /**
+     * Track the pointer over the history chart.
+     *
+     * Le curseur est un calque distinct : redessiner les courbes à chaque mouvement
+     * coûterait un parcours complet des milliers d'échantillons de la période.
+     * @param {PointerEvent} e - Pointer event
+     */
+    _handleHistoryPointer(e) {
+        const layout = this._historyPlot;
+        const canvas = this.shadowRoot?.getElementById('historyChart');
+        if (!layout || !canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width) return;
+        const x = (e.clientX - rect.left) * (layout.width / rect.width);
+        if (x < layout.padding.left || x > layout.width - layout.padding.right) {
+            this._historyCursor = null;
+            return;
+        }
+
+        const time = layout.startTime
+            + ((x - layout.padding.left) / layout.plotWidth) * layout.timeSpan;
+        const readings = this._visibleHistorySeries()
+            .map(item => {
+                const sample = this._sampleNear(item.samples, time);
+                return sample ? { key: item.key, label: item.label, color: item.color, unit: item.unit, value: sample.value, axis: item.axis } : null;
+            })
+            .filter(Boolean);
+
+        this._historyCursor = readings.length ? { x, time, readings } : null;
+    }
+
+    /**
+     * Sample closest to a given time, by binary search.
+     * @param {Array<{time: number, value: number}>} samples - Chronological samples
+     * @param {number} time - Target time, epoch ms
+     * @returns {Object|null} Closest sample
+     */
+    _sampleNear(samples, time) {
+        if (!samples?.length) return null;
+        let low = 0;
+        let high = samples.length - 1;
+        while (low < high) {
+            const mid = (low + high) >> 1;
+            if (samples[mid].time < time) low = mid + 1;
+            else high = mid;
+        }
+        const after = samples[low];
+        const before = samples[Math.max(0, low - 1)];
+        return Math.abs(after.time - time) < Math.abs(time - before.time) ? after : before;
+    }
+
+    /**
+     * Draw the hover crosshair on its own overlay canvas.
+     */
+    _drawHistoryCursor() {
+        const canvas = this.shadowRoot?.getElementById('historyCursor');
+        const layout = this._historyPlot;
+        if (!canvas || !layout) return;
+
+        const { width, height, padding } = layout;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, width, height);
+
+        const cursor = this._historyCursor;
+        if (!cursor) return;
+
+        ctx.strokeStyle = this._palette().dark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.35)';
         ctx.lineWidth = 1;
-        ctx.font = '11px Arial';
-
-        // Grille horizontale + libellés de l'axe Y
-        ctx.strokeStyle = gridColor;
-        ctx.fillStyle = textColor;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        for (let value = axis.min; value <= axis.max + axis.step / 2; value += axis.step) {
-            const y = toY(value);
-            ctx.beginPath();
-            ctx.moveTo(padding, y);
-            ctx.lineTo(width - padding, y);
-            ctx.stroke();
-            ctx.fillText(value.toFixed(axis.decimals), padding - 6, y);
-        }
-
-        // Grille verticale toutes les heures rondes, libellée toutes les 3 h
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const hourTicks = this._hourTicks(startTime, endTime);
-        for (const { time, labelled } of hourTicks) {
-            const x = toX(time);
-            ctx.strokeStyle = gridColor;
-            ctx.beginPath();
-            ctx.moveTo(x, padding);
-            ctx.lineTo(x, height - padding);
-            ctx.stroke();
-            if (labelled) {
-                ctx.fillStyle = textColor;
-                ctx.fillText(this._formatTime(new Date(time)), x, height - padding + 8);
-            }
-        }
-
-        // Aire sous la courbe, pour donner du corps au tracé
-        const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
-        gradient.addColorStop(0, `${lineColor}40`);
-        gradient.addColorStop(1, `${lineColor}00`);
-        ctx.fillStyle = gradient;
+        ctx.setLineDash([3, 3]);
         ctx.beginPath();
-        ctx.moveTo(toX(startTime), height - padding);
-        for (const sample of samples) ctx.lineTo(toX(sample.time.getTime()), toY(sample.value));
-        ctx.lineTo(toX(endTime), height - padding);
-        ctx.closePath();
-        ctx.fill();
-
-        // Courbe
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = 1.8;
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        samples.forEach((sample, index) => {
-            const x = toX(sample.time.getTime());
-            const y = toY(sample.value);
-            if (index === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
+        ctx.moveTo(cursor.x, padding.top);
+        ctx.lineTo(cursor.x, height - padding.bottom);
         ctx.stroke();
+        ctx.setLineDash([]);
 
-        // Dernière valeur, mise en évidence
-        const last = samples[samples.length - 1];
-        ctx.fillStyle = lineColor;
-        ctx.beginPath();
-        ctx.arc(toX(last.time.getTime()), toY(last.value), 3, 0, 2 * Math.PI);
-        ctx.fill();
+        for (const reading of cursor.readings) {
+            const axis = layout.axes[reading.axis];
+            if (!axis) continue;
+            ctx.beginPath();
+            ctx.arc(cursor.x, axis.toY(reading.value), 4, 0, 2 * Math.PI);
+            ctx.fillStyle = reading.color;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = layout.bgColor;
+            ctx.stroke();
+        }
     }
 
 
@@ -3931,43 +4572,116 @@ class PsychrometricChartEnhanced extends i {
      * @returns {TemplateResult} HTML template
      */
     renderHistoryModal() {
-        const type = this._selectedType;
-        const unit = type === 'temperature' ? this.getTempUnit() : '%';
-        const label = type === 'temperature' ? this.t('temperature') : this.t('humidity');
         const palette = this._palette();
         const textColor = palette.text;
         const bgColor = palette.bg;
 
-        const samples = this._historySamples();
-        const stats = this._historyStats(samples);
+        const series = this._historySeries();
+        const visible = this._visibleHistorySeries();
+        const primary = visible.find(s => s.primary) || visible[0] || null;
+        const band = primary ? this._historyComfortBand(primary.key) : null;
+        const stats = primary ? this._historyStats(primary.samples, band) : null;
+        const unit = primary?.unit ?? '';
+
+        // Le titre porte le nom du point dès qu'on a pu le retrouver : la modale montre
+        // désormais ses deux capteurs, pas seulement la grandeur cliquée.
+        const subject = this._historyPoint?.label
+            ?? (this._selectedType === 'temperature' ? this.t('temperature') : this.t('humidity'));
+
+        const hidden = this._historyHidden || [];
+        const cursor = this._historyCursor;
+        const plotWidth = this._historyPlot?.width || 0;
+        const cursorRatio = cursor && plotWidth ? cursor.x / plotWidth : 0;
 
         return b`
             <div class="modal-overlay" @click="${(e) => e.target.classList.contains('modal-overlay') && this._closeModal()}">
                 <div class="modal-content" style="background: ${bgColor}; color: ${textColor}">
-                    <button class="modal-close" @click="${this._closeModal}" style="color: ${textColor}">×</button>
-                    <h2 style="margin-top: 0">${this.t('historyLast24h')} - ${label}</h2>
+                    <button class="modal-close" @click="${this._closeModal}" style="color: ${textColor}"
+                            aria-label="${this.t('close')}">×</button>
+                    <h2 style="margin-top: 0">${this.t('historyLast24h')} — ${subject}</h2>
                     ${this._historyData === null ? b`<div class="history-empty">${this.t('historyLoading')}</div>` : ''}
-                    ${this._historyData !== null && !stats ? b`<div class="history-empty">${this.t('historyEmpty')}</div>` : ''}
-                    ${stats ? b`
-                        <div class="history-stats">
-                            <div class="history-stat">
-                                <span class="history-stat-label">${this.t('statMin')}</span>
-                                <span class="history-stat-value">${stats.min.toFixed(1)}${unit}</span>
+                    ${this._historyData !== null && series.length === 0 ? b`<div class="history-empty">${this.t('historyEmpty')}</div>` : ''}
+                    ${series.length > 0 ? b`
+                        ${stats ? b`
+                            <div class="history-stats-caption">
+                                <span class="history-legend-dot" style="background: ${primary.color}"></span>
+                                <span>${primary.label}</span>
                             </div>
-                            <div class="history-stat">
-                                <span class="history-stat-label">${this.t('statAvg')}</span>
-                                <span class="history-stat-value">${stats.avg.toFixed(1)}${unit}</span>
+                            <div class="history-stats">
+                                <div class="history-stat">
+                                    <span class="history-stat-label">${this.t('statMin')}</span>
+                                    <span class="history-stat-value">${stats.min.toFixed(1)}${unit}</span>
+                                </div>
+                                <div class="history-stat">
+                                    <span class="history-stat-label">${this.t('statAvg')}</span>
+                                    <span class="history-stat-value">${stats.avg.toFixed(1)}${unit}</span>
+                                </div>
+                                <div class="history-stat">
+                                    <span class="history-stat-label">${this.t('statMax')}</span>
+                                    <span class="history-stat-value">${stats.max.toFixed(1)}${unit}</span>
+                                </div>
+                                <div class="history-stat">
+                                    <span class="history-stat-label">${this.t('statTrend')}</span>
+                                    <span class="history-stat-value">${this._formatTrend(stats.trend, unit)}</span>
+                                </div>
+                                ${stats.outside !== null ? b`
+                                    <div class="history-stat">
+                                        <span class="history-stat-label">${this.t('statOutOfComfort')}</span>
+                                        <span class="history-stat-value">${Math.round(stats.outside * 100)}%</span>
+                                    </div>
+                                ` : ''}
                             </div>
-                            <div class="history-stat">
-                                <span class="history-stat-label">${this.t('statMax')}</span>
-                                <span class="history-stat-value">${stats.max.toFixed(1)}${unit}</span>
-                            </div>
+                        ` : ''}
+
+                        <div class="history-legend">
+                            ${series.map(item => b`
+                                <button class="history-legend-item ${hidden.includes(item.key) ? 'off' : ''}"
+                                        @click="${() => this._toggleHistorySeries(item.key)}"
+                                        aria-pressed="${!hidden.includes(item.key)}">
+                                    <span class="history-legend-dot ${item.dashed ? 'dashed' : ''}"
+                                          style="background: ${item.color}"></span>
+                                    <span>${item.label}</span>
+                                </button>
+                            `)}
                         </div>
-                        <canvas id="historyChart" class="history-chart"></canvas>
+
+                        <div class="history-chart-wrap"
+                             @pointermove="${this._onHistoryPointer}"
+                             @pointerdown="${this._onHistoryPointer}"
+                             @pointerleave="${this._onHistoryPointerLeave}">
+                            <canvas id="historyChart" class="history-chart"></canvas>
+                            <canvas id="historyCursor" class="history-cursor"></canvas>
+                            ${cursor ? b`
+                                <div class="history-tooltip ${cursorRatio > 0.5 ? 'at-left' : 'at-right'}"
+                                     style="background: ${bgColor}">
+                                    <div class="history-tooltip-time">${this._formatTime(new Date(cursor.time))}</div>
+                                    ${cursor.readings.map(reading => b`
+                                        <div class="history-tooltip-row">
+                                            <span class="history-legend-dot" style="background: ${reading.color}"></span>
+                                            <span class="history-tooltip-label">${reading.label}</span>
+                                            <span class="history-tooltip-value">${reading.value.toFixed(1)}${reading.unit}</span>
+                                        </div>
+                                    `)}
+                                </div>
+                            ` : ''}
+                        </div>
                     ` : ''}
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * Format the trend shown in the statistics tiles.
+     * @param {number} trend - Difference between the last and first sample
+     * @param {string} unit - Display unit
+     * @returns {string} Signed, arrowed trend
+     */
+    _formatTrend(trend, unit) {
+        // Sous un dixième d'unité, la flèche suggérerait une évolution que la précision
+        // du capteur ne permet pas d'affirmer.
+        if (Math.abs(trend) < 0.1) return `→ 0${unit}`;
+        return `${trend > 0 ? '↑' : '↓'} ${Math.abs(trend).toFixed(1)}${unit}`;
     }
 
     /**
