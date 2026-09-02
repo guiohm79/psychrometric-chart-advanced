@@ -151,9 +151,14 @@ showMoldRisk: true          # Afficher risque moisissure
 showLegend: true            # Afficher la légende
 showPointLabels: true       # Afficher labels sur points
 themeMode: auto             # auto (suit Home Assistant), light, dark
+theme: modern               # Style des cartes : modern, classic, compact, mono
 
 # Mode d'affichage
 displayMode: detailed       # minimal, custom, detailed
+
+# Projection du graphique
+chartMode: 2d               # 2d (classique) ou 3d (perspective, glisser pour pivoter)
+heightMetric: pmv           # en 3d, ce que porte la hauteur : pmv, enthalpy, flat
 
 # Calculs
 massFlowRate: 0.5          # Débit massique pour calculs (kg/s)

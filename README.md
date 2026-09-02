@@ -204,6 +204,9 @@ zoom_humidity_max: 70  # Maximum humidity to display (%) - optional
 | `showChart` | boolean | No | `true` | Show the psychrometric diagram. Set to `false` to keep only the calculated data cards (useful to stack several compact cards, one per room) |
 | `chartHeight` | number | No | - | Chart height in pixels. Left empty, the chart follows the space the card is given; a value pins it, and only a card too short to hold it still compresses it |
 | `chartAspectRatio` | number | No | `1.33` | Width/height ratio used when no height is imposed (`1.33` = 4:3, `2` = twice as wide as tall) |
+| `theme` | string | No | `modern` | Data-card style: `modern`, `classic` (flat), `compact` (dense), or `mono` (technical readout: big temperature, monospace values right-aligned in two columns) |
+| `chartMode` | string | No | `2d` | Chart projection: `2d` (classic flat chart) or `3d` (perspective scene — drag to rotate, wheel to zoom, plus 3D / top-view buttons) |
+| `heightMetric` | string | No | `pmv` | 3D only. What a sensor's height represents: `pmv` (rises with the distance from comfort, hot *and* cold), `enthalpy`, or `flat` (no height) |
 | `showCalculatedData` | boolean | No | `true` | Show calculated data cards |
 | `comfortRange` | object | No | - | Comfort zone configuration |
 | `comfortRange.tempMin` | number | No | `18` | Minimum comfort temperature (°C) |

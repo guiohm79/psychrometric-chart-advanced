@@ -3,6 +3,7 @@ import {
     PsychrometricCalculations, LINE_STYLES, DEFAULT_LINE_STYLES,
     pickAxisStep, alignSeries, timeOutsideRange,
 } from "./psychrometric-helpers.js";
+import { drawScene3D, VIEWS, PITCH_MIN, PITCH_MAX } from "./psychrometric-3d.js";
 import "./psychrometric-chart-editor.js";
 
 /**
@@ -65,6 +66,8 @@ class PsychrometricChartEnhanced extends LitElement {
             _hoveredPoint: { state: true },
             /** Viewport position of the tooltip */
             _tooltipPos: { state: true },
+            /** Orientation courante de la caméra 3D : '3d', 'top' ou 'free' */
+            _view3d: { state: true },
         };
     }
 
@@ -108,6 +111,42 @@ class PsychrometricChartEnhanced extends LitElement {
             canvas {
                 max-width: 100%;
                 cursor: crosshair;
+            }
+            /*
+             * Barre de vues du mode 3D. Aucune couleur opaque : des surfaces grises
+             * translucides se posent aussi bien sur un thème clair que sombre, et
+             * l'accent reprend la couleur primaire de Home Assistant.
+             */
+            .view3d-bar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                padding: 0 16px 10px;
+            }
+            .view3d-btn {
+                font: inherit;
+                font-size: 12px;
+                line-height: 1;
+                padding: 7px 14px;
+                border-radius: 999px;
+                cursor: pointer;
+                color: inherit;
+                background: transparent;
+                border: 1px solid rgba(127, 127, 127, 0.35);
+            }
+            .view3d-btn:hover {
+                background: rgba(127, 127, 127, 0.12);
+            }
+            .view3d-btn.active {
+                background: rgba(127, 127, 127, 0.18);
+                border-color: var(--primary-color, #03a9f4);
+                color: var(--primary-color, #03a9f4);
+            }
+            .view3d-hint {
+                margin-left: auto;
+                font-size: 11px;
+                opacity: 0.6;
             }
             
             /* Enhanced Data Display Styles */
@@ -507,6 +546,120 @@ class PsychrometricChartEnhanced extends LitElement {
                 padding: 10px;
                 font-size: 1.2rem;
             }
+
+            /*
+             * Thème « mono » : relevé technique dense. Les valeurs sont alignées à droite
+             * en chasse fixe, ce qui les met en colonne et les rend comparables d'un
+             * coup d'œil entre pièces — impossible avec un « label : valeur » au fil du
+             * texte, où chaque nombre commence à une abscisse différente.
+             *
+             * La police vient de la pile système : le design d'origine chargeait Roboto
+             * Mono depuis Google Fonts, ce qu'une installation hors-ligne ne peut pas
+             * suivre et que la règle « aucun import externe » interdit de toute façon.
+             */
+            .theme-mono .psychro-data {
+                gap: 12px;
+                padding: 0 14px 16px;
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            }
+            .theme-mono .data-box {
+                padding: 13px 14px;
+                border-radius: 14px;
+                border: 1px solid rgba(127, 127, 127, 0.22);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .theme-mono .data-box:hover {
+                transform: none;
+                border-color: rgba(127, 127, 127, 0.4);
+            }
+            .theme-mono .data-header {
+                margin-bottom: 0;
+                font-size: 14px;
+                font-weight: 500;
+                gap: 8px;
+            }
+            .theme-mono .mono-name {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .theme-mono .mono-dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                flex: none;
+            }
+            .theme-mono .mono-badge {
+                background: none;
+                box-shadow: none;
+                border: 1px solid currentColor;
+                font-size: 10.5px;
+                font-weight: 500;
+                padding: 3px 8px;
+                border-radius: 999px;
+                white-space: nowrap;
+            }
+            .theme-mono .mono-headline {
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            }
+            .theme-mono .mono-temp {
+                font-size: 26px;
+                font-weight: 500;
+                letter-spacing: -0.02em;
+                cursor: pointer;
+            }
+            .theme-mono .mono-hum {
+                font-size: 15px;
+                cursor: pointer;
+            }
+            .theme-mono .mono-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 5px 12px;
+                font-size: 11.5px;
+            }
+            .theme-mono .mono-foot {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                font-size: 11.5px;
+                padding-top: 8px;
+                border-top: 1px solid rgba(127, 127, 127, 0.22);
+            }
+            .theme-mono .mono-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 8px;
+                border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+                padding-bottom: 3px;
+            }
+            .theme-mono .mono-foot .mono-row {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            .theme-mono .mono-k {
+                opacity: 0.7;
+            }
+            .theme-mono .mono-v {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                text-align: right;
+                white-space: nowrap;
+            }
+            /* Une pièce par colonne devient illisible en dessous : on repasse à une
+               seule colonne de relevés plutôt que de tronquer les valeurs. */
+            @media (max-width: 380px) {
+                .theme-mono .mono-grid { grid-template-columns: 1fr; }
+            }
         `;
     }
 
@@ -531,10 +684,21 @@ class PsychrometricChartEnhanced extends LitElement {
         this._historyResizeObserver = null;
         this._historyResizeTarget = null;
         this._historyPlot = null;
+        // Caméra du mode 3D. `zoom` multiplie la distance de cadrage automatique :
+        // 1 correspond au cadrage qui fait tout tenir dans le canvas.
+        this._cam3d = { ...VIEWS['3d'], zoom: 1 };
+        this._view3d = '3d';
+        this._plot3d = null;
+        this._drag3d = null;
+
         // Références stables pour pouvoir retirer les écouteurs au démontage.
         this._onMouseMove = this._handleMouseMove.bind(this);
         this._onMouseLeave = this._handleMouseLeave.bind(this);
         this._onCanvasClick = this._handleCanvasClick.bind(this);
+        this._onPointerDown = this._handlePointerDown.bind(this);
+        this._onPointerMove = this._handlePointerMove.bind(this);
+        this._onPointerUp = this._handlePointerUp.bind(this);
+        this._onWheel = this._handleWheel.bind(this);
         this._onHistoryPointer = this._handleHistoryPointer.bind(this);
         this._onHistoryPointerLeave = () => { this._historyCursor = null; };
         this._onModalKeyDown = this._handleModalKeyDown.bind(this);
@@ -551,6 +715,14 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Teneur en eau',
                 specificVolume: 'Volume spécifique',
                 pmvIndex: 'Indice PMV',
+                shortDewPoint: 'Rosée',
+                shortWetBulb: 'T. humide',
+                shortApparentTemp: 'Ressentie',
+                shortEnthalpy: 'Enthalpie',
+                shortAbsHumidity: 'Hum. abs.',
+                shortWaterContent: 'Teneur eau',
+                shortSpecificVolume: 'Vol. spéc.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Temp. ressentie',
                 wetBulb: 'Temp. humide',
                 moldRisk: 'Moisissure',
@@ -587,7 +759,10 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskModerate: 'Modéré',
                 moldRiskHigh: 'Élevé',
                 moldRiskVeryHigh: 'Très élevé',
-                moldRiskCritical: 'Critique'
+                moldRiskCritical: 'Critique',
+                view3dLabel: 'Vue 3D',
+                viewTop: 'Vue de dessus',
+                rotateHint: 'glisser pour pivoter · molette pour zoomer'
             },
             en: {
                 noPointsConfigured: 'No points or entities configured in the card!',
@@ -600,6 +775,14 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Water content',
                 specificVolume: 'Specific volume',
                 pmvIndex: 'PMV Index',
+                shortDewPoint: 'Dew pt.',
+                shortWetBulb: 'Wet bulb',
+                shortApparentTemp: 'Feels like',
+                shortEnthalpy: 'Enthalpy',
+                shortAbsHumidity: 'Abs. hum.',
+                shortWaterContent: 'Water',
+                shortSpecificVolume: 'Sp. vol.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Feels like',
                 wetBulb: 'Wet bulb',
                 moldRisk: 'Mold risk',
@@ -636,7 +819,10 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskModerate: 'Moderate',
                 moldRiskHigh: 'High',
                 moldRiskVeryHigh: 'Very high',
-                moldRiskCritical: 'Critical'
+                moldRiskCritical: 'Critical',
+                view3dLabel: '3D view',
+                viewTop: 'Top view',
+                rotateHint: 'drag to rotate · scroll to zoom'
             },
             es: {
                 noPointsConfigured: '¡No hay puntos o entidades configuradas en la tarjeta!',
@@ -649,6 +835,14 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Contenido de agua',
                 specificVolume: 'Volumen específico',
                 pmvIndex: 'Índice PMV',
+                shortDewPoint: 'Rocío',
+                shortWetBulb: 'T. húmeda',
+                shortApparentTemp: 'Sensación',
+                shortEnthalpy: 'Entalpía',
+                shortAbsHumidity: 'Hum. abs.',
+                shortWaterContent: 'Agua',
+                shortSpecificVolume: 'Vol. esp.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Sensación térmica',
                 wetBulb: 'Temp. húmeda',
                 moldRisk: 'Moho',
@@ -685,7 +879,10 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskModerate: 'Moderado',
                 moldRiskHigh: 'Alto',
                 moldRiskVeryHigh: 'Muy alto',
-                moldRiskCritical: 'Crítico'
+                moldRiskCritical: 'Crítico',
+                view3dLabel: 'Vista 3D',
+                viewTop: 'Vista superior',
+                rotateHint: 'arrastrar para girar · rueda para acercar'
             },
             de: {
                 noPointsConfigured: 'Keine Punkte oder Entitäten in der Karte konfiguriert!',
@@ -698,6 +895,14 @@ class PsychrometricChartEnhanced extends LitElement {
                 waterContent: 'Wassergehalt',
                 specificVolume: 'Spezifisches Volumen',
                 pmvIndex: 'PMV-Index',
+                shortDewPoint: 'Taupunkt',
+                shortWetBulb: 'Feuchtkugel',
+                shortApparentTemp: 'Gefühlt',
+                shortEnthalpy: 'Enthalpie',
+                shortAbsHumidity: 'Abs. F.',
+                shortWaterContent: 'Wasser',
+                shortSpecificVolume: 'Spez. Vol.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Gefühlte Temp.',
                 wetBulb: 'Feuchtkugeltemp.',
                 moldRisk: 'Schimmel',
@@ -734,7 +939,10 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskModerate: 'Mäßig',
                 moldRiskHigh: 'Hoch',
                 moldRiskVeryHigh: 'Sehr hoch',
-                moldRiskCritical: 'Kritisch'
+                moldRiskCritical: 'Kritisch',
+                view3dLabel: '3D-Ansicht',
+                viewTop: 'Draufsicht',
+                rotateHint: 'ziehen zum Drehen · scrollen zum Zoomen'
             }
         };
     }
@@ -778,12 +986,39 @@ class PsychrometricChartEnhanced extends LitElement {
             }
         }
 
+        if (config.chartMode !== undefined && !['2d', '3d'].includes(config.chartMode)) {
+            throw new Error(`chartMode (${config.chartMode}) doit valoir '2d' ou '3d'.`);
+        }
+        if (config.heightMetric !== undefined && !['pmv', 'enthalpy', 'flat'].includes(config.heightMetric)) {
+            throw new Error(`heightMetric (${config.heightMetric}) doit valoir 'pmv', 'enthalpy' ou 'flat'.`);
+        }
+
         this.config = config;
         // L'unité peut changer avec la config : forcer une nouvelle détection.
         this._temperatureUnit = null;
         this._wetBulbCache = null;
         // Les bornes de zoom entrent dans la mise en page (largeur des étiquettes).
         this._currentLayout = null;
+        // La géométrie 3D mémorisée décrit l'ancienne configuration : la garder ferait
+        // pointer le survol sur des pastilles qui ne sont plus au même endroit.
+        this._plot3d = null;
+    }
+
+    /**
+     * Mode de projection du graphique.
+     * @returns {string} '2d' ou '3d'
+     */
+    _chartMode() {
+        return this.config?.chartMode === '3d' ? '3d' : '2d';
+    }
+
+    /**
+     * Grandeur portée par la hauteur des capteurs en 3D.
+     * @returns {string} 'pmv', 'enthalpy' ou 'flat'
+     */
+    _heightMetric() {
+        const metric = this.config?.heightMetric;
+        return ['pmv', 'enthalpy', 'flat'].includes(metric) ? metric : 'pmv';
     }
 
     /**
@@ -879,6 +1114,9 @@ class PsychrometricChartEnhanced extends LitElement {
         clearTimeout(this._resizeDebounceTimer);
         this._resizeDebounceTimer = null;
         this._hoveredPoint = null;
+        // Une carte démontée en plein glissement de caméra garderait un état de
+        // rotation actif, qui reprendrait au remontage sans que rien ne l'ait demandé.
+        this._drag3d = null;
         // La modale d'historique pose un écouteur sur la fenêtre : le retirer, sinon il
         // survivrait au démontage de la carte.
         window.removeEventListener('keydown', this._onModalKeyDown);
@@ -1525,6 +1763,11 @@ class PsychrometricChartEnhanced extends LitElement {
         canvas.style.height = `${height}px`;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+        if (this._chartMode() === '3d') {
+            this._draw3DChart(ctx, width, height);
+            return;
+        }
+
         const points = this._currentPoints || [];
 
         const {
@@ -1909,6 +2152,176 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
+     * Draw the psychrometric chart in perspective.
+     *
+     * Toute la géométrie vit dans `psychrometric-3d.js` ; cette méthode ne fait que
+     * traduire la configuration de la carte en paramètres de scène. Les positions
+     * écran renvoyées sont mémorisées dans `_plot3d`, d'où le test de survol les
+     * relit : rejouer la projection à chaque mouvement de souris coûterait un
+     * cadrage complet pour rien.
+     * @param {CanvasRenderingContext2D} ctx - Contexte de dessin, en pixels CSS
+     * @param {number} width - Largeur du canvas en pixels CSS
+     * @param {number} height - Hauteur du canvas en pixels CSS
+     */
+    _draw3DChart(ctx, width, height) {
+        const bounds = this._calculateChartBounds();
+        // `tempToX`/`humidityToY` ne servent pas en 3D, mais `_currentBounds` reste lu
+        // ailleurs : le laisser périmé ferait diverger les deux modes après bascule.
+        this._currentBounds = bounds;
+
+        const palette = this._palette();
+        const comfortRange = this.config.comfortRange ? {
+            tempMin: this.toInternalTemp(this.config.comfortRange.tempMin),
+            tempMax: this.toInternalTemp(this.config.comfortRange.tempMax),
+            rhMin: this.config.comfortRange.rhMin,
+            rhMax: this.config.comfortRange.rhMax
+        } : { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 };
+
+        const scale = Math.max(0.5, Math.min(width / 800, height / 600));
+        const axisFont = Math.max(MIN_AXIS_FONT, 12 * scale);
+        // Même principe qu'en 2D : sous une certaine taille, c'est la densité qui cède,
+        // jamais la police. En perspective les étiquettes se croisent d'autant plus vite
+        // que le plan est vu de biais, d'où un encombrement estimé plus large.
+        const minimal = this._displayMode() === 'minimal' || width < 340 || height < 260;
+        const tempStep = pickAxisStep(
+            bounds.maxTemp - bounds.minTemp, width, axisFont * 4.5, 5, [1, 2, 4, 10]
+        );
+
+        this._plot3d = drawScene3D(ctx, {
+            width, height, bounds, palette, comfortRange, axisFont, tempStep, minimal,
+            points: this._currentPoints || [],
+            camera: this._cam3d,
+            metric: this._heightMetric(),
+            // La zone de confort porte déjà l'opacité choisie par l'utilisateur via
+            // `comfortOpacity`, que `_palette()` a appliquée : on la relit plutôt que
+            // d'ajouter une seconde option qui dirait la même chose.
+            comfortOpacity: PsychrometricCalculations.colorToAlpha(palette.comfort),
+            showEnthalpy: this.config.showEnthalpy !== false,
+            showPointLabels: this.config.showPointLabels !== false,
+            comfortLabel: this.t('comfortZone'),
+            // Le nom seul, comme les étiquettes du mode 2D : y ajouter température et
+            // humidité donnait des vignettes si larges qu'à six capteurs elles recouvraient
+            // le diagramme. Le détail reste dans l'infobulle et les cartes de données.
+            chipText: (point) => point.label,
+            formatTempAxis: (temp) =>
+                `${Math.round(this.toDisplayTemp(temp))}${this.getTempUnit()}`,
+        });
+    }
+
+    /**
+     * Find the sensor drawn under the pointer in 3D.
+     *
+     * Le rayon de capture suit celui de la pastille dessinée — elle rétrécit avec la
+     * distance — avec un plancher pour rester atteignable au doigt.
+     * @param {number} x - Abscisse du pointeur, en pixels CSS du canvas
+     * @param {number} y - Ordonnée du pointeur, en pixels CSS du canvas
+     * @returns {Object|null} Point survolé, ou null
+     */
+    _pointAt3D(x, y) {
+        const sensors = this._plot3d?.sensors;
+        if (!sensors?.length) return null;
+
+        let found = null;
+        let best = Infinity;
+        for (const sensor of sensors) {
+            const distance = Math.hypot(x - sensor.x, y - sensor.y);
+            // Deux pastilles peuvent se superposer : on garde la plus proche du
+            // curseur plutôt que la dernière rencontrée.
+            if (distance < Math.max(14, sensor.radius * 1.6) && distance < best) {
+                best = distance;
+                const point = this._currentPoints?.[sensor.index];
+                if (point) found = { ...point, index: sensor.index };
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Bascule la caméra sur une orientation prédéfinie.
+     * @param {string} view - '3d' ou 'top'
+     */
+    _setView3d(view) {
+        this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1 };
+        this._view3d = VIEWS[view] ? view : '3d';
+        this._hoveredPoint = null;
+        this._drawChart();
+    }
+
+    /**
+     * Début d'un glissement de caméra.
+     * @param {PointerEvent} e - Événement pointeur
+     */
+    _handlePointerDown(e) {
+        // Seul le bouton principal fait pivoter : un clic droit ouvre le menu
+        // contextuel et ne rendrait jamais son `pointerup`, laissant un glissement
+        // fantôme collé au curseur.
+        if (e.button) return;
+        const canvas = this.shadowRoot.getElementById('psychroChart');
+        if (!canvas) return;
+        // La capture garde le glissement actif même si le pointeur sort du canvas.
+        canvas.setPointerCapture?.(e.pointerId);
+        this._drag3d = { x: e.clientX, y: e.clientY, moved: 0 };
+        canvas.style.cursor = 'grabbing';
+    }
+
+    /**
+     * Rotation de la caméra au glissement, survol sinon.
+     *
+     * Le redessin est appelé directement plutôt que par un état réactif : passer par
+     * le cycle de Lit recalculerait les points à chaque image de la rotation.
+     * @param {PointerEvent} e - Événement pointeur
+     */
+    _handlePointerMove(e) {
+        if (!this._drag3d) {
+            this._handleMouseMove(e);
+            return;
+        }
+        const dx = e.clientX - this._drag3d.x;
+        const dy = e.clientY - this._drag3d.y;
+        this._drag3d.x = e.clientX;
+        this._drag3d.y = e.clientY;
+        this._drag3d.moved += Math.abs(dx) + Math.abs(dy);
+
+        // Mêmes conventions qu'OrbitControls : glisser vers la droite fait tourner la
+        // scène vers la droite, glisser vers le bas relève la caméra vers la verticale.
+        this._cam3d.yaw -= dx * 0.008;
+        this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this._cam3d.pitch - dy * 0.006));
+        // L'infobulle pointerait une pastille qui a bougé sous le curseur.
+        this._hoveredPoint = null;
+        if (this._view3d !== 'free') this._view3d = 'free';
+        this._drawChart();
+    }
+
+    /**
+     * Fin du glissement. Un déplacement négligeable reste un clic.
+     * @param {PointerEvent} e - Événement pointeur
+     */
+    _handlePointerUp(e) {
+        const drag = this._drag3d;
+        this._drag3d = null;
+        const canvas = this.shadowRoot.getElementById('psychroChart');
+        if (canvas) {
+            canvas.releasePointerCapture?.(e.pointerId);
+            canvas.style.cursor = 'grab';
+        }
+        // Sans ce seuil, ouvrir l'historique deviendrait impossible : le moindre
+        // frémissement de la souris pendant le clic compterait comme une rotation.
+        if (drag && drag.moved < 5) this._handleCanvasClick(e);
+    }
+
+    /**
+     * Zoom à la molette autour du cadrage automatique.
+     * @param {WheelEvent} e - Événement molette
+     */
+    _handleWheel(e) {
+        // Sans cela, la molette ferait défiler le tableau de bord sous le graphique.
+        e.preventDefault();
+        const factor = Math.exp(e.deltaY * 0.0012);
+        this._cam3d.zoom = Math.min(2.5, Math.max(0.35, this._cam3d.zoom * factor));
+        this._drawChart();
+    }
+
+    /**
      * Build the constant-wet-bulb lines as (temp, rh) samples.
      *
      * These lines only depend on the temperature bounds, never on the entity states,
@@ -1988,7 +2401,10 @@ class PsychrometricChartEnhanced extends LitElement {
         if (!canvas) return;
 
         const point = this._pointAt(e);
-        canvas.style.cursor = point ? 'pointer' : 'crosshair';
+        // Hors d'un point, le curseur annonce ce que fait un glissement : viser en 2D,
+        // faire pivoter la scène en 3D.
+        const idle = this._chartMode() === '3d' ? 'grab' : 'crosshair';
+        canvas.style.cursor = point ? 'pointer' : idle;
         this._hoveredPoint = point;
         if (point) this._tooltipPos = { x: e.clientX + 15, y: e.clientY + 15 };
     }
@@ -2023,6 +2439,10 @@ class PsychrometricChartEnhanced extends LitElement {
         if (!rect.width || !rect.height) return null;
         const x = (e.clientX - rect.left) * (this._canvasWidth / rect.width);
         const y = (e.clientY - rect.top) * (this._canvasHeight / rect.height);
+
+        // En 3D la position d'une pastille ne se déduit pas de la température seule :
+        // elle vient de la projection du dernier dessin, mémorisée dans `_plot3d`.
+        if (this._chartMode() === '3d') return this._pointAt3D(x, y);
 
         let found = null;
         this._currentPoints.forEach((point, index) => {
@@ -2844,6 +3264,148 @@ class PsychrometricChartEnhanced extends LitElement {
         return ['minimal', 'custom', 'detailed'].includes(mode) ? mode : 'custom';
     }
 
+    /**
+     * Lignes de valeurs d'un point, dans l'ordre d'affichage.
+     *
+     * Source unique des champs : les thèmes en changent la présentation, jamais le
+     * contenu ni l'ordre. Les décrire une fois ici évite qu'ajouter un champ calculé
+     * n'oblige à le brancher dans chaque thème — et qu'on l'y oublie.
+     * @param {Object} point - Point calculé
+     * @returns {Array<Object>} Lignes { field, key, value, emoji, accent, span, color, entityId, type }
+     */
+    _pointRows(point) {
+        const rows = [
+            {
+                field: 'temperature', emoji: '🌡️', key: this.t('temperature'),
+                value: this.formatTemp(point.temp), accent: true,
+                entityId: point.tempEntityId, type: 'temperature',
+            },
+            {
+                field: 'humidity', emoji: '💧', key: this.t('humidity'),
+                value: `${point.humidity.toFixed(1)}%`, accent: true,
+                entityId: point.humidityEntityId, type: 'humidity',
+            },
+        ];
+
+        // Les valeurs sont produites paresseusement : un champ masqué n'a pas à être
+        // formaté, et `details` en cache couramment la moitié.
+        const optional = [
+            ['dewPoint', () => this.formatTemp(point.dewPoint)],
+            ['wetBulb', () => this.formatTemp(point.wetBulbTemp)],
+            ['apparentTemp', () => this.formatTemp(point.apparentTemp)],
+            ['enthalpy', () => `${point.enthalpy.toFixed(1)} kJ/kg`],
+            ['absHumidity', () => `${point.absoluteHumidity.toFixed(2)} g/m³`],
+            ['waterContent', () => `${(point.waterContent * 1000).toFixed(1)} g/kg`],
+            ['specificVolume', () => `${point.specificVolume.toFixed(3)} m³/kg`],
+            ['pmvIndex', () => point.pmv.toFixed(2)],
+        ];
+        for (const [field, value] of optional) {
+            if (this._shouldShowField(point, field)) {
+                rows.push({
+                    field,
+                    key: this.t(field),
+                    // Libellé abrégé pour le thème `mono` : dans sa grille à deux
+                    // colonnes, « Volume spécifique » passe à la ligne et détruit
+                    // l'alignement des valeurs, qui fait tout l'intérêt du thème.
+                    shortKey: this.t(`short${field[0].toUpperCase()}${field.slice(1)}`),
+                    value: value(),
+                });
+            }
+        }
+
+        if (this._shouldShowField(point, 'moldRisk')) {
+            rows.push({
+                field: 'moldRisk', emoji: '🍄', key: this.t('moldRisk'),
+                value: this.getMoldRiskText(point.moldRisk),
+                color: this.getMoldRiskColor(point.moldRisk, this._isDark()),
+                span: true,
+            });
+        }
+        return rows;
+    }
+
+    /**
+     * Lignes d'action d'un point : consigne à appliquer, puissance, cible.
+     * @param {Object} point - Point calculé
+     * @returns {Array<Object>} Lignes, vide quand rien n'est à faire
+     */
+    _pointActionRows(point) {
+        if (!this._shouldShowField(point, 'action')) return [];
+        if (!point.action && !(point.power > 0)) return [];
+
+        const rows = [];
+        if (point.action) rows.push({ field: 'action', emoji: '⚡', key: this.t('action'), value: point.action });
+        if (point.power > 0) {
+            rows.push({
+                field: 'power', emoji: '🔥', key: this.t('power'),
+                value: `${point.power.toFixed(1)} W`, accent: true,
+            });
+        }
+        rows.push({
+            field: 'idealSetpoint', emoji: '🎯', key: this.t('idealSetpoint'),
+            value: `${this.formatTemp(point.idealSetpoint.temp)}, ${point.idealSetpoint.humidity.toFixed(0)}%`,
+        });
+        return rows;
+    }
+
+    /**
+     * Rendu d'une ligne dans les thèmes historiques : « label : valeur » en clair.
+     * @param {Object} point - Point calculé
+     * @param {Object} row - Ligne à rendre
+     * @returns {TemplateResult} Fragment Lit
+     */
+    _renderRow(point, row) {
+        if (row.entityId) {
+            return html`
+                <div class="data-row"
+                     @click="${() => this._openHistory(row.entityId, row.type)}"
+                     @keydown="${(e) => this._handleKeyDown(e, row.entityId, row.type)}"
+                     tabindex="0"
+                     role="button"
+                     aria-label="${this.t('historyLast24h')} - ${row.key}"
+                     style="cursor: pointer">
+                    <span>${row.emoji} ${row.key}: <span style="color: ${point.color}; font-weight: 600;">${row.value}</span></span>
+                </div>`;
+        }
+        if (row.span) {
+            return html`
+                <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
+                    <span>${row.emoji} ${row.key}:</span>
+                    <span style="color: ${row.color}; font-weight: bold">${row.value}</span>
+                </div>`;
+        }
+        return html`<div>${row.key}: ${row.value}</div>`;
+    }
+
+    /**
+     * Rendu d'une ligne du thème `mono` : label à gauche, valeur alignée à droite.
+     *
+     * C'est cet alignement qui fait toute la lisibilité du thème — les valeurs
+     * forment une colonne qu'on parcourt d'un coup d'œil, ce qu'un « label : valeur »
+     * au fil du texte ne permet pas.
+     * @param {Object} point - Point calculé
+     * @param {Object} row - Ligne à rendre
+     * @returns {TemplateResult} Fragment Lit
+     */
+    _renderMonoRow(point, row) {
+        const color = row.color || (row.accent ? point.color : '');
+        const value = html`<span class="mono-v" style="${color ? `color: ${color}` : ''}">${row.value}</span>`;
+
+        if (row.entityId) {
+            return html`
+                <div class="mono-row"
+                     @click="${() => this._openHistory(row.entityId, row.type)}"
+                     @keydown="${(e) => this._handleKeyDown(e, row.entityId, row.type)}"
+                     tabindex="0"
+                     role="button"
+                     aria-label="${this.t('historyLast24h')} - ${row.key}"
+                     style="cursor: pointer">
+                    <span class="mono-k">${row.key}</span>${value}
+                </div>`;
+        }
+        return html`<div class="mono-row"><span class="mono-k">${row.shortKey || row.key}</span>${value}</div>`;
+    }
+
     render() {
         if (!this.config || !this.hass) return html``;
 
@@ -2858,6 +3420,7 @@ class PsychrometricChartEnhanced extends LitElement {
 
         const palette = this._palette();
         const darkMode = palette.dark;
+        const is3d = this._chartMode() === '3d';
         // Sans couleur explicitement configurée, on ne pose aucun style : ha-card et
         // ses descendants héritent alors du thème de Home Assistant, quel qu'il soit.
         // Exception : `themeMode` forcé, où l'héritage donnerait justement le thème
@@ -2887,14 +3450,21 @@ class PsychrometricChartEnhanced extends LitElement {
         // Styles conditionnels selon le thème
         const isClassic = theme === 'classic';
         const isCompact = theme === 'compact';
+        // Thème dense inspiré du design : valeurs en chasse fixe alignées à droite.
+        const isMono = theme === 'mono';
         
         // Surfaces translucides plutôt que des blancs/gris opaques : elles se posent
         // correctement sur le fond du thème courant, quel qu'il soit.
         const dataBoxBg = isClassic
             ? (palette.forced ? palette.bg : 'var(--card-background-color, transparent)')
-            : (darkMode
-                ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
-                : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
+            // `mono` reste volontairement plat : le dégradé en diagonale des thèmes
+            // modernes ferait concurrence à l'alignement des valeurs, qui est le seul
+            // repère visuel du relevé.
+            : isMono
+                ? (darkMode ? 'rgba(127, 127, 127, 0.10)' : 'rgba(127, 127, 127, 0.06)')
+                : (darkMode
+                    ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
+                    : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
 
         const dataBoxBoxShadow = isClassic
             ? 'none'
@@ -2908,12 +3478,28 @@ class PsychrometricChartEnhanced extends LitElement {
             <ha-card class="theme-${theme}" style="${cardStyle}">
                 <div class="card-header">${chartTitle}</div>
 
+                ${showChart && is3d ? html`
+                    <div class="view3d-bar">
+                        <button class="view3d-btn ${this._view3d === '3d' ? 'active' : ''}"
+                                @click="${() => this._setView3d('3d')}">${this.t('view3dLabel')}</button>
+                        <button class="view3d-btn ${this._view3d === 'top' ? 'active' : ''}"
+                                @click="${() => this._setView3d('top')}">${this.t('viewTop')}</button>
+                        <span class="view3d-hint">${this.t('rotateHint')}</span>
+                    </div>
+                ` : ''}
+
                 ${showChart ? html`
                 <div class="chart-container" style="${this._chartContainerStyle()}">
                     <canvas id="psychroChart" role="img" aria-label="${chartDescription}"
-                            @mousemove="${this._onMouseMove}"
+                            style="${is3d ? 'cursor: grab; touch-action: none' : ''}"
+                            @mousemove="${is3d ? undefined : this._onMouseMove}"
                             @mouseleave="${this._onMouseLeave}"
-                            @click="${this._onCanvasClick}">
+                            @click="${is3d ? undefined : this._onCanvasClick}"
+                            @pointerdown="${is3d ? this._onPointerDown : undefined}"
+                            @pointermove="${is3d ? this._onPointerMove : undefined}"
+                            @pointerup="${is3d ? this._onPointerUp : undefined}"
+                            @pointercancel="${is3d ? this._onPointerUp : undefined}"
+                            @wheel="${is3d ? this._onWheel : undefined}">
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? html`
@@ -2937,15 +3523,29 @@ class PsychrometricChartEnhanced extends LitElement {
 
                 ${showCalculatedData ? html`
                     <div class="psychro-data">
-                        ${points.map((point, index) => html`
-                            <div class="data-box" 
+                        ${points.map((point, index) => {
+            const rows = this._pointRows(point);
+            const actionRows = this._pointActionRows(point);
+            const badgeColor = point.inComfortZone ? '#4CAF50' : '#FF9800';
+            const badgeText = point.inComfortZone
+                ? `✓ ${this.t('comfortOptimal')}`
+                : `⚠ ${this.t(point.comfortStatus)}`;
+
+            // Le thème `mono` reprend la hiérarchie du diagramme : le couple
+            // température/humidité en gros, le reste en tableau de relevés.
+            const headline = rows.filter(row => row.field === 'temperature' || row.field === 'humidity');
+            const gridRows = rows.filter(row => !row.span && !headline.includes(row));
+            const footRows = rows.filter(row => row.span).concat(actionRows);
+
+            return html`
+                            <div class="data-box"
                                  style="
                                     background: ${dataBoxBg};
                                     border-left-color: ${point.color};
                                     box-shadow: ${dataBoxBoxShadow};
                                     animation: ${isClassic ? 'none' : `fadeInUp 0.5s ease-out ${index * 0.1}s backwards`};
                                  ">
-                                ${!isClassic && !isCompact ? html`<div style="
+                                ${!isClassic && !isCompact && !isMono ? html`<div style="
                                     position: absolute;
                                     top: 0;
                                     left: 0;
@@ -2953,65 +3553,68 @@ class PsychrometricChartEnhanced extends LitElement {
                                     bottom: 0;
                                     background: radial-gradient(circle at top right, ${point.color}15, transparent);
                                     pointer-events: none;"></div>` : ''}
-                                
+
+                                ${isMono ? html`
+                                    <div class="data-header">
+                                        <span class="mono-name">
+                                            <span class="mono-dot" style="background: ${point.color}; box-shadow: 0 0 10px ${point.color}"></span>
+                                            ${point.label}
+                                        </span>
+                                        <span class="status-badge mono-badge"
+                                              style="color: ${badgeColor}; border-color: ${badgeColor}">${badgeText}</span>
+                                    </div>
+
+                                    <div class="mono-headline">
+                                        ${headline.map((row, position) => html`
+                                            <span class="${position === 0 ? 'mono-temp' : 'mono-hum'}"
+                                                  style="${position === 0 ? '' : `color: ${point.color}`}"
+                                                  @click="${() => this._openHistory(row.entityId, row.type)}"
+                                                  @keydown="${(e) => this._handleKeyDown(e, row.entityId, row.type)}"
+                                                  tabindex="0"
+                                                  role="button"
+                                                  aria-label="${this.t('historyLast24h')} - ${row.key}">${row.value}</span>
+                                        `)}
+                                    </div>
+
+                                    ${gridRows.length ? html`
+                                        <div class="mono-grid">
+                                            ${gridRows.map(row => this._renderMonoRow(point, row))}
+                                        </div>
+                                    ` : ''}
+
+                                    ${footRows.length ? html`
+                                        <div class="mono-foot">
+                                            ${footRows.map(row => this._renderMonoRow(point, row))}
+                                        </div>
+                                    ` : ''}
+                                ` : html`
                                 <div style="position: relative; z-index: 1;">
                                     <div class="data-header" style="color: ${point.color}">
                                         <span>${point.icon ? html`<ha-icon icon="${point.icon}" style="margin-right: 8px;"></ha-icon>` : ''} ${point.label}</span>
                                         ${point.inComfortZone ?
-                html`<span class="status-badge" style="background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('comfortOptimal')}</span>` :
-                html`<span class="status-badge" style="background: linear-gradient(135deg, #FF9800, #f57c00); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t(point.comfortStatus)}</span>`
-            }
-                                    </div>
-                                    
-                                    <div class="data-grid">
-                                        <div class="data-row" 
-                                             @click="${() => this._openHistory(point.tempEntityId, 'temperature')}" 
-                                             @keydown="${(e) => this._handleKeyDown(e, point.tempEntityId, 'temperature')}"
-                                             tabindex="0" 
-                                             role="button" 
-                                             aria-label="${this.t('historyLast24h')} - ${this.t('temperature')}"
-                                             style="cursor: pointer">
-                                            <span>🌡️ ${this.t('temperature')}: <span style="color: ${point.color}; font-weight: 600;">${this.formatTemp(point.temp)}</span></span>
-                                        </div>
-                                        <div class="data-row" 
-                                             @click="${() => this._openHistory(point.humidityEntityId, 'humidity')}" 
-                                             @keydown="${(e) => this._handleKeyDown(e, point.humidityEntityId, 'humidity')}"
-                                             tabindex="0" 
-                                             role="button" 
-                                             aria-label="${this.t('historyLast24h')} - ${this.t('humidity')}"
-                                             style="cursor: pointer">
-                                            <span>💧 ${this.t('humidity')}: <span style="color: ${point.color}; font-weight: 600;">${point.humidity.toFixed(1)}%</span></span>
-                                        </div>
-                                        
-                                        ${this._shouldShowField(point, 'dewPoint') ? html`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'wetBulb') ? html`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'apparentTemp') ? html`<div>${this.t('apparentTemp')}: ${this.formatTemp(point.apparentTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'enthalpy') ? html`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'absHumidity') ? html`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
-                                        ${this._shouldShowField(point, 'waterContent') ? html`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'specificVolume') ? html`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'pmvIndex') ? html`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
-                                        
-                                        ${this._shouldShowField(point, 'moldRisk') ? html`
-                                            <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
-                                                <span>🍄 ${this.t('moldRisk')}:</span>
-                                                <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
-                                                    ${this.getMoldRiskText(point.moldRisk)}
-                                                </span>
-                                            </div>
-                                        ` : ''}
+                    html`<span class="status-badge" style="background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('comfortOptimal')}</span>` :
+                    html`<span class="status-badge" style="background: linear-gradient(135deg, #FF9800, #f57c00); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t(point.comfortStatus)}</span>`
+                }
                                     </div>
 
-                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action') ? html`
+                                    <div class="data-grid">
+                                        ${rows.map(row => this._renderRow(point, row))}
+                                    </div>
+
+                                    ${actionRows.length ? html`
                                         <div class="action-box" style="border-top-color: ${darkMode ? '#555' : '#ddd'}">
-                                            ${point.action ? html`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
-                                            ${point.power > 0 ? html`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}
-                                            <div><span class="action-icon">🎯</span>${this.t('idealSetpoint')}: ${this.formatTemp(point.idealSetpoint.temp)}, ${point.idealSetpoint.humidity.toFixed(0)}%</div>
+                                            ${actionRows.map(row => html`
+                                                <div><span class="action-icon">${row.emoji}</span>${row.key}: ${row.accent
+                        ? html`<span style="color: ${point.color}; font-weight: 600;">${row.value}</span>`
+                        : row.value}</div>
+                                            `)}
                                         </div>
                                     ` : ''}
                                 </div>
+                                `}
                             </div>
-                        `)}
+                        `;
+        })}
                     </div>
                 ` : ''}
             </ha-card>

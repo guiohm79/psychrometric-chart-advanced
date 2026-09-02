@@ -156,6 +156,9 @@ comfortColor: rgba(144, 238, 144, 0.3)
 massFlowRate: 0.5
 chartTitle: Diagramme Psychrométrique
 themeMode: auto
+theme: modern               # modern, classic, compact, mono (relevé technique)
+chartMode: 2d               # 2d (classique) ou 3d (perspective)
+heightMetric: pmv           # en 3d : pmv, enthalpy ou flat
 displayMode: custom
 showEnthalpy: true
 showLegend: false

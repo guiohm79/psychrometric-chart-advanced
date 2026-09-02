@@ -718,6 +718,878 @@ class PsychrometricCalculations {
 }
 
 /**
+ * Rendu 3D du diagramme psychrométrique, en Canvas 2D pur.
+ *
+ * Aucune dépendance : Three.js aurait ajouté 947 Ko au bundle (mesuré, tree-shaking
+ * compris) alors que la scène n'est qu'un plan, des polylignes et quelques pastilles.
+ * S'y ajoutent deux problèmes propres à WebGL dans un tableau de bord Home Assistant :
+ * les navigateurs limitent le nombre de contextes vivants (~8 à 16), si bien que
+ * plusieurs cartes sur un même tableau de bord se seraient éteintes l'une après
+ * l'autre, et la boucle de rendu permanente vide la batterie d'une tablette murale.
+ *
+ * Le repère de scène reprend celui du design :
+ *   X = température sèche      → de -SCENE.halfWidth à +SCENE.halfWidth
+ *   Z = teneur en eau          → de +SCENE.halfDepth (sec) à -SCENE.halfDepth (humide)
+ *   Y = hauteur, portée par la métrique choisie (PMV, enthalpie, ou plat)
+ *
+ * La caméra reste toujours au-dessus du plan (voir PITCH_MIN/PITCH_MAX) : l'ordre de
+ * dessin par altitude Y est alors toujours le bon, ce qui remplace un tampon de
+ * profondeur par un simple empilement de couches. Seuls les capteurs, qui flottent à
+ * des hauteurs et des profondeurs quelconques, sont triés entre eux.
+ */
+
+/** Demi-dimensions du plan de base, en unités de scène. */
+const SCENE = {
+    halfWidth: 10,
+    halfDepth: 7,
+    /** Hauteur du « mur de saturation » dressé le long de la courbe 100 % HR. */
+    wallHeight: 1.5,
+    /** Hauteur maximale d'un capteur au-dessus du plan. */
+    maxSensorHeight: 6,
+    /** Épaisseur du prisme de la zone de confort. */
+    comfortDepth: 0.22,
+};
+
+/** Bornes d'inclinaison de la caméra, en radians depuis la verticale. */
+const PITCH_MIN = 0.02;
+const PITCH_MAX = 1.45;
+
+/** Champ de vision vertical, en radians. */
+const FOV = 40 * Math.PI / 180;
+
+/** Orientations prédéfinies proposées par les boutons de vue. */
+const VIEWS = {
+    '3d': { yaw: 0.6, pitch: 0.8 },
+    top: { yaw: 0, pitch: PITCH_MIN },
+};
+
+// ========================================
+// ALGÈBRE VECTORIELLE
+// ========================================
+
+/**
+ * Différence de deux vecteurs.
+ * @param {number[]} a - Vecteur [x, y, z]
+ * @param {number[]} b - Vecteur [x, y, z]
+ * @returns {number[]} a - b
+ */
+function sub(a, b) {
+    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+/**
+ * Produit scalaire.
+ * @param {number[]} a - Vecteur [x, y, z]
+ * @param {number[]} b - Vecteur [x, y, z]
+ * @returns {number} a · b
+ */
+function dot(a, b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+/**
+ * Produit vectoriel.
+ * @param {number[]} a - Vecteur [x, y, z]
+ * @param {number[]} b - Vecteur [x, y, z]
+ * @returns {number[]} a × b
+ */
+function cross(a, b) {
+    return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ];
+}
+
+/**
+ * Vecteur unitaire de même direction.
+ * Un vecteur nul est renvoyé tel quel plutôt que de produire des NaN.
+ * @param {number[]} a - Vecteur [x, y, z]
+ * @returns {number[]} Vecteur normalisé
+ */
+function normalize(a) {
+    const length = Math.hypot(a[0], a[1], a[2]);
+    if (!length) return [0, 0, 0];
+    return [a[0] / length, a[1] / length, a[2] / length];
+}
+
+// ========================================
+// CAMÉRA
+// ========================================
+
+/**
+ * Position de l'œil sur l'orbite autour de la cible.
+ *
+ * `pitch` est l'angle depuis la verticale : 0 place la caméra à l'aplomb (vue de
+ * dessus), PITCH_MAX la rapproche de l'horizontale sans jamais passer sous le plan.
+ * @param {number[]} target - Point visé [x, y, z]
+ * @param {number} yaw - Azimut en radians
+ * @param {number} pitch - Inclinaison depuis la verticale, en radians
+ * @param {number} distance - Distance à la cible
+ * @returns {number[]} Position de l'œil [x, y, z]
+ */
+function orbitEye(target, yaw, pitch, distance) {
+    const clamped = Math.min(PITCH_MAX, Math.max(PITCH_MIN, pitch));
+    const sin = Math.sin(clamped);
+    return [
+        target[0] + distance * sin * Math.sin(yaw),
+        target[1] + distance * Math.cos(clamped),
+        target[2] + distance * sin * Math.cos(yaw),
+    ];
+}
+
+/**
+ * Repère orthonormé de la caméra.
+ *
+ * Vue de dessus, la verticale du monde est parallèle à l'axe de visée et le roulis
+ * de l'image devient indéterminé : on bascule alors sur -Z comme « haut » d'écran,
+ * ce qui garde l'humidité vers le haut, exactement comme en 2D.
+ * @param {number[]} eye - Position de l'œil
+ * @param {number[]} target - Point visé
+ * @returns {{right: number[], up: number[], forward: number[]}} Repère caméra
+ */
+function viewBasis(eye, target) {
+    const forward = normalize(sub(target, eye));
+    let worldUp = [0, 1, 0];
+    // Au-delà de 0,999 de colinéarité, le produit vectoriel s'effondre vers zéro.
+    if (Math.abs(dot(forward, worldUp)) > 0.999) worldUp = [0, 0, -1];
+    const right = normalize(cross(forward, worldUp));
+    const up = cross(right, forward);
+    return { right, up, forward };
+}
+
+/**
+ * Construit la fonction de projection perspective d'une caméra.
+ *
+ * Renvoie une fonction pure : la même caméra projette toujours identiquement, ce qui
+ * permet au test de survol de rejouer exactement la géométrie du dernier dessin.
+ * @param {Object} camera - Paramètres de caméra
+ * @param {number[]} camera.eye - Position de l'œil
+ * @param {number[]} camera.target - Point visé
+ * @param {number} camera.width - Largeur du viewport en pixels CSS
+ * @param {number} camera.height - Hauteur du viewport en pixels CSS
+ * @param {number} [camera.fov] - Champ de vision vertical en radians
+ * @returns {function(number[]): {x: number, y: number, z: number, visible: boolean}} Projecteur
+ */
+function makeProjector({ eye, target, width, height, fov = FOV }) {
+    const { right, up, forward } = viewBasis(eye, target);
+    const focal = (height / 2) / Math.tan(fov / 2);
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    const project = (point) => {
+        const d = sub(point, eye);
+        const z = dot(d, forward);
+        // Un point derrière l'œil (ou dessus) se projetterait en miroir à l'infini.
+        if (z <= 0.01) return { x: 0, y: 0, z, visible: false };
+        const scale = focal / z;
+        return {
+            x: centerX + dot(d, right) * scale,
+            y: centerY - dot(d, up) * scale,
+            z,
+            visible: true,
+        };
+    };
+    // La focale sert à dimensionner les pastilles en perspective (rayon écran =
+    // rayon monde × focale / profondeur) ; elle est portée par la fonction pour que
+    // le projecteur reste un objet unique, sans risque de désaccord entre les deux.
+    project.focal = focal;
+    project.basis = { right, up, forward };
+    return project;
+}
+
+/**
+ * Distance de caméra qui fait tenir tous les points dans le viewport.
+ *
+ * Un simple rayon de sphère englobante cadre beaucoup trop large : un plan vu de
+ * biais se projette bien plus petit que sa sphère. On résout donc par itérations en
+ * projetant les vrais coins, comme le faisait le design.
+ * @param {number[][]} points - Points à cadrer
+ * @param {Object} options - Paramètres de cadrage
+ * @param {number[]} options.target - Point visé
+ * @param {number} options.yaw - Azimut en radians
+ * @param {number} options.pitch - Inclinaison en radians
+ * @param {number} options.width - Largeur du viewport
+ * @param {number} options.height - Hauteur du viewport
+ * @param {number} [options.fov] - Champ de vision vertical
+ * @param {number} [options.fill] - Fraction du viewport à remplir (0-1)
+ * @returns {number} Distance à la cible
+ */
+function fitDistance(points, { target, yaw, pitch, width, height, fov = FOV, fill = 0.86 }) {
+    if (!points.length || !width || !height) return 40;
+
+    // Départ : rayon de la sphère englobante, volontairement large.
+    let distance = 0;
+    for (const p of points) distance = Math.max(distance, Math.hypot(...sub(p, target)));
+    distance = Math.max(1, distance * 2.2);
+
+    // On cadre l'écart maximal au centre de l'image, et non la largeur de l'empreinte :
+    // la cible d'orbite restant fixe, cette empreinte n'est pas centrée à l'écran, si
+    // bien qu'ajuster sa seule taille laissait déborder les points du côté décentré.
+    const halfW = width * fill / 2;
+    const halfH = height * fill / 2;
+    for (let iteration = 0; iteration < 8; iteration++) {
+        const project = makeProjector({
+            eye: orbitEye(target, yaw, pitch, distance), target, width, height, fov,
+        });
+        let ratio = 0;
+        for (const p of points) {
+            const s = project(p);
+            // Un point non projetable est trop près de l'œil : reculer davantage.
+            if (!s.visible) { ratio = Math.max(ratio, 2); continue; }
+            ratio = Math.max(ratio, Math.abs(s.x - width / 2) / halfW, Math.abs(s.y - height / 2) / halfH);
+        }
+        if (!Number.isFinite(ratio) || ratio <= 0) break;
+        distance *= ratio;
+        // La perspective n'étant pas linéaire, le rapport ne se referme pas d'un coup :
+        // quelques passes suffisent, on s'arrête dès qu'il est stable.
+        if (Math.abs(ratio - 1) < 0.005) break;
+    }
+    return distance;
+}
+
+// ========================================
+// TRI ET ÉTIQUETTES
+// ========================================
+
+/**
+ * Trie du plus lointain au plus proche (algorithme du peintre).
+ * @param {Array<{depth: number}>} items - Éléments porteurs d'une profondeur
+ * @returns {Array} Nouveau tableau trié
+ */
+function sortByDepth(items) {
+    return [...items].sort((a, b) => b.depth - a.depth);
+}
+
+/**
+ * Écarte verticalement des étiquettes qui se recouvriraient.
+ *
+ * Les étiquettes sont traitées de haut en bas : chacune est repoussée juste sous la
+ * précédente si elle empiète dessus. `anchorY` conserve la position d'origine pour
+ * que l'appelant puisse tracer un trait de rappel vers le point réel.
+ * @param {Array<{x: number, y: number}>} labels - Étiquettes projetées
+ * @param {Object} [options] - Options de placement
+ * @param {number} [options.minGap] - Écart vertical minimal en pixels
+ * @param {number} [options.height] - Hauteur du viewport, pour borner le débordement
+ * @returns {Array<{x: number, y: number, anchorY: number}>} Étiquettes placées
+ */
+function layoutLabels(labels, { minGap = 16, height = Infinity } = {}) {
+    const placed = labels
+        .map((label, index) => ({ ...label, anchorY: label.y, index }))
+        .sort((a, b) => a.y - b.y);
+
+    let previous = -Infinity;
+    for (const label of placed) {
+        const y = Math.max(label.y, previous + minGap);
+        label.y = Number.isFinite(height) ? Math.min(y, height - minGap / 2) : y;
+        previous = label.y;
+    }
+    // Rendre l'ordre d'origine : l'appelant associe les étiquettes à ses points par index.
+    return placed.sort((a, b) => a.index - b.index);
+}
+
+/**
+ * Indique si deux rectangles [x1, y1, x2, y2] se chevauchent.
+ * @param {number[]} a - Premier rectangle
+ * @param {number[]} b - Second rectangle
+ * @returns {boolean} Vrai en cas de recouvrement
+ */
+function overlaps(a, b) {
+    return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+}
+
+// ========================================
+// GÉOMÉTRIE DU DIAGRAMME
+// ========================================
+
+/**
+ * Teneur en eau en g/kg, plafonnée à la borne du diagramme.
+ *
+ * Passe par `calculateWaterContent` (kg/kg) : recopier la formule de la pression de
+ * saturation ici la ferait diverger de celle de la carte 2D.
+ * @param {number} temp - Température sèche en Celsius
+ * @param {number} rh - Humidité relative en %
+ * @returns {number} Teneur en eau en g/kg d'air sec
+ */
+function waterContentGkg(temp, rh) {
+    return PsychrometricCalculations.calculateWaterContent(temp, rh) * 1000;
+}
+
+/**
+ * Construit les convertisseurs « grandeur physique → coordonnée de scène ».
+ * @param {Object} bounds - Bornes du diagramme
+ * @param {number} bounds.minTemp - Température minimale en Celsius
+ * @param {number} bounds.maxTemp - Température maximale en Celsius
+ * @param {number} maxW - Teneur en eau maximale affichée, en g/kg
+ * @returns {{toX: function(number): number, toZ: function(number): number, maxW: number}} Convertisseurs
+ */
+function makeScales(bounds, maxW) {
+    const tempRange = bounds.maxTemp - bounds.minTemp || 1;
+    const center = (bounds.minTemp + bounds.maxTemp) / 2;
+    return {
+        maxW,
+        toX: (temp) => (temp - center) * (2 * SCENE.halfWidth / tempRange),
+        toZ: (w) => SCENE.halfDepth - Math.min(w, maxW) * (2 * SCENE.halfDepth / (maxW || 1)),
+    };
+}
+
+/**
+ * Teneur en eau maximale à afficher, arrondie au multiple de 5 supérieur.
+ *
+ * Elle est déduite de la borne haute de température à saturation, puis plafonnée :
+ * au-delà de 40 °C saturés, la courbe part si haut que tout le reste du diagramme
+ * s'écrase dans le bas de la scène.
+ * @param {Object} bounds - Bornes du diagramme
+ * @returns {number} Teneur en eau maximale en g/kg
+ */
+function maxWaterContent(bounds) {
+    const saturated = waterContentGkg(bounds.maxTemp, 100);
+    return Math.max(5, Math.min(60, Math.ceil(saturated / 5) * 5));
+}
+
+/**
+ * Hauteur d'un capteur au-dessus du plan, selon la métrique choisie.
+ *
+ * Le design ne montait que les PMV positifs (`max(0, pmv)`), ce qui écrasait au sol
+ * une pièce trop froide alors que son inconfort est tout aussi réel : on prend la
+ * valeur absolue, la hauteur signifiant « écart au confort » dans les deux sens.
+ * @param {Object} point - Point calculé par la carte
+ * @param {string} metric - 'pmv', 'enthalpy' ou 'flat'
+ * @param {{min: number, max: number}} enthalpyRange - Bornes d'enthalpie de la scène
+ * @returns {number} Hauteur en unités de scène
+ */
+function sensorHeight(point, metric, enthalpyRange) {
+    if (metric === 'flat') return 0;
+    if (metric === 'enthalpy') {
+        const span = enthalpyRange.max - enthalpyRange.min || 1;
+        const ratio = (point.enthalpy - enthalpyRange.min) / span;
+        return Math.min(1, Math.max(0, ratio)) * SCENE.maxSensorHeight;
+    }
+    // PMV : l'échelle ISO 7730 va de -3 à +3, l'inconfort maximal est donc à |pmv| = 3.
+    const ratio = Math.min(1, Math.abs(point.pmv ?? 0) / 3);
+    return ratio * SCENE.maxSensorHeight;
+}
+
+/**
+ * Bornes d'enthalpie couvertes par le diagramme, pour normaliser les hauteurs.
+ *
+ * Elles viennent des bornes du graphique et non des capteurs : sinon la hauteur d'un
+ * point changerait à chaque relevé d'un *autre* capteur, et la scène tressauterait.
+ * @param {Object} bounds - Bornes du diagramme
+ * @param {number} maxW - Teneur en eau maximale en g/kg
+ * @returns {{min: number, max: number}} Bornes d'enthalpie en kJ/kg
+ */
+function enthalpyRange(bounds, maxW) {
+    const min = PsychrometricCalculations.calculateEnthalpy(bounds.minTemp, 0);
+    const max = PsychrometricCalculations.calculateEnthalpy(bounds.maxTemp, maxW / 1000);
+    return { min, max: max > min ? max : min + 1 };
+}
+
+// ========================================
+// RENDU
+// ========================================
+
+/**
+ * Recompose une couleur en lui imposant une opacité.
+ * Une couleur non analysable (mot-clé CSS, dégradé) est renvoyée telle quelle plutôt
+ * que virée au noir par `colorToRgb`.
+ * @param {string} color - Couleur CSS
+ * @param {number} alpha - Opacité entre 0 et 1
+ * @returns {string} Couleur CSS
+ */
+function withAlpha(color, alpha) {
+    if (!PsychrometricCalculations.isParsableColor(color)) return color;
+    const rgb = PsychrometricCalculations.colorToRgb(color);
+    return PsychrometricCalculations.rgbToCss(rgb, Math.min(1, Math.max(0, alpha)));
+}
+
+/**
+ * Trace une polyligne de scène, en coupant aux points non projetables.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin
+ * @param {function} project - Projecteur
+ * @param {number[][]} points - Points de scène
+ */
+function strokePath3(ctx, project, points) {
+    ctx.beginPath();
+    let started = false;
+    for (const p of points) {
+        const s = project(p);
+        if (!s.visible) { started = false; continue; }
+        if (started) ctx.lineTo(s.x, s.y);
+        else { ctx.moveTo(s.x, s.y); started = true; }
+    }
+    ctx.stroke();
+}
+
+/**
+ * Remplit un polygone de scène. Abandonne si un seul sommet n'est pas projetable :
+ * un polygone partiellement projeté se referme n'importe où à l'écran.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin
+ * @param {function} project - Projecteur
+ * @param {number[][]} points - Sommets de scène
+ * @param {string} fill - Couleur de remplissage
+ */
+function fillPath3(ctx, project, points, fill) {
+    ctx.beginPath();
+    for (let i = 0; i < points.length; i++) {
+        const s = project(points[i]);
+        if (!s.visible) return;
+        if (i === 0) ctx.moveTo(s.x, s.y);
+        else ctx.lineTo(s.x, s.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+}
+
+/**
+ * Dessine un halo par dégradé radial, en composition additive.
+ * Remplace la texture de sprite du design : le résultat visuel est le même et rien
+ * n'a besoin d'être préchargé.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin
+ * @param {number} x - Abscisse écran
+ * @param {number} y - Ordonnée écran
+ * @param {number} radius - Rayon écran
+ * @param {string} color - Couleur du halo
+ * @param {number} alpha - Opacité au centre
+ */
+function drawGlow(ctx, x, y, radius, color, alpha, additive = true) {
+    if (!(radius > 0.5)) return;
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, withAlpha(color, alpha));
+    gradient.addColorStop(0.25, withAlpha(color, alpha * 0.55));
+    gradient.addColorStop(1, withAlpha(color, 0));
+    // La composition additive n'a de sens que sur un fond sombre : sur un thème
+    // clair elle sature vers le blanc, effaçant le halo au lieu de l'allumer.
+    if (additive) ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+/**
+ * Dessine une pastille de capteur en volume.
+ * Un dégradé radial décalé vers la source lumineuse suffit à donner le relief d'une
+ * sphère éclairée, sans le moindre calcul d'éclairage.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin
+ * @param {number} x - Abscisse écran
+ * @param {number} y - Ordonnée écran
+ * @param {number} radius - Rayon écran
+ * @param {string} color - Couleur du capteur
+ */
+function drawSphere(ctx, x, y, radius, color) {
+    const rgb = PsychrometricCalculations.colorToRgb(color);
+    const lighten = (factor) => PsychrometricCalculations.rgbToHex(
+        rgb.map(channel => channel + (255 - channel) * factor)
+    );
+    const darken = (factor) => PsychrometricCalculations.rgbToHex(rgb.map(channel => channel * factor));
+    const gradient = ctx.createRadialGradient(
+        x - radius * 0.35, y - radius * 0.4, radius * 0.1,
+        x, y, radius
+    );
+    gradient.addColorStop(0, lighten(0.65));
+    gradient.addColorStop(0.45, color);
+    gradient.addColorStop(1, darken(0.55));
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
+/**
+ * Encombrement écran d'une étiquette, sans rien dessiner.
+ *
+ * La détection de recouvrement s'appuyait sur une demi-largeur fixe : les étiquettes
+ * longues, « Zone de confort » la première, passaient à travers le filtre et
+ * ressortaient barrées par une vignette de capteur. On mesure donc le texte réel.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin
+ * @param {string} text - Texte
+ * @param {number} x - Abscisse écran du centre
+ * @param {number} y - Ordonnée écran du centre
+ * @param {Object} style - Apparence
+ * @returns {number[]} Rectangle occupé [x1, y1, x2, y2]
+ */
+function measureChip(ctx, text, x, y, style) {
+    ctx.font = `${style.weight || 400} ${style.size}px Arial`;
+    const halfW = ctx.measureText(text).width / 2 + (style.padX ?? 0);
+    const halfH = style.size * 0.62 + (style.padY ?? 0);
+    return [x - halfW, y - halfH, x + halfW, y + halfH];
+}
+
+/**
+ * Dessine une étiquette encadrée.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin
+ * @param {string} text - Texte
+ * @param {number} x - Abscisse écran du centre
+ * @param {number} y - Ordonnée écran du centre
+ * @param {Object} style - Apparence
+ * @returns {number[]} Rectangle occupé [x1, y1, x2, y2]
+ */
+function drawChip(ctx, text, x, y, style) {
+    const [x1, y1, x2, y2] = measureChip(ctx, text, x, y, style);
+    const halfW = (x2 - x1) / 2;
+    const halfH = (y2 - y1) / 2;
+
+    if (style.bg) {
+        ctx.fillStyle = style.bg;
+        ctx.beginPath();
+        // `roundRect` manque encore sur quelques navigateurs embarqués (WebView
+        // ancienne d'une tablette murale) : on retombe sur un rectangle droit.
+        if (ctx.roundRect) ctx.roundRect(x - halfW, y - halfH, halfW * 2, halfH * 2, 4);
+        else ctx.rect(x - halfW, y - halfH, halfW * 2, halfH * 2);
+        ctx.fill();
+        if (style.border) {
+            ctx.strokeStyle = style.border;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    }
+
+    ctx.fillStyle = style.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+    return [x - halfW, y - halfH, x + halfW, y + halfH];
+}
+
+/**
+ * Dessine le diagramme psychrométrique en perspective.
+ *
+ * L'ordre de dessin est un empilement de couches par altitude, non un tri global :
+ * la caméra ne passant jamais sous le plan (PITCH_MAX), une couche plus haute est
+ * toujours devant. Seuls les capteurs sont triés entre eux par profondeur.
+ * @param {CanvasRenderingContext2D} ctx - Contexte de dessin, en pixels CSS
+ * @param {Object} opts - Paramètres de rendu
+ * @returns {{sensors: Array<{x: number, y: number, radius: number, index: number}>}} Positions écran, pour le test de survol
+ */
+function drawScene3D(ctx, opts) {
+    const {
+        width, height, bounds, points = [], palette, camera,
+        metric = 'pmv', comfortRange, comfortOpacity = 0.28,
+        showEnthalpy = true, showPointLabels = true, minimal = false,
+        axisFont = 11, tempStep = 5,
+        comfortLabel = 'CONFORT', chipText = () => '', formatTempAxis = (t) => `${t}`,
+    } = opts;
+
+    const maxW = maxWaterContent(bounds);
+    const { toX, toZ } = makeScales(bounds, maxW);
+    const hRange = enthalpyRange(bounds, maxW);
+
+    // Cadrage : les quatre coins du plan, plus le sommet de chaque capteur pour que
+    // les pastilles hautes ne sortent jamais du champ.
+    const corners = [
+        [-10 * 1.08, 0, -7 * 1.12],
+        [SCENE.halfWidth * 1.08, 0, -7 * 1.12],
+        [-10 * 1.08, 0, SCENE.halfDepth * 1.12],
+        [SCENE.halfWidth * 1.08, 0, SCENE.halfDepth * 1.12],
+    ];
+    const sensorScene = points.map((point, index) => {
+        const y = sensorHeight(point, metric, hRange) + 0.35;
+        return {
+            index,
+            point,
+            pos: [toX(point.temp), y, toZ(waterContentGkg(point.temp, point.humidity))],
+        };
+    });
+    const fitPoints = corners.concat(sensorScene.map(s => [s.pos[0], s.pos[1] + 1, s.pos[2]]));
+
+    const target = [0, 1, 0];
+    const distance = fitDistance(fitPoints, {
+        target, yaw: camera.yaw, pitch: camera.pitch, width, height,
+    }) * (camera.zoom || 1);
+    const eye = orbitEye(target, camera.yaw, camera.pitch, distance);
+    const project = makeProjector({ eye, target, width, height });
+
+    // Étiquettes collectées pendant le dessin, posées en dernier pour qu'aucune
+    // courbe tracée après ne vienne les barrer.
+    const axisLabels = [];
+    const rhLabels = [];
+
+    ctx.fillStyle = palette.bg;
+    ctx.fillRect(0, 0, width, height);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.setLineDash([]);
+
+    // --- Plan de base -------------------------------------------------------
+    // Une surface translucide neutre plutôt qu'un noir codé en dur : elle se pose
+    // aussi bien sur un thème clair que sombre.
+    const plane = [
+        [-10 * 1.08, 0, -7 * 1.12],
+        [SCENE.halfWidth * 1.08, 0, -7 * 1.12],
+        [SCENE.halfWidth * 1.08, 0, SCENE.halfDepth * 1.12],
+        [-10 * 1.08, 0, SCENE.halfDepth * 1.12],
+    ];
+    fillPath3(ctx, project, plane, palette.dark ? 'rgba(127, 127, 127, 0.08)' : 'rgba(127, 127, 127, 0.16)');
+
+    ctx.strokeStyle = withAlpha(palette.grid, palette.dark ? 0.8 : 1);
+    ctx.lineWidth = 1;
+    strokePath3(ctx, project, plane.concat([plane[0]]));
+
+    // --- Grille -------------------------------------------------------------
+    const gridY = 0.004;
+    ctx.strokeStyle = withAlpha(palette.grid, palette.dark ? 0.55 : 0.8);
+    for (let temp = bounds.minTemp; temp <= bounds.maxTemp + 1e-6; temp += tempStep) {
+        const wsat = Math.min(waterContentGkg(temp, 100), maxW);
+        strokePath3(ctx, project, [
+            [toX(temp), gridY, toZ(0)],
+            [toX(temp), gridY, toZ(wsat)],
+        ]);
+        axisLabels.push({
+            text: formatTempAxis(temp),
+            anchor: [toX(temp), 0, toZ(0) + 0.6],
+            size: axisFont,
+            color: palette.text,
+        });
+    }
+
+    if (!minimal) {
+        for (let w = 5; w <= maxW + 1e-6; w += 5) {
+            // La grille d'humidité s'arrête à la courbe de saturation : au-delà, l'air
+            // ne peut pas contenir cette quantité d'eau et la ligne n'aurait aucun sens.
+            if (waterContentGkg(bounds.maxTemp, 100) < w) continue;
+            let start = bounds.minTemp;
+            for (let temp = bounds.minTemp; temp <= bounds.maxTemp; temp += 0.25) {
+                if (waterContentGkg(temp, 100) >= w) { start = temp; break; }
+            }
+            strokePath3(ctx, project, [
+                [toX(start), gridY, toZ(w)],
+                [toX(bounds.maxTemp), gridY, toZ(w)],
+            ]);
+            axisLabels.push({
+                text: `${w} g/kg`,
+                anchor: [toX(bounds.maxTemp) + 1.5, 0, toZ(w)],
+                size: axisFont * 0.9,
+                color: withAlpha(palette.text, 0.65),
+            });
+        }
+    }
+
+    // --- Droites d'enthalpie ------------------------------------------------
+    if (showEnthalpy && !minimal) {
+        ctx.strokeStyle = withAlpha(palette.enthalpy, 0.45);
+        for (let h = 10; h <= 140; h += 10) {
+            const path = [];
+            for (let temp = bounds.minTemp; temp <= bounds.maxTemp + 1e-6; temp += 0.5) {
+                // Enthalpie constante : on inverse h = 1.006 T + w (2501 + 1.84 T),
+                // la même relation que calculateEnthalpy, exprimée en g/kg.
+                const w = (h - 1.006 * temp) / (2501 + 1.84 * temp) * 1000;
+                if (w < 0 || w > Math.min(waterContentGkg(temp, 100), maxW)) continue;
+                path.push([toX(temp), 0.008, toZ(w)]);
+            }
+            if (path.length > 1) strokePath3(ctx, project, path);
+        }
+    }
+
+    // --- Courbes d'humidité relative ---------------------------------------
+    for (let rh = 10; rh <= 100; rh += 10) {
+        if (minimal && rh !== 100) continue;
+        const saturation = rh === 100;
+        const path = [];
+        for (let temp = bounds.minTemp; temp <= bounds.maxTemp + 1e-6; temp += 0.5) {
+            const w = waterContentGkg(temp, rh);
+            if (w > maxW) break;
+            path.push([toX(temp), 0.012, toZ(w)]);
+        }
+        if (path.length < 2) continue;
+
+        ctx.strokeStyle = saturation ? palette.saturation : withAlpha(palette.curve, 0.55);
+        ctx.lineWidth = saturation ? 2 : 1;
+        strokePath3(ctx, project, path);
+        ctx.lineWidth = 1;
+
+        if (rh % 20 === 0) {
+            const anchor = path[Math.floor((path.length - 1) * (0.45 + rh * 0.0045))];
+            rhLabels.push({
+                text: `${rh} %`,
+                anchor: [anchor[0], saturation ? 0.3 : 0.05, anchor[2]],
+                size: axisFont,
+                weight: 500,
+                color: saturation ? palette.saturation : palette.curve,
+                bg: withAlpha(palette.bg, 0.72),
+                padX: 4, padY: 1,
+            });
+        }
+
+        // Mur de saturation : une bande translucide dressée le long de la courbe
+        // 100 %, qui matérialise la limite physique de l'air humide.
+        if (saturation && !minimal) {
+            if (palette.dark) ctx.globalCompositeOperation = 'lighter';
+            const wall = withAlpha(palette.curve, 0.10);
+            for (let i = 0; i < path.length - 1; i++) {
+                const a = path[i], b = path[i + 1];
+                fillPath3(ctx, project, [
+                    [a[0], 0, a[2]], [b[0], 0, b[2]],
+                    [b[0], SCENE.wallHeight, b[2]], [a[0], SCENE.wallHeight, a[2]],
+                ], wall);
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+    }
+
+    // --- Zone de confort ----------------------------------------------------
+    // Les bords suivent les courbes d'humidité relative constante, comme sur un
+    // vrai diagramme : un quadrilatère à quatre sommets en fausserait la forme.
+    const edge = [];
+    for (let temp = comfortRange.tempMin; temp <= comfortRange.tempMax + 1e-6; temp += 0.5) {
+        edge.push([toX(temp), 0, toZ(waterContentGkg(temp, comfortRange.rhMin))]);
+    }
+    for (let temp = comfortRange.tempMax; temp >= comfortRange.tempMin - 1e-6; temp -= 0.5) {
+        edge.push([toX(temp), 0, toZ(waterContentGkg(temp, comfortRange.rhMax))]);
+    }
+    if (edge.length > 2) {
+        const top = SCENE.comfortDepth;
+        const face = withAlpha(palette.comfort, comfortOpacity);
+        const side = withAlpha(palette.comfort, Math.min(1, comfortOpacity * 1.5));
+        // Flancs du prisme d'abord, face supérieure ensuite : le dessus est plus haut,
+        // donc toujours devant depuis une caméra qui reste au-dessus du plan.
+        for (let i = 0; i < edge.length; i++) {
+            const a = edge[i], b = edge[(i + 1) % edge.length];
+            fillPath3(ctx, project, [
+                [a[0], 0, a[2]], [b[0], 0, b[2]],
+                [b[0], top, b[2]], [a[0], top, a[2]],
+            ], side);
+        }
+        fillPath3(ctx, project, edge.map(p => [p[0], top, p[2]]), face);
+
+        ctx.strokeStyle = withAlpha(palette.comfort, 0.95);
+        ctx.lineWidth = 1.5;
+        strokePath3(ctx, project, edge.concat([edge[0]]).map(p => [p[0], top + 0.01, p[2]]));
+        ctx.lineWidth = 1;
+
+        if (!minimal) {
+            const midTemp = (comfortRange.tempMin + comfortRange.tempMax) / 2;
+            const midRh = (comfortRange.rhMin + comfortRange.rhMax) / 2;
+            axisLabels.push({
+                text: comfortLabel,
+                anchor: [toX(midTemp), top + 0.05, toZ(waterContentGkg(midTemp, midRh))],
+                size: axisFont * 0.9,
+                // Plus parlante qu'une graduation « 35 g/kg » : elle passe en premier
+                // et c'est la graduation qui cède si les deux se disputent la place.
+                priority: 1,
+                weight: 500,
+                color: palette.comfort,
+                bg: withAlpha(palette.bg, 0.7),
+                border: withAlpha(palette.comfort, 0.45),
+                padX: 6, padY: 2,
+            });
+        }
+    }
+
+    // --- Ancrage au sol des capteurs ---------------------------------------
+    for (const sensor of sensorScene) {
+        const [x, y, z] = sensor.pos;
+        const ground = project([x, 0.02, z]);
+        if (!ground.visible) continue;
+
+        drawGlow(ctx, ground.x, ground.y, 1.1 * project.focal / ground.z, sensor.point.color, 0.28, palette.dark);
+
+        // Anneau au sol : un cercle du plan se projette en ellipse, on le tire donc
+        // d'un vrai échantillonnage plutôt que d'un `arc` qui resterait circulaire.
+        ctx.strokeStyle = withAlpha(sensor.point.color, 0.75);
+        ctx.lineWidth = 1.5;
+        const ring = [];
+        for (let a = 0; a <= 32; a++) {
+            const angle = (a / 32) * 2 * Math.PI;
+            ring.push([x + 0.3 * Math.cos(angle), 0.015, z + 0.3 * Math.sin(angle)]);
+        }
+        strokePath3(ctx, project, ring);
+        ctx.lineWidth = 1;
+
+        // Tige reliant la pastille à sa position réelle sur le diagramme : sans elle,
+        // une pastille haute semble flotter au-dessus d'un autre point.
+        if (y > 0.4) {
+            ctx.strokeStyle = withAlpha(sensor.point.color, 0.45);
+            strokePath3(ctx, project, [[x, 0.02, z], [x, y - 0.3, z]]);
+        }
+    }
+
+    // --- Pastilles ----------------------------------------------------------
+    const projected = sensorScene
+        .map(sensor => ({ ...sensor, screen: project(sensor.pos) }))
+        .filter(sensor => sensor.screen.visible);
+    const hitTargets = [];
+
+    for (const sensor of sortByDepth(projected.map(s => ({ ...s, depth: s.screen.z })))) {
+        const { screen, point } = sensor;
+        const radius = Math.max(3, 0.4 * project.focal / screen.z);
+        drawGlow(ctx, screen.x, screen.y, radius * 3.2, point.color, 0.5, palette.dark);
+        drawSphere(ctx, screen.x, screen.y, radius, point.color);
+        ctx.strokeStyle = withAlpha(palette.pointOutline, 0.55);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+        hitTargets.push({ x: screen.x, y: screen.y, radius, index: sensor.index });
+    }
+
+    // --- Étiquettes ---------------------------------------------------------
+    const chips = [];
+    if (showPointLabels) {
+        const anchors = projected.map(sensor => {
+            const above = project([sensor.pos[0], sensor.pos[1] + 0.6, sensor.pos[2]]);
+            return { x: above.x, y: above.y - 18, sensor };
+        });
+        for (const item of layoutLabels(anchors, { minGap: axisFont * 2.1, height })) {
+            const { sensor } = item;
+            // Trait de rappel : l'étiquette ayant pu être repoussée, il rattache
+            // visuellement le texte à sa pastille.
+            if (Math.abs(item.y - item.anchorY) > 3) {
+                ctx.strokeStyle = withAlpha(sensor.point.color, 0.45);
+                ctx.beginPath();
+                ctx.moveTo(item.x, item.y + axisFont * 0.8);
+                ctx.lineTo(item.x, item.anchorY + 18);
+                ctx.stroke();
+            }
+            chips.push(drawChip(ctx, chipText(sensor.point), item.x, item.y, {
+                size: axisFont, weight: 500, color: palette.text,
+                bg: withAlpha(palette.bg, 0.82),
+                border: sensor.point.color, padX: 7, padY: 3,
+            }));
+        }
+    }
+
+    // Chaque étiquette posée occupe sa place pour les suivantes : sans cet inventaire
+    // partagé, les graduations n'évitaient que les vignettes et se recouvraient entre
+    // elles. L'ordre vaut priorité — vignettes, puis humidité relative, puis le reste.
+    const occupied = [...chips];
+
+    // Les étiquettes d'humidité relative sont décalées vers le bas tant qu'elles
+    // croisent quelque chose, plutôt que purement masquées : ce sont elles qui
+    // rendent le diagramme lisible.
+    for (const label of rhLabels) {
+        const screen = project(label.anchor);
+        if (!screen.visible) continue;
+        let y = screen.y;
+        let box = measureChip(ctx, label.text, screen.x, y, label);
+        for (let attempt = 0; attempt < 6 && occupied.some(rect => overlaps(box, rect)); attempt++) {
+            y += axisFont * 1.8;
+            box = measureChip(ctx, label.text, screen.x, y, label);
+        }
+        if (y > height - 4) continue;
+        occupied.push(drawChip(ctx, label.text, screen.x, y, label));
+    }
+
+    // Les graduations, elles, disparaissent en cas de conflit : illisibles hors du
+    // plan, elles n'apportent rien à moitié recouvertes. La plus parlante d'abord.
+    const ordered = [...axisLabels].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
+    for (const label of ordered) {
+        const screen = project(label.anchor);
+        if (!screen.visible) continue;
+        const box = measureChip(ctx, label.text, screen.x, screen.y, label);
+        if (box[0] < 2 || box[2] > width - 2 || box[1] < 2 || box[3] > height - 2) continue;
+        if (occupied.some(rect => overlaps(box, rect))) continue;
+        occupied.push(drawChip(ctx, label.text, screen.x, screen.y, label));
+    }
+
+    return { sensors: hitTargets };
+}
+
+/**
  * Éditeur visuel de la carte Psychrometric Chart Advanced.
  *
  * Suit le standard des éditeurs de cartes Home Assistant :
@@ -812,6 +1684,7 @@ const editorTranslations = {
         theme: "Thème visuel",
         themeModern: "Moderne",
         themeClassic: "Classique",
+        themeMono: "Relevé technique",
         themeCompact: "Compact",
         bgColor: "Couleur de fond",
         textColor: "Couleur du texte",
@@ -836,6 +1709,15 @@ const editorTranslations = {
         tempSubdivisionsHelp: "Traits intermédiaires entre deux graduations de l'axe des températures. 1 n'en ajoute aucun ; 5 découpe chaque pas de 5 °C en degrés.",
         displayOptions: "Options d'affichage",
         displayMode: "Niveau de détail",
+        chartMode: "Mode de projection",
+        chartModeHelp: "La 3D élève chaque capteur au-dessus du diagramme selon la grandeur choisie. Glisser fait pivoter la scène, la molette zoome.",
+        chartMode2d: "2D (classique)",
+        chartMode3d: "3D (perspective)",
+        heightMetric: "Grandeur portée par la hauteur",
+        heightMetricHelp: "Ce que représente l'altitude d'un capteur en 3D. L'indice PMV monte avec l'écart au confort, dans le chaud comme dans le froid.",
+        metricPmv: "Indice PMV",
+        metricEnthalpy: "Enthalpie",
+        metricFlat: "Aucune (plat)",
         displayModeHelp: "Personnalisé applique les champs cochés sur chaque point. Minimal n'affiche que température, humidité et confort ; Détaillé affiche tous les champs.",
         displayCustom: "Personnalisé",
         displayMinimal: "Minimal",
@@ -909,6 +1791,7 @@ const editorTranslations = {
         theme: "Visual theme",
         themeModern: "Modern",
         themeClassic: "Classic",
+        themeMono: "Technical readout",
         themeCompact: "Compact",
         bgColor: "Background color",
         textColor: "Text color",
@@ -933,6 +1816,15 @@ const editorTranslations = {
         tempSubdivisionsHelp: "Minor lines drawn between two graduations of the temperature axis. 1 adds none; 5 splits each 5 °C step into degrees.",
         displayOptions: "Display options",
         displayMode: "Detail level",
+        chartMode: "Projection mode",
+        chartModeHelp: "3D lifts each sensor above the chart according to the chosen metric. Drag to rotate the scene, scroll to zoom.",
+        chartMode2d: "2D (classic)",
+        chartMode3d: "3D (perspective)",
+        heightMetric: "Metric carried by height",
+        heightMetricHelp: "What a sensor's altitude represents in 3D. The PMV index rises with the distance from comfort, both hot and cold.",
+        metricPmv: "PMV index",
+        metricEnthalpy: "Enthalpy",
+        metricFlat: "None (flat)",
         displayModeHelp: "Custom applies the fields ticked on each point. Minimal only shows temperature, humidity and comfort; Detailed shows every field.",
         displayCustom: "Custom",
         displayMinimal: "Minimal",
@@ -1006,6 +1898,7 @@ const editorTranslations = {
         theme: "Tema visual",
         themeModern: "Moderno",
         themeClassic: "Clásico",
+        themeMono: "Lectura técnica",
         themeCompact: "Compacto",
         bgColor: "Color de fondo",
         textColor: "Color del texto",
@@ -1030,6 +1923,15 @@ const editorTranslations = {
         tempSubdivisionsHelp: "Líneas intermedias entre dos graduaciones del eje de temperaturas. 1 no añade ninguna; 5 divide cada paso de 5 °C en grados.",
         displayOptions: "Opciones de visualización",
         displayMode: "Nivel de detalle",
+        chartMode: "Modo de proyección",
+        chartModeHelp: "El 3D eleva cada sensor sobre el diagrama según la magnitud elegida. Arrastrar gira la escena, la rueda acerca.",
+        chartMode2d: "2D (clásico)",
+        chartMode3d: "3D (perspectiva)",
+        heightMetric: "Magnitud representada por la altura",
+        heightMetricHelp: "Lo que representa la altitud de un sensor en 3D. El índice PMV sube con la distancia al confort, tanto en calor como en frío.",
+        metricPmv: "Índice PMV",
+        metricEnthalpy: "Entalpía",
+        metricFlat: "Ninguna (plano)",
         displayModeHelp: "Personalizado aplica los campos marcados en cada punto. Mínimo solo muestra temperatura, humedad y confort; Detallado muestra todos los campos.",
         displayCustom: "Personalizado",
         displayMinimal: "Mínimo",
@@ -1103,6 +2005,7 @@ const editorTranslations = {
         theme: "Visuelles Thema",
         themeModern: "Modern",
         themeClassic: "Klassisch",
+        themeMono: "Technische Ablesung",
         themeCompact: "Kompakt",
         bgColor: "Hintergrundfarbe",
         textColor: "Textfarbe",
@@ -1127,6 +2030,15 @@ const editorTranslations = {
         tempSubdivisionsHelp: "Zwischenlinien zwischen zwei Graduierungen der Temperaturachse. 1 fügt keine hinzu; 5 unterteilt jeden 5-°C-Schritt in Grad.",
         displayOptions: "Anzeigeoptionen",
         displayMode: "Detailgrad",
+        chartMode: "Projektionsmodus",
+        chartModeHelp: "3D hebt jeden Sensor entsprechend der gewählten Größe über das Diagramm. Ziehen dreht die Szene, Scrollen zoomt.",
+        chartMode2d: "2D (klassisch)",
+        chartMode3d: "3D (Perspektive)",
+        heightMetric: "Von der Höhe getragene Größe",
+        heightMetricHelp: "Was die Höhe eines Sensors in 3D darstellt. Der PMV-Index steigt mit dem Abstand zum Komfort, bei Hitze wie bei Kälte.",
+        metricPmv: "PMV-Index",
+        metricEnthalpy: "Enthalpie",
+        metricFlat: "Keine (flach)",
         displayModeHelp: "Benutzerdefiniert wendet die pro Punkt angehakten Felder an. Minimal zeigt nur Temperatur, Luftfeuchte und Komfort; Detailliert zeigt alle Felder.",
         displayCustom: "Benutzerdefiniert",
         displayMinimal: "Minimal",
@@ -1349,6 +2261,7 @@ class PsychrometricChartEditor extends i {
                             { value: 'modern', label: this.t('themeModern') },
                             { value: 'classic', label: this.t('themeClassic') },
                             { value: 'compact', label: this.t('themeCompact') },
+                            { value: 'mono', label: this.t('themeMono') },
                         ],
                     },
                 },
@@ -1380,8 +2293,38 @@ class PsychrometricChartEditor extends i {
                 },
             },
             { name: 'showChart', selector: { boolean: {} } },
-            // Taille du graphique : sans objet quand il est masqué.
+            // Projection et taille du graphique : sans objet quand il est masqué.
             ...(this._config?.showChart === false ? [] : [
+                {
+                    name: 'chartMode',
+                    selector: {
+                        select: {
+                            mode: 'dropdown',
+                            options: [
+                                { value: '2d', label: this.t('chartMode2d') },
+                                { value: '3d', label: this.t('chartMode3d') },
+                            ],
+                        },
+                    },
+                },
+                // La métrique de hauteur n'existe qu'en 3D : la proposer en 2D
+                // afficherait un réglage sans le moindre effet visible.
+                ...(this._config?.chartMode === '3d' ? [
+                    {
+                        name: 'heightMetric',
+                        selector: {
+                            select: {
+                                mode: 'dropdown',
+                                options: [
+                                    { value: 'pmv', label: this.t('metricPmv') },
+                                    { value: 'enthalpy', label: this.t('metricEnthalpy') },
+                                    { value: 'flat', label: this.t('metricFlat') },
+                                ],
+                            },
+                        },
+                    },
+                ] : []),
+                // Taille du graphique.
                 {
                     type: 'grid',
                     name: '',
@@ -1492,6 +2435,8 @@ class PsychrometricChartEditor extends i {
             displayMode: config.displayMode === 'standard' ? 'custom' : (config.displayMode ?? 'custom'),
             massFlowRate: config.massFlowRate ?? 0.5,
             showChart: config.showChart !== false,
+            chartMode: config.chartMode ?? '2d',
+            heightMetric: config.heightMetric ?? 'pmv',
             // `chartHeight` n'a volontairement pas de défaut : le champ vide signifie
             // « le graphique suit la place disponible », qui est le comportement normal.
             chartAspectRatio: config.chartAspectRatio ?? 1.33,
@@ -1964,6 +2909,8 @@ class PsychrometricChartEnhanced extends i {
             _hoveredPoint: { state: true },
             /** Viewport position of the tooltip */
             _tooltipPos: { state: true },
+            /** Orientation courante de la caméra 3D : '3d', 'top' ou 'free' */
+            _view3d: { state: true },
         };
     }
 
@@ -2007,6 +2954,42 @@ class PsychrometricChartEnhanced extends i {
             canvas {
                 max-width: 100%;
                 cursor: crosshair;
+            }
+            /*
+             * Barre de vues du mode 3D. Aucune couleur opaque : des surfaces grises
+             * translucides se posent aussi bien sur un thème clair que sombre, et
+             * l'accent reprend la couleur primaire de Home Assistant.
+             */
+            .view3d-bar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                padding: 0 16px 10px;
+            }
+            .view3d-btn {
+                font: inherit;
+                font-size: 12px;
+                line-height: 1;
+                padding: 7px 14px;
+                border-radius: 999px;
+                cursor: pointer;
+                color: inherit;
+                background: transparent;
+                border: 1px solid rgba(127, 127, 127, 0.35);
+            }
+            .view3d-btn:hover {
+                background: rgba(127, 127, 127, 0.12);
+            }
+            .view3d-btn.active {
+                background: rgba(127, 127, 127, 0.18);
+                border-color: var(--primary-color, #03a9f4);
+                color: var(--primary-color, #03a9f4);
+            }
+            .view3d-hint {
+                margin-left: auto;
+                font-size: 11px;
+                opacity: 0.6;
             }
             
             /* Enhanced Data Display Styles */
@@ -2406,6 +3389,120 @@ class PsychrometricChartEnhanced extends i {
                 padding: 10px;
                 font-size: 1.2rem;
             }
+
+            /*
+             * Thème « mono » : relevé technique dense. Les valeurs sont alignées à droite
+             * en chasse fixe, ce qui les met en colonne et les rend comparables d'un
+             * coup d'œil entre pièces — impossible avec un « label : valeur » au fil du
+             * texte, où chaque nombre commence à une abscisse différente.
+             *
+             * La police vient de la pile système : le design d'origine chargeait Roboto
+             * Mono depuis Google Fonts, ce qu'une installation hors-ligne ne peut pas
+             * suivre et que la règle « aucun import externe » interdit de toute façon.
+             */
+            .theme-mono .psychro-data {
+                gap: 12px;
+                padding: 0 14px 16px;
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+            }
+            .theme-mono .data-box {
+                padding: 13px 14px;
+                border-radius: 14px;
+                border: 1px solid rgba(127, 127, 127, 0.22);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .theme-mono .data-box:hover {
+                transform: none;
+                border-color: rgba(127, 127, 127, 0.4);
+            }
+            .theme-mono .data-header {
+                margin-bottom: 0;
+                font-size: 14px;
+                font-weight: 500;
+                gap: 8px;
+            }
+            .theme-mono .mono-name {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .theme-mono .mono-dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                flex: none;
+            }
+            .theme-mono .mono-badge {
+                background: none;
+                box-shadow: none;
+                border: 1px solid currentColor;
+                font-size: 10.5px;
+                font-weight: 500;
+                padding: 3px 8px;
+                border-radius: 999px;
+                white-space: nowrap;
+            }
+            .theme-mono .mono-headline {
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            }
+            .theme-mono .mono-temp {
+                font-size: 26px;
+                font-weight: 500;
+                letter-spacing: -0.02em;
+                cursor: pointer;
+            }
+            .theme-mono .mono-hum {
+                font-size: 15px;
+                cursor: pointer;
+            }
+            .theme-mono .mono-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 5px 12px;
+                font-size: 11.5px;
+            }
+            .theme-mono .mono-foot {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                font-size: 11.5px;
+                padding-top: 8px;
+                border-top: 1px solid rgba(127, 127, 127, 0.22);
+            }
+            .theme-mono .mono-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 8px;
+                border-bottom: 1px solid rgba(127, 127, 127, 0.14);
+                padding-bottom: 3px;
+            }
+            .theme-mono .mono-foot .mono-row {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            .theme-mono .mono-k {
+                opacity: 0.7;
+            }
+            .theme-mono .mono-v {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                text-align: right;
+                white-space: nowrap;
+            }
+            /* Une pièce par colonne devient illisible en dessous : on repasse à une
+               seule colonne de relevés plutôt que de tronquer les valeurs. */
+            @media (max-width: 380px) {
+                .theme-mono .mono-grid { grid-template-columns: 1fr; }
+            }
         `;
     }
 
@@ -2430,10 +3527,21 @@ class PsychrometricChartEnhanced extends i {
         this._historyResizeObserver = null;
         this._historyResizeTarget = null;
         this._historyPlot = null;
+        // Caméra du mode 3D. `zoom` multiplie la distance de cadrage automatique :
+        // 1 correspond au cadrage qui fait tout tenir dans le canvas.
+        this._cam3d = { ...VIEWS['3d'], zoom: 1 };
+        this._view3d = '3d';
+        this._plot3d = null;
+        this._drag3d = null;
+
         // Références stables pour pouvoir retirer les écouteurs au démontage.
         this._onMouseMove = this._handleMouseMove.bind(this);
         this._onMouseLeave = this._handleMouseLeave.bind(this);
         this._onCanvasClick = this._handleCanvasClick.bind(this);
+        this._onPointerDown = this._handlePointerDown.bind(this);
+        this._onPointerMove = this._handlePointerMove.bind(this);
+        this._onPointerUp = this._handlePointerUp.bind(this);
+        this._onWheel = this._handleWheel.bind(this);
         this._onHistoryPointer = this._handleHistoryPointer.bind(this);
         this._onHistoryPointerLeave = () => { this._historyCursor = null; };
         this._onModalKeyDown = this._handleModalKeyDown.bind(this);
@@ -2450,6 +3558,14 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Teneur en eau',
                 specificVolume: 'Volume spécifique',
                 pmvIndex: 'Indice PMV',
+                shortDewPoint: 'Rosée',
+                shortWetBulb: 'T. humide',
+                shortApparentTemp: 'Ressentie',
+                shortEnthalpy: 'Enthalpie',
+                shortAbsHumidity: 'Hum. abs.',
+                shortWaterContent: 'Teneur eau',
+                shortSpecificVolume: 'Vol. spéc.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Temp. ressentie',
                 wetBulb: 'Temp. humide',
                 moldRisk: 'Moisissure',
@@ -2486,7 +3602,10 @@ class PsychrometricChartEnhanced extends i {
                 moldRiskModerate: 'Modéré',
                 moldRiskHigh: 'Élevé',
                 moldRiskVeryHigh: 'Très élevé',
-                moldRiskCritical: 'Critique'
+                moldRiskCritical: 'Critique',
+                view3dLabel: 'Vue 3D',
+                viewTop: 'Vue de dessus',
+                rotateHint: 'glisser pour pivoter · molette pour zoomer'
             },
             en: {
                 noPointsConfigured: 'No points or entities configured in the card!',
@@ -2499,6 +3618,14 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Water content',
                 specificVolume: 'Specific volume',
                 pmvIndex: 'PMV Index',
+                shortDewPoint: 'Dew pt.',
+                shortWetBulb: 'Wet bulb',
+                shortApparentTemp: 'Feels like',
+                shortEnthalpy: 'Enthalpy',
+                shortAbsHumidity: 'Abs. hum.',
+                shortWaterContent: 'Water',
+                shortSpecificVolume: 'Sp. vol.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Feels like',
                 wetBulb: 'Wet bulb',
                 moldRisk: 'Mold risk',
@@ -2535,7 +3662,10 @@ class PsychrometricChartEnhanced extends i {
                 moldRiskModerate: 'Moderate',
                 moldRiskHigh: 'High',
                 moldRiskVeryHigh: 'Very high',
-                moldRiskCritical: 'Critical'
+                moldRiskCritical: 'Critical',
+                view3dLabel: '3D view',
+                viewTop: 'Top view',
+                rotateHint: 'drag to rotate · scroll to zoom'
             },
             es: {
                 noPointsConfigured: '¡No hay puntos o entidades configuradas en la tarjeta!',
@@ -2548,6 +3678,14 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Contenido de agua',
                 specificVolume: 'Volumen específico',
                 pmvIndex: 'Índice PMV',
+                shortDewPoint: 'Rocío',
+                shortWetBulb: 'T. húmeda',
+                shortApparentTemp: 'Sensación',
+                shortEnthalpy: 'Entalpía',
+                shortAbsHumidity: 'Hum. abs.',
+                shortWaterContent: 'Agua',
+                shortSpecificVolume: 'Vol. esp.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Sensación térmica',
                 wetBulb: 'Temp. húmeda',
                 moldRisk: 'Moho',
@@ -2584,7 +3722,10 @@ class PsychrometricChartEnhanced extends i {
                 moldRiskModerate: 'Moderado',
                 moldRiskHigh: 'Alto',
                 moldRiskVeryHigh: 'Muy alto',
-                moldRiskCritical: 'Crítico'
+                moldRiskCritical: 'Crítico',
+                view3dLabel: 'Vista 3D',
+                viewTop: 'Vista superior',
+                rotateHint: 'arrastrar para girar · rueda para acercar'
             },
             de: {
                 noPointsConfigured: 'Keine Punkte oder Entitäten in der Karte konfiguriert!',
@@ -2597,6 +3738,14 @@ class PsychrometricChartEnhanced extends i {
                 waterContent: 'Wassergehalt',
                 specificVolume: 'Spezifisches Volumen',
                 pmvIndex: 'PMV-Index',
+                shortDewPoint: 'Taupunkt',
+                shortWetBulb: 'Feuchtkugel',
+                shortApparentTemp: 'Gefühlt',
+                shortEnthalpy: 'Enthalpie',
+                shortAbsHumidity: 'Abs. F.',
+                shortWaterContent: 'Wasser',
+                shortSpecificVolume: 'Spez. Vol.',
+                shortPmvIndex: 'PMV',
                 apparentTemp: 'Gefühlte Temp.',
                 wetBulb: 'Feuchtkugeltemp.',
                 moldRisk: 'Schimmel',
@@ -2633,7 +3782,10 @@ class PsychrometricChartEnhanced extends i {
                 moldRiskModerate: 'Mäßig',
                 moldRiskHigh: 'Hoch',
                 moldRiskVeryHigh: 'Sehr hoch',
-                moldRiskCritical: 'Kritisch'
+                moldRiskCritical: 'Kritisch',
+                view3dLabel: '3D-Ansicht',
+                viewTop: 'Draufsicht',
+                rotateHint: 'ziehen zum Drehen · scrollen zum Zoomen'
             }
         };
     }
@@ -2677,12 +3829,39 @@ class PsychrometricChartEnhanced extends i {
             }
         }
 
+        if (config.chartMode !== undefined && !['2d', '3d'].includes(config.chartMode)) {
+            throw new Error(`chartMode (${config.chartMode}) doit valoir '2d' ou '3d'.`);
+        }
+        if (config.heightMetric !== undefined && !['pmv', 'enthalpy', 'flat'].includes(config.heightMetric)) {
+            throw new Error(`heightMetric (${config.heightMetric}) doit valoir 'pmv', 'enthalpy' ou 'flat'.`);
+        }
+
         this.config = config;
         // L'unité peut changer avec la config : forcer une nouvelle détection.
         this._temperatureUnit = null;
         this._wetBulbCache = null;
         // Les bornes de zoom entrent dans la mise en page (largeur des étiquettes).
         this._currentLayout = null;
+        // La géométrie 3D mémorisée décrit l'ancienne configuration : la garder ferait
+        // pointer le survol sur des pastilles qui ne sont plus au même endroit.
+        this._plot3d = null;
+    }
+
+    /**
+     * Mode de projection du graphique.
+     * @returns {string} '2d' ou '3d'
+     */
+    _chartMode() {
+        return this.config?.chartMode === '3d' ? '3d' : '2d';
+    }
+
+    /**
+     * Grandeur portée par la hauteur des capteurs en 3D.
+     * @returns {string} 'pmv', 'enthalpy' ou 'flat'
+     */
+    _heightMetric() {
+        const metric = this.config?.heightMetric;
+        return ['pmv', 'enthalpy', 'flat'].includes(metric) ? metric : 'pmv';
     }
 
     /**
@@ -2778,6 +3957,9 @@ class PsychrometricChartEnhanced extends i {
         clearTimeout(this._resizeDebounceTimer);
         this._resizeDebounceTimer = null;
         this._hoveredPoint = null;
+        // Une carte démontée en plein glissement de caméra garderait un état de
+        // rotation actif, qui reprendrait au remontage sans que rien ne l'ait demandé.
+        this._drag3d = null;
         // La modale d'historique pose un écouteur sur la fenêtre : le retirer, sinon il
         // survivrait au démontage de la carte.
         window.removeEventListener('keydown', this._onModalKeyDown);
@@ -3424,6 +4606,11 @@ class PsychrometricChartEnhanced extends i {
         canvas.style.height = `${height}px`;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+        if (this._chartMode() === '3d') {
+            this._draw3DChart(ctx, width, height);
+            return;
+        }
+
         const points = this._currentPoints || [];
 
         const {
@@ -3808,6 +4995,176 @@ class PsychrometricChartEnhanced extends i {
     }
 
     /**
+     * Draw the psychrometric chart in perspective.
+     *
+     * Toute la géométrie vit dans `psychrometric-3d.js` ; cette méthode ne fait que
+     * traduire la configuration de la carte en paramètres de scène. Les positions
+     * écran renvoyées sont mémorisées dans `_plot3d`, d'où le test de survol les
+     * relit : rejouer la projection à chaque mouvement de souris coûterait un
+     * cadrage complet pour rien.
+     * @param {CanvasRenderingContext2D} ctx - Contexte de dessin, en pixels CSS
+     * @param {number} width - Largeur du canvas en pixels CSS
+     * @param {number} height - Hauteur du canvas en pixels CSS
+     */
+    _draw3DChart(ctx, width, height) {
+        const bounds = this._calculateChartBounds();
+        // `tempToX`/`humidityToY` ne servent pas en 3D, mais `_currentBounds` reste lu
+        // ailleurs : le laisser périmé ferait diverger les deux modes après bascule.
+        this._currentBounds = bounds;
+
+        const palette = this._palette();
+        const comfortRange = this.config.comfortRange ? {
+            tempMin: this.toInternalTemp(this.config.comfortRange.tempMin),
+            tempMax: this.toInternalTemp(this.config.comfortRange.tempMax),
+            rhMin: this.config.comfortRange.rhMin,
+            rhMax: this.config.comfortRange.rhMax
+        } : { tempMin: 20, tempMax: 26, rhMin: 40, rhMax: 60 };
+
+        const scale = Math.max(0.5, Math.min(width / 800, height / 600));
+        const axisFont = Math.max(MIN_AXIS_FONT, 12 * scale);
+        // Même principe qu'en 2D : sous une certaine taille, c'est la densité qui cède,
+        // jamais la police. En perspective les étiquettes se croisent d'autant plus vite
+        // que le plan est vu de biais, d'où un encombrement estimé plus large.
+        const minimal = this._displayMode() === 'minimal' || width < 340 || height < 260;
+        const tempStep = pickAxisStep(
+            bounds.maxTemp - bounds.minTemp, width, axisFont * 4.5, 5, [1, 2, 4, 10]
+        );
+
+        this._plot3d = drawScene3D(ctx, {
+            width, height, bounds, palette, comfortRange, axisFont, tempStep, minimal,
+            points: this._currentPoints || [],
+            camera: this._cam3d,
+            metric: this._heightMetric(),
+            // La zone de confort porte déjà l'opacité choisie par l'utilisateur via
+            // `comfortOpacity`, que `_palette()` a appliquée : on la relit plutôt que
+            // d'ajouter une seconde option qui dirait la même chose.
+            comfortOpacity: PsychrometricCalculations.colorToAlpha(palette.comfort),
+            showEnthalpy: this.config.showEnthalpy !== false,
+            showPointLabels: this.config.showPointLabels !== false,
+            comfortLabel: this.t('comfortZone'),
+            // Le nom seul, comme les étiquettes du mode 2D : y ajouter température et
+            // humidité donnait des vignettes si larges qu'à six capteurs elles recouvraient
+            // le diagramme. Le détail reste dans l'infobulle et les cartes de données.
+            chipText: (point) => point.label,
+            formatTempAxis: (temp) =>
+                `${Math.round(this.toDisplayTemp(temp))}${this.getTempUnit()}`,
+        });
+    }
+
+    /**
+     * Find the sensor drawn under the pointer in 3D.
+     *
+     * Le rayon de capture suit celui de la pastille dessinée — elle rétrécit avec la
+     * distance — avec un plancher pour rester atteignable au doigt.
+     * @param {number} x - Abscisse du pointeur, en pixels CSS du canvas
+     * @param {number} y - Ordonnée du pointeur, en pixels CSS du canvas
+     * @returns {Object|null} Point survolé, ou null
+     */
+    _pointAt3D(x, y) {
+        const sensors = this._plot3d?.sensors;
+        if (!sensors?.length) return null;
+
+        let found = null;
+        let best = Infinity;
+        for (const sensor of sensors) {
+            const distance = Math.hypot(x - sensor.x, y - sensor.y);
+            // Deux pastilles peuvent se superposer : on garde la plus proche du
+            // curseur plutôt que la dernière rencontrée.
+            if (distance < Math.max(14, sensor.radius * 1.6) && distance < best) {
+                best = distance;
+                const point = this._currentPoints?.[sensor.index];
+                if (point) found = { ...point, index: sensor.index };
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Bascule la caméra sur une orientation prédéfinie.
+     * @param {string} view - '3d' ou 'top'
+     */
+    _setView3d(view) {
+        this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1 };
+        this._view3d = VIEWS[view] ? view : '3d';
+        this._hoveredPoint = null;
+        this._drawChart();
+    }
+
+    /**
+     * Début d'un glissement de caméra.
+     * @param {PointerEvent} e - Événement pointeur
+     */
+    _handlePointerDown(e) {
+        // Seul le bouton principal fait pivoter : un clic droit ouvre le menu
+        // contextuel et ne rendrait jamais son `pointerup`, laissant un glissement
+        // fantôme collé au curseur.
+        if (e.button) return;
+        const canvas = this.shadowRoot.getElementById('psychroChart');
+        if (!canvas) return;
+        // La capture garde le glissement actif même si le pointeur sort du canvas.
+        canvas.setPointerCapture?.(e.pointerId);
+        this._drag3d = { x: e.clientX, y: e.clientY, moved: 0 };
+        canvas.style.cursor = 'grabbing';
+    }
+
+    /**
+     * Rotation de la caméra au glissement, survol sinon.
+     *
+     * Le redessin est appelé directement plutôt que par un état réactif : passer par
+     * le cycle de Lit recalculerait les points à chaque image de la rotation.
+     * @param {PointerEvent} e - Événement pointeur
+     */
+    _handlePointerMove(e) {
+        if (!this._drag3d) {
+            this._handleMouseMove(e);
+            return;
+        }
+        const dx = e.clientX - this._drag3d.x;
+        const dy = e.clientY - this._drag3d.y;
+        this._drag3d.x = e.clientX;
+        this._drag3d.y = e.clientY;
+        this._drag3d.moved += Math.abs(dx) + Math.abs(dy);
+
+        // Mêmes conventions qu'OrbitControls : glisser vers la droite fait tourner la
+        // scène vers la droite, glisser vers le bas relève la caméra vers la verticale.
+        this._cam3d.yaw -= dx * 0.008;
+        this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this._cam3d.pitch - dy * 0.006));
+        // L'infobulle pointerait une pastille qui a bougé sous le curseur.
+        this._hoveredPoint = null;
+        if (this._view3d !== 'free') this._view3d = 'free';
+        this._drawChart();
+    }
+
+    /**
+     * Fin du glissement. Un déplacement négligeable reste un clic.
+     * @param {PointerEvent} e - Événement pointeur
+     */
+    _handlePointerUp(e) {
+        const drag = this._drag3d;
+        this._drag3d = null;
+        const canvas = this.shadowRoot.getElementById('psychroChart');
+        if (canvas) {
+            canvas.releasePointerCapture?.(e.pointerId);
+            canvas.style.cursor = 'grab';
+        }
+        // Sans ce seuil, ouvrir l'historique deviendrait impossible : le moindre
+        // frémissement de la souris pendant le clic compterait comme une rotation.
+        if (drag && drag.moved < 5) this._handleCanvasClick(e);
+    }
+
+    /**
+     * Zoom à la molette autour du cadrage automatique.
+     * @param {WheelEvent} e - Événement molette
+     */
+    _handleWheel(e) {
+        // Sans cela, la molette ferait défiler le tableau de bord sous le graphique.
+        e.preventDefault();
+        const factor = Math.exp(e.deltaY * 0.0012);
+        this._cam3d.zoom = Math.min(2.5, Math.max(0.35, this._cam3d.zoom * factor));
+        this._drawChart();
+    }
+
+    /**
      * Build the constant-wet-bulb lines as (temp, rh) samples.
      *
      * These lines only depend on the temperature bounds, never on the entity states,
@@ -3887,7 +5244,10 @@ class PsychrometricChartEnhanced extends i {
         if (!canvas) return;
 
         const point = this._pointAt(e);
-        canvas.style.cursor = point ? 'pointer' : 'crosshair';
+        // Hors d'un point, le curseur annonce ce que fait un glissement : viser en 2D,
+        // faire pivoter la scène en 3D.
+        const idle = this._chartMode() === '3d' ? 'grab' : 'crosshair';
+        canvas.style.cursor = point ? 'pointer' : idle;
         this._hoveredPoint = point;
         if (point) this._tooltipPos = { x: e.clientX + 15, y: e.clientY + 15 };
     }
@@ -3922,6 +5282,10 @@ class PsychrometricChartEnhanced extends i {
         if (!rect.width || !rect.height) return null;
         const x = (e.clientX - rect.left) * (this._canvasWidth / rect.width);
         const y = (e.clientY - rect.top) * (this._canvasHeight / rect.height);
+
+        // En 3D la position d'une pastille ne se déduit pas de la température seule :
+        // elle vient de la projection du dernier dessin, mémorisée dans `_plot3d`.
+        if (this._chartMode() === '3d') return this._pointAt3D(x, y);
 
         let found = null;
         this._currentPoints.forEach((point, index) => {
@@ -4743,6 +6107,148 @@ class PsychrometricChartEnhanced extends i {
         return ['minimal', 'custom', 'detailed'].includes(mode) ? mode : 'custom';
     }
 
+    /**
+     * Lignes de valeurs d'un point, dans l'ordre d'affichage.
+     *
+     * Source unique des champs : les thèmes en changent la présentation, jamais le
+     * contenu ni l'ordre. Les décrire une fois ici évite qu'ajouter un champ calculé
+     * n'oblige à le brancher dans chaque thème — et qu'on l'y oublie.
+     * @param {Object} point - Point calculé
+     * @returns {Array<Object>} Lignes { field, key, value, emoji, accent, span, color, entityId, type }
+     */
+    _pointRows(point) {
+        const rows = [
+            {
+                field: 'temperature', emoji: '🌡️', key: this.t('temperature'),
+                value: this.formatTemp(point.temp), accent: true,
+                entityId: point.tempEntityId, type: 'temperature',
+            },
+            {
+                field: 'humidity', emoji: '💧', key: this.t('humidity'),
+                value: `${point.humidity.toFixed(1)}%`, accent: true,
+                entityId: point.humidityEntityId, type: 'humidity',
+            },
+        ];
+
+        // Les valeurs sont produites paresseusement : un champ masqué n'a pas à être
+        // formaté, et `details` en cache couramment la moitié.
+        const optional = [
+            ['dewPoint', () => this.formatTemp(point.dewPoint)],
+            ['wetBulb', () => this.formatTemp(point.wetBulbTemp)],
+            ['apparentTemp', () => this.formatTemp(point.apparentTemp)],
+            ['enthalpy', () => `${point.enthalpy.toFixed(1)} kJ/kg`],
+            ['absHumidity', () => `${point.absoluteHumidity.toFixed(2)} g/m³`],
+            ['waterContent', () => `${(point.waterContent * 1000).toFixed(1)} g/kg`],
+            ['specificVolume', () => `${point.specificVolume.toFixed(3)} m³/kg`],
+            ['pmvIndex', () => point.pmv.toFixed(2)],
+        ];
+        for (const [field, value] of optional) {
+            if (this._shouldShowField(point, field)) {
+                rows.push({
+                    field,
+                    key: this.t(field),
+                    // Libellé abrégé pour le thème `mono` : dans sa grille à deux
+                    // colonnes, « Volume spécifique » passe à la ligne et détruit
+                    // l'alignement des valeurs, qui fait tout l'intérêt du thème.
+                    shortKey: this.t(`short${field[0].toUpperCase()}${field.slice(1)}`),
+                    value: value(),
+                });
+            }
+        }
+
+        if (this._shouldShowField(point, 'moldRisk')) {
+            rows.push({
+                field: 'moldRisk', emoji: '🍄', key: this.t('moldRisk'),
+                value: this.getMoldRiskText(point.moldRisk),
+                color: this.getMoldRiskColor(point.moldRisk, this._isDark()),
+                span: true,
+            });
+        }
+        return rows;
+    }
+
+    /**
+     * Lignes d'action d'un point : consigne à appliquer, puissance, cible.
+     * @param {Object} point - Point calculé
+     * @returns {Array<Object>} Lignes, vide quand rien n'est à faire
+     */
+    _pointActionRows(point) {
+        if (!this._shouldShowField(point, 'action')) return [];
+        if (!point.action && !(point.power > 0)) return [];
+
+        const rows = [];
+        if (point.action) rows.push({ field: 'action', emoji: '⚡', key: this.t('action'), value: point.action });
+        if (point.power > 0) {
+            rows.push({
+                field: 'power', emoji: '🔥', key: this.t('power'),
+                value: `${point.power.toFixed(1)} W`, accent: true,
+            });
+        }
+        rows.push({
+            field: 'idealSetpoint', emoji: '🎯', key: this.t('idealSetpoint'),
+            value: `${this.formatTemp(point.idealSetpoint.temp)}, ${point.idealSetpoint.humidity.toFixed(0)}%`,
+        });
+        return rows;
+    }
+
+    /**
+     * Rendu d'une ligne dans les thèmes historiques : « label : valeur » en clair.
+     * @param {Object} point - Point calculé
+     * @param {Object} row - Ligne à rendre
+     * @returns {TemplateResult} Fragment Lit
+     */
+    _renderRow(point, row) {
+        if (row.entityId) {
+            return b`
+                <div class="data-row"
+                     @click="${() => this._openHistory(row.entityId, row.type)}"
+                     @keydown="${(e) => this._handleKeyDown(e, row.entityId, row.type)}"
+                     tabindex="0"
+                     role="button"
+                     aria-label="${this.t('historyLast24h')} - ${row.key}"
+                     style="cursor: pointer">
+                    <span>${row.emoji} ${row.key}: <span style="color: ${point.color}; font-weight: 600;">${row.value}</span></span>
+                </div>`;
+        }
+        if (row.span) {
+            return b`
+                <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
+                    <span>${row.emoji} ${row.key}:</span>
+                    <span style="color: ${row.color}; font-weight: bold">${row.value}</span>
+                </div>`;
+        }
+        return b`<div>${row.key}: ${row.value}</div>`;
+    }
+
+    /**
+     * Rendu d'une ligne du thème `mono` : label à gauche, valeur alignée à droite.
+     *
+     * C'est cet alignement qui fait toute la lisibilité du thème — les valeurs
+     * forment une colonne qu'on parcourt d'un coup d'œil, ce qu'un « label : valeur »
+     * au fil du texte ne permet pas.
+     * @param {Object} point - Point calculé
+     * @param {Object} row - Ligne à rendre
+     * @returns {TemplateResult} Fragment Lit
+     */
+    _renderMonoRow(point, row) {
+        const color = row.color || (row.accent ? point.color : '');
+        const value = b`<span class="mono-v" style="${color ? `color: ${color}` : ''}">${row.value}</span>`;
+
+        if (row.entityId) {
+            return b`
+                <div class="mono-row"
+                     @click="${() => this._openHistory(row.entityId, row.type)}"
+                     @keydown="${(e) => this._handleKeyDown(e, row.entityId, row.type)}"
+                     tabindex="0"
+                     role="button"
+                     aria-label="${this.t('historyLast24h')} - ${row.key}"
+                     style="cursor: pointer">
+                    <span class="mono-k">${row.key}</span>${value}
+                </div>`;
+        }
+        return b`<div class="mono-row"><span class="mono-k">${row.shortKey || row.key}</span>${value}</div>`;
+    }
+
     render() {
         if (!this.config || !this.hass) return b``;
 
@@ -4757,6 +6263,7 @@ class PsychrometricChartEnhanced extends i {
 
         const palette = this._palette();
         const darkMode = palette.dark;
+        const is3d = this._chartMode() === '3d';
         // Sans couleur explicitement configurée, on ne pose aucun style : ha-card et
         // ses descendants héritent alors du thème de Home Assistant, quel qu'il soit.
         // Exception : `themeMode` forcé, où l'héritage donnerait justement le thème
@@ -4786,14 +6293,21 @@ class PsychrometricChartEnhanced extends i {
         // Styles conditionnels selon le thème
         const isClassic = theme === 'classic';
         const isCompact = theme === 'compact';
+        // Thème dense inspiré du design : valeurs en chasse fixe alignées à droite.
+        const isMono = theme === 'mono';
         
         // Surfaces translucides plutôt que des blancs/gris opaques : elles se posent
         // correctement sur le fond du thème courant, quel qu'il soit.
         const dataBoxBg = isClassic
             ? (palette.forced ? palette.bg : 'var(--card-background-color, transparent)')
-            : (darkMode
-                ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
-                : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
+            // `mono` reste volontairement plat : le dégradé en diagonale des thèmes
+            // modernes ferait concurrence à l'alignement des valeurs, qui est le seul
+            // repère visuel du relevé.
+            : isMono
+                ? (darkMode ? 'rgba(127, 127, 127, 0.10)' : 'rgba(127, 127, 127, 0.06)')
+                : (darkMode
+                    ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 100%)'
+                    : 'linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.07) 100%)');
 
         const dataBoxBoxShadow = isClassic
             ? 'none'
@@ -4807,12 +6321,28 @@ class PsychrometricChartEnhanced extends i {
             <ha-card class="theme-${theme}" style="${cardStyle}">
                 <div class="card-header">${chartTitle}</div>
 
+                ${showChart && is3d ? b`
+                    <div class="view3d-bar">
+                        <button class="view3d-btn ${this._view3d === '3d' ? 'active' : ''}"
+                                @click="${() => this._setView3d('3d')}">${this.t('view3dLabel')}</button>
+                        <button class="view3d-btn ${this._view3d === 'top' ? 'active' : ''}"
+                                @click="${() => this._setView3d('top')}">${this.t('viewTop')}</button>
+                        <span class="view3d-hint">${this.t('rotateHint')}</span>
+                    </div>
+                ` : ''}
+
                 ${showChart ? b`
                 <div class="chart-container" style="${this._chartContainerStyle()}">
                     <canvas id="psychroChart" role="img" aria-label="${chartDescription}"
-                            @mousemove="${this._onMouseMove}"
+                            style="${is3d ? 'cursor: grab; touch-action: none' : ''}"
+                            @mousemove="${is3d ? undefined : this._onMouseMove}"
                             @mouseleave="${this._onMouseLeave}"
-                            @click="${this._onCanvasClick}">
+                            @click="${is3d ? undefined : this._onCanvasClick}"
+                            @pointerdown="${is3d ? this._onPointerDown : undefined}"
+                            @pointermove="${is3d ? this._onPointerMove : undefined}"
+                            @pointerup="${is3d ? this._onPointerUp : undefined}"
+                            @pointercancel="${is3d ? this._onPointerUp : undefined}"
+                            @wheel="${is3d ? this._onWheel : undefined}">
                         ${chartDescription}
                     </canvas>
                     ${showLegend ? b`
@@ -4836,15 +6366,29 @@ class PsychrometricChartEnhanced extends i {
 
                 ${showCalculatedData ? b`
                     <div class="psychro-data">
-                        ${points.map((point, index) => b`
-                            <div class="data-box" 
+                        ${points.map((point, index) => {
+            const rows = this._pointRows(point);
+            const actionRows = this._pointActionRows(point);
+            const badgeColor = point.inComfortZone ? '#4CAF50' : '#FF9800';
+            const badgeText = point.inComfortZone
+                ? `✓ ${this.t('comfortOptimal')}`
+                : `⚠ ${this.t(point.comfortStatus)}`;
+
+            // Le thème `mono` reprend la hiérarchie du diagramme : le couple
+            // température/humidité en gros, le reste en tableau de relevés.
+            const headline = rows.filter(row => row.field === 'temperature' || row.field === 'humidity');
+            const gridRows = rows.filter(row => !row.span && !headline.includes(row));
+            const footRows = rows.filter(row => row.span).concat(actionRows);
+
+            return b`
+                            <div class="data-box"
                                  style="
                                     background: ${dataBoxBg};
                                     border-left-color: ${point.color};
                                     box-shadow: ${dataBoxBoxShadow};
                                     animation: ${isClassic ? 'none' : `fadeInUp 0.5s ease-out ${index * 0.1}s backwards`};
                                  ">
-                                ${!isClassic && !isCompact ? b`<div style="
+                                ${!isClassic && !isCompact && !isMono ? b`<div style="
                                     position: absolute;
                                     top: 0;
                                     left: 0;
@@ -4852,65 +6396,68 @@ class PsychrometricChartEnhanced extends i {
                                     bottom: 0;
                                     background: radial-gradient(circle at top right, ${point.color}15, transparent);
                                     pointer-events: none;"></div>` : ''}
-                                
+
+                                ${isMono ? b`
+                                    <div class="data-header">
+                                        <span class="mono-name">
+                                            <span class="mono-dot" style="background: ${point.color}; box-shadow: 0 0 10px ${point.color}"></span>
+                                            ${point.label}
+                                        </span>
+                                        <span class="status-badge mono-badge"
+                                              style="color: ${badgeColor}; border-color: ${badgeColor}">${badgeText}</span>
+                                    </div>
+
+                                    <div class="mono-headline">
+                                        ${headline.map((row, position) => b`
+                                            <span class="${position === 0 ? 'mono-temp' : 'mono-hum'}"
+                                                  style="${position === 0 ? '' : `color: ${point.color}`}"
+                                                  @click="${() => this._openHistory(row.entityId, row.type)}"
+                                                  @keydown="${(e) => this._handleKeyDown(e, row.entityId, row.type)}"
+                                                  tabindex="0"
+                                                  role="button"
+                                                  aria-label="${this.t('historyLast24h')} - ${row.key}">${row.value}</span>
+                                        `)}
+                                    </div>
+
+                                    ${gridRows.length ? b`
+                                        <div class="mono-grid">
+                                            ${gridRows.map(row => this._renderMonoRow(point, row))}
+                                        </div>
+                                    ` : ''}
+
+                                    ${footRows.length ? b`
+                                        <div class="mono-foot">
+                                            ${footRows.map(row => this._renderMonoRow(point, row))}
+                                        </div>
+                                    ` : ''}
+                                ` : b`
                                 <div style="position: relative; z-index: 1;">
                                     <div class="data-header" style="color: ${point.color}">
                                         <span>${point.icon ? b`<ha-icon icon="${point.icon}" style="margin-right: 8px;"></ha-icon>` : ''} ${point.label}</span>
                                         ${point.inComfortZone ?
-                b`<span class="status-badge" style="background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('comfortOptimal')}</span>` :
-                b`<span class="status-badge" style="background: linear-gradient(135deg, #FF9800, #f57c00); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t(point.comfortStatus)}</span>`
-            }
-                                    </div>
-                                    
-                                    <div class="data-grid">
-                                        <div class="data-row" 
-                                             @click="${() => this._openHistory(point.tempEntityId, 'temperature')}" 
-                                             @keydown="${(e) => this._handleKeyDown(e, point.tempEntityId, 'temperature')}"
-                                             tabindex="0" 
-                                             role="button" 
-                                             aria-label="${this.t('historyLast24h')} - ${this.t('temperature')}"
-                                             style="cursor: pointer">
-                                            <span>🌡️ ${this.t('temperature')}: <span style="color: ${point.color}; font-weight: 600;">${this.formatTemp(point.temp)}</span></span>
-                                        </div>
-                                        <div class="data-row" 
-                                             @click="${() => this._openHistory(point.humidityEntityId, 'humidity')}" 
-                                             @keydown="${(e) => this._handleKeyDown(e, point.humidityEntityId, 'humidity')}"
-                                             tabindex="0" 
-                                             role="button" 
-                                             aria-label="${this.t('historyLast24h')} - ${this.t('humidity')}"
-                                             style="cursor: pointer">
-                                            <span>💧 ${this.t('humidity')}: <span style="color: ${point.color}; font-weight: 600;">${point.humidity.toFixed(1)}%</span></span>
-                                        </div>
-                                        
-                                        ${this._shouldShowField(point, 'dewPoint') ? b`<div>${this.t('dewPoint')}: ${this.formatTemp(point.dewPoint)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'wetBulb') ? b`<div>${this.t('wetBulb')}: ${this.formatTemp(point.wetBulbTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'apparentTemp') ? b`<div>${this.t('apparentTemp')}: ${this.formatTemp(point.apparentTemp)}</div>` : ''}
-                                        ${this._shouldShowField(point, 'enthalpy') ? b`<div>${this.t('enthalpy')}: ${point.enthalpy.toFixed(1)} kJ/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'absHumidity') ? b`<div>${this.t('absHumidity')}: ${point.absoluteHumidity.toFixed(2)} g/m³</div>` : ''}
-                                        ${this._shouldShowField(point, 'waterContent') ? b`<div>${this.t('waterContent')}: ${(point.waterContent * 1000).toFixed(1)} g/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'specificVolume') ? b`<div>${this.t('specificVolume')}: ${point.specificVolume.toFixed(3)} m³/kg</div>` : ''}
-                                        ${this._shouldShowField(point, 'pmvIndex') ? b`<div>${this.t('pmvIndex')}: ${point.pmv.toFixed(2)}</div>` : ''}
-                                        
-                                        ${this._shouldShowField(point, 'moldRisk') ? b`
-                                            <div style="grid-column: span 2; display: flex; align-items: center; gap: 5px;">
-                                                <span>🍄 ${this.t('moldRisk')}:</span>
-                                                <span style="color: ${this.getMoldRiskColor(point.moldRisk, darkMode)}; font-weight: bold">
-                                                    ${this.getMoldRiskText(point.moldRisk)}
-                                                </span>
-                                            </div>
-                                        ` : ''}
+                    b`<span class="status-badge" style="background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">✓ ${this.t('comfortOptimal')}</span>` :
+                    b`<span class="status-badge" style="background: linear-gradient(135deg, #FF9800, #f57c00); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);">⚠ ${this.t(point.comfortStatus)}</span>`
+                }
                                     </div>
 
-                                    ${(point.action || point.power > 0) && this._shouldShowField(point, 'action') ? b`
+                                    <div class="data-grid">
+                                        ${rows.map(row => this._renderRow(point, row))}
+                                    </div>
+
+                                    ${actionRows.length ? b`
                                         <div class="action-box" style="border-top-color: ${darkMode ? '#555' : '#ddd'}">
-                                            ${point.action ? b`<div><span class="action-icon">⚡</span>${this.t('action')}: ${point.action}</div>` : ''}
-                                            ${point.power > 0 ? b`<div><span class="action-icon">🔥</span>${this.t('power')}: <span style="color: ${point.color}; font-weight: 600;">${point.power.toFixed(1)} W</span></div>` : ''}
-                                            <div><span class="action-icon">🎯</span>${this.t('idealSetpoint')}: ${this.formatTemp(point.idealSetpoint.temp)}, ${point.idealSetpoint.humidity.toFixed(0)}%</div>
+                                            ${actionRows.map(row => b`
+                                                <div><span class="action-icon">${row.emoji}</span>${row.key}: ${row.accent
+                        ? b`<span style="color: ${point.color}; font-weight: 600;">${row.value}</span>`
+                        : row.value}</div>
+                                            `)}
                                         </div>
                                     ` : ''}
                                 </div>
+                                `}
                             </div>
-                        `)}
+                        `;
+        })}
                     </div>
                 ` : ''}
             </ha-card>
