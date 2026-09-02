@@ -143,11 +143,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 border-color: var(--primary-color, #03a9f4);
                 color: var(--primary-color, #03a9f4);
             }
-            .view3d-hint {
-                margin-left: auto;
-                font-size: 11px;
-                opacity: 0.6;
-            }
             
             /* Enhanced Data Display Styles */
             .psychro-data {
@@ -690,6 +685,10 @@ class PsychrometricChartEnhanced extends LitElement {
         this._view3d = '3d';
         this._plot3d = null;
         this._drag3d = null;
+        // Pointeurs tactiles actifs, pour distinguer rotation (un doigt) et
+        // pincement (deux doigts) — le zoom n'a aucun autre geste sur mobile.
+        this._pointers3d = new Map();
+        this._pinch3d = null;
 
         // Références stables pour pouvoir retirer les écouteurs au démontage.
         this._onMouseMove = this._handleMouseMove.bind(this);
@@ -762,7 +761,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskCritical: 'Critique',
                 view3dLabel: 'Vue 3D',
                 viewTop: 'Vue de dessus',
-                rotateHint: 'glisser pour pivoter · molette pour zoomer'
             },
             en: {
                 noPointsConfigured: 'No points or entities configured in the card!',
@@ -822,7 +820,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskCritical: 'Critical',
                 view3dLabel: '3D view',
                 viewTop: 'Top view',
-                rotateHint: 'drag to rotate · scroll to zoom'
             },
             es: {
                 noPointsConfigured: '¡No hay puntos o entidades configuradas en la tarjeta!',
@@ -882,7 +879,6 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskCritical: 'Crítico',
                 view3dLabel: 'Vista 3D',
                 viewTop: 'Vista superior',
-                rotateHint: 'arrastrar para girar · rueda para acercar'
             },
             de: {
                 noPointsConfigured: 'Keine Punkte oder Entitäten in der Karte konfiguriert!',
@@ -941,8 +937,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskVeryHigh: 'Sehr hoch',
                 moldRiskCritical: 'Kritisch',
                 view3dLabel: '3D-Ansicht',
-                viewTop: 'Draufsicht',
-                rotateHint: 'ziehen zum Drehen · scrollen zum Zoomen'
+                viewTop: 'Draufsicht'
             }
         };
     }
@@ -1117,6 +1112,8 @@ class PsychrometricChartEnhanced extends LitElement {
         // Une carte démontée en plein glissement de caméra garderait un état de
         // rotation actif, qui reprendrait au remontage sans que rien ne l'ait demandé.
         this._drag3d = null;
+        this._pinch3d = null;
+        this._pointers3d.clear();
         // La modale d'historique pose un écouteur sur la fenêtre : le retirer, sinon il
         // survivrait au démontage de la carte.
         window.removeEventListener('keydown', this._onModalKeyDown);
@@ -2248,7 +2245,7 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
-     * Début d'un glissement de caméra.
+     * Début d'un glissement de caméra, ou d'un pincement au second doigt.
      * @param {PointerEvent} e - Événement pointeur
      */
     _handlePointerDown(e) {
@@ -2258,20 +2255,61 @@ class PsychrometricChartEnhanced extends LitElement {
         if (e.button) return;
         const canvas = this.shadowRoot.getElementById('psychroChart');
         if (!canvas) return;
-        // La capture garde le glissement actif même si le pointeur sort du canvas.
-        canvas.setPointerCapture?.(e.pointerId);
+        // La capture garde le geste actif même si le pointeur sort du canvas.
+        // Elle lève une exception si le pointeur n'est déjà plus actif (doigt levé
+        // entre l'événement et son traitement) : ce n'est pas une raison d'abandonner
+        // le geste, la rotation fonctionne sans capture tant qu'on reste sur le canvas.
+        try { canvas.setPointerCapture?.(e.pointerId); } catch { /* pointeur déjà relâché */ }
+        this._pointers3d.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (this._pointers3d.size >= 2) {
+            // Deux doigts : on passe en pincement et on abandonne la rotation en
+            // cours, sinon le déplacement du premier doigt ferait tourner la scène
+            // pendant qu'on zoome.
+            this._drag3d = null;
+            this._pinch3d = { distance: this._pinchDistance(), zoom: this._cam3d.zoom };
+            return;
+        }
+        this._pinch3d = null;
         this._drag3d = { x: e.clientX, y: e.clientY, moved: 0 };
         canvas.style.cursor = 'grabbing';
     }
 
     /**
-     * Rotation de la caméra au glissement, survol sinon.
+     * Écart entre les deux premiers pointeurs actifs, en pixels.
+     * @returns {number} Distance, ou 0 s'il y a moins de deux pointeurs
+     */
+    _pinchDistance() {
+        const [a, b] = [...this._pointers3d.values()];
+        if (!a || !b) return 0;
+        return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    /**
+     * Rotation au glissement, zoom au pincement, survol au simple déplacement.
      *
      * Le redessin est appelé directement plutôt que par un état réactif : passer par
-     * le cycle de Lit recalculerait les points à chaque image de la rotation.
+     * le cycle de Lit recalculerait les points à chaque image du geste.
      * @param {PointerEvent} e - Événement pointeur
      */
     _handlePointerMove(e) {
+        if (this._pointers3d.has(e.pointerId)) {
+            this._pointers3d.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        }
+
+        // Pincement : l'écartement des doigts pilote la distance de caméra. C'est le
+        // seul geste de zoom tactile — la molette n'existe pas sur mobile, et un
+        // curseur à l'écran mangerait la place du graphique.
+        if (this._pinch3d) {
+            const distance = this._pinchDistance();
+            if (distance > 0 && this._pinch3d.distance > 0) {
+                // `zoom` multiplie la distance de cadrage : écarter les doigts
+                // rapproche la caméra, donc diminue le facteur.
+                this._setZoom3d(this._pinch3d.zoom * (this._pinch3d.distance / distance));
+            }
+            return;
+        }
+
         if (!this._drag3d) {
             this._handleMouseMove(e);
             return;
@@ -2288,25 +2326,70 @@ class PsychrometricChartEnhanced extends LitElement {
         this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this._cam3d.pitch - dy * 0.006));
         // L'infobulle pointerait une pastille qui a bougé sous le curseur.
         this._hoveredPoint = null;
-        if (this._view3d !== 'free') this._view3d = 'free';
+        this._markFreeView3d();
         this._drawChart();
     }
 
     /**
-     * Fin du glissement. Un déplacement négligeable reste un clic.
+     * Fin d'un geste. Un déplacement négligeable reste un clic.
      * @param {PointerEvent} e - Événement pointeur
      */
     _handlePointerUp(e) {
         const drag = this._drag3d;
-        this._drag3d = null;
+        const wasPinching = Boolean(this._pinch3d);
+        this._pointers3d.delete(e.pointerId);
+
         const canvas = this.shadowRoot.getElementById('psychroChart');
         if (canvas) {
-            canvas.releasePointerCapture?.(e.pointerId);
+            try { canvas.releasePointerCapture?.(e.pointerId); } catch { /* déjà relâché */ }
             canvas.style.cursor = 'grab';
         }
+
+        if (this._pointers3d.size >= 2) {
+            // Un troisième doigt s'est levé : repartir de l'écart courant, sinon le
+            // zoom sauterait d'un coup au prochain mouvement.
+            this._pinch3d = { distance: this._pinchDistance(), zoom: this._cam3d.zoom };
+            return;
+        }
+
+        this._pinch3d = null;
+        this._drag3d = null;
+
+        if (this._pointers3d.size === 1) {
+            // Le doigt restant reprend la rotation depuis sa position actuelle : sans
+            // cette réinitialisation, la scène ferait un bond à la fin du pincement.
+            const [remaining] = [...this._pointers3d.values()];
+            this._drag3d = { x: remaining.x, y: remaining.y, moved: 0 };
+            return;
+        }
+
         // Sans ce seuil, ouvrir l'historique deviendrait impossible : le moindre
         // frémissement de la souris pendant le clic compterait comme une rotation.
-        if (drag && drag.moved < 5) this._handleCanvasClick(e);
+        // Un pincement, lui, n'ouvre jamais l'historique.
+        if (!wasPinching && drag && drag.moved < 5) this._handleCanvasClick(e);
+    }
+
+    /**
+     * Applique un facteur de zoom borné et redessine.
+     *
+     * Les bornes empêchent de traverser la scène ou de la réduire à un point : le
+     * cadrage automatique ne sert plus de garde-fou dès que l'utilisateur zoome.
+     * @param {number} zoom - Facteur multiplicatif de la distance de cadrage
+     */
+    _setZoom3d(zoom) {
+        const clamped = Math.min(2.5, Math.max(0.35, zoom));
+        if (clamped === this._cam3d.zoom) return;
+        this._cam3d.zoom = clamped;
+        this._markFreeView3d();
+        this._drawChart();
+    }
+
+    /**
+     * Signale que la caméra ne correspond plus à une vue prédéfinie.
+     * Décoche le bouton de vue actif, sans redessiner : l'appelant s'en charge.
+     */
+    _markFreeView3d() {
+        if (this._view3d !== 'free') this._view3d = 'free';
     }
 
     /**
@@ -2316,11 +2399,8 @@ class PsychrometricChartEnhanced extends LitElement {
     _handleWheel(e) {
         // Sans cela, la molette ferait défiler le tableau de bord sous le graphique.
         e.preventDefault();
-        const factor = Math.exp(e.deltaY * 0.0012);
-        this._cam3d.zoom = Math.min(2.5, Math.max(0.35, this._cam3d.zoom * factor));
-        this._drawChart();
+        this._setZoom3d(this._cam3d.zoom * Math.exp(e.deltaY * 0.0012));
     }
-
     /**
      * Build the constant-wet-bulb lines as (temp, rh) samples.
      *
@@ -3484,7 +3564,6 @@ class PsychrometricChartEnhanced extends LitElement {
                                 @click="${() => this._setView3d('3d')}">${this.t('view3dLabel')}</button>
                         <button class="view3d-btn ${this._view3d === 'top' ? 'active' : ''}"
                                 @click="${() => this._setView3d('top')}">${this.t('viewTop')}</button>
-                        <span class="view3d-hint">${this.t('rotateHint')}</span>
                     </div>
                 ` : ''}
 
