@@ -2218,7 +2218,7 @@ class PsychrometricChartEnhanced extends LitElement {
             comfortOpacity: PsychrometricCalculations.colorToAlpha(palette.comfort),
             showEnthalpy: this.config.showEnthalpy !== false,
             showPointLabels: this.config.showPointLabels !== false,
-            showPlane: this.config.show3dPlane !== false,
+            showPlane: this.config.show3dPlane !== true,
             comfortLabel: this.t('comfortZone'),
             // Le nom seul, comme les étiquettes du mode 2D : y ajouter température et
             // humidité donnait des vignettes si larges qu'à six capteurs elles recouvraient
