@@ -20,6 +20,21 @@ const MIN_CHART_HEIGHT = 150;
 const DEFAULT_CHART_RATIO = 4 / 3;
 
 /**
+ * Bornes du facteur de zoom de la caméra 3D. Elles empêchent de traverser la scène
+ * ou de la réduire à un point, et servent aussi à valider une vue relue du stockage.
+ */
+const ZOOM3D_MIN = 0.35;
+const ZOOM3D_MAX = 2.5;
+
+/**
+ * Préfixe des clés mémorisant la vue 3D dans le stockage local du navigateur.
+ *
+ * Home Assistant reconstruit la carte à chaque ouverture du tableau de bord : sans
+ * cette mémoire, la caméra repartirait de la vue par défaut à chaque fois.
+ */
+const CAM3D_STORAGE_PREFIX = 'psychrometric-chart-advanced:cam3d:';
+
+/**
  * Largeur approchée d'un texte Arial, en pixels CSS.
  *
  * `measureText` serait exact mais exige un contexte de canvas : la mise en page doit
@@ -689,6 +704,8 @@ class PsychrometricChartEnhanced extends LitElement {
         // pincement (deux doigts) — le zoom n'a aucun autre geste sur mobile.
         this._pointers3d = new Map();
         this._pinch3d = null;
+        // Écriture différée de la vue 3D dans le stockage local (voir `_persistCam3d`).
+        this._cam3dSaveTimer = null;
 
         // Références stables pour pouvoir retirer les écouteurs au démontage.
         this._onMouseMove = this._handleMouseMove.bind(this);
@@ -997,6 +1014,9 @@ class PsychrometricChartEnhanced extends LitElement {
         // La géométrie 3D mémorisée décrit l'ancienne configuration : la garder ferait
         // pointer le survol sur des pastilles qui ne sont plus au même endroit.
         this._plot3d = null;
+        // La clé de stockage dérive de la configuration : c'est ici, et pas dans le
+        // constructeur, que la vue mémorisée peut être retrouvée.
+        this._restoreCam3d();
     }
 
     /**
@@ -1114,6 +1134,9 @@ class PsychrometricChartEnhanced extends LitElement {
         this._drag3d = null;
         this._pinch3d = null;
         this._pointers3d.clear();
+        // Une vue modifiée juste avant le démontage serait perdue avec le minuteur :
+        // l'écrire tout de suite plutôt que d'attendre un délai qui n'arrivera pas.
+        if (this._cam3dSaveTimer) this._writeCam3d();
         // La modale d'historique pose un écouteur sur la fenêtre : le retirer, sinon il
         // survivrait au démontage de la carte.
         window.removeEventListener('keydown', this._onModalKeyDown);
@@ -2241,6 +2264,7 @@ class PsychrometricChartEnhanced extends LitElement {
         this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1 };
         this._view3d = VIEWS[view] ? view : '3d';
         this._hoveredPoint = null;
+        this._persistCam3d();
         this._drawChart();
     }
 
@@ -2327,6 +2351,7 @@ class PsychrometricChartEnhanced extends LitElement {
         // L'infobulle pointerait une pastille qui a bougé sous le curseur.
         this._hoveredPoint = null;
         this._markFreeView3d();
+        this._persistCam3d();
         this._drawChart();
     }
 
@@ -2377,11 +2402,94 @@ class PsychrometricChartEnhanced extends LitElement {
      * @param {number} zoom - Facteur multiplicatif de la distance de cadrage
      */
     _setZoom3d(zoom) {
-        const clamped = Math.min(2.5, Math.max(0.35, zoom));
+        const clamped = Math.min(ZOOM3D_MAX, Math.max(ZOOM3D_MIN, zoom));
         if (clamped === this._cam3d.zoom) return;
         this._cam3d.zoom = clamped;
         this._markFreeView3d();
+        this._persistCam3d();
         this._drawChart();
+    }
+
+    /**
+     * Clé de stockage de la vue 3D, propre à cette carte.
+     *
+     * Deux cartes d'un même tableau de bord doivent garder des vues distinctes, mais
+     * une carte doit retrouver la sienne d'une ouverture à l'autre : la clé dérive
+     * donc de la configuration (titre et capteurs), et non d'un identifiant
+     * d'instance, qui changerait à chaque montage.
+     * @returns {string|null} Clé de stockage, ou null si la carte n'a aucun capteur
+     */
+    _cam3dStorageKey() {
+        const ids = this._watchedEntityIds();
+        if (!ids.length) return null;
+        return CAM3D_STORAGE_PREFIX + [this.config?.title || '', ...ids].join('|');
+    }
+
+    /**
+     * Restaure la vue 3D mémorisée pour cette configuration, si elle existe.
+     *
+     * Sans effet en mode 2D : la caméra n'y sert pas, et la vue reste mémorisée pour
+     * un retour ultérieur en 3D.
+     */
+    _restoreCam3d() {
+        const key = this._cam3dStorageKey();
+        if (!key) return;
+        // L'éditeur rappelle `setConfig()` à chaque frappe : si un enregistrement est
+        // encore en attente, la vue affichée est plus récente que celle du stockage —
+        // l'écrire plutôt que ramener la caméra en arrière.
+        if (this._cam3dSaveTimer) {
+            this._writeCam3d();
+            return;
+        }
+        let stored = null;
+        try {
+            // Le stockage local peut être indisponible (navigation privée, cookies
+            // bloqués) ou contenir une entrée corrompue : une vue non retrouvée n'est
+            // pas une raison d'empêcher la carte de s'afficher.
+            stored = JSON.parse(window.localStorage?.getItem(key) || 'null');
+        } catch {
+            stored = null;
+        }
+        if (!stored || typeof stored !== 'object') return;
+        const yaw = Number(stored.yaw);
+        const pitch = Number(stored.pitch);
+        const zoom = Number(stored.zoom);
+        if (!Number.isFinite(yaw) || !Number.isFinite(pitch) || !Number.isFinite(zoom)) return;
+        // Les valeurs viennent du disque : les borner comme le font les gestes. Une
+        // inclinaison hors bornes ferait passer la caméra sous le plan, ce qui casse
+        // l'ordre de dessin par couches du mode 3D.
+        this._cam3d = {
+            yaw,
+            pitch: Math.min(PITCH_MAX, Math.max(PITCH_MIN, pitch)),
+            zoom: Math.min(ZOOM3D_MAX, Math.max(ZOOM3D_MIN, zoom)),
+        };
+        this._view3d = VIEWS[stored.view] ? stored.view : 'free';
+        // La géométrie mémorisée décrit l'ancienne caméra.
+        this._plot3d = null;
+    }
+
+    /**
+     * Programme l'enregistrement de la vue courante.
+     *
+     * Une rotation émet des dizaines d'événements par seconde et le stockage local est
+     * synchrone : n'écrire qu'une fois le geste retombé.
+     */
+    _persistCam3d() {
+        clearTimeout(this._cam3dSaveTimer);
+        this._cam3dSaveTimer = setTimeout(() => this._writeCam3d(), 400);
+    }
+
+    /** Écrit immédiatement la vue courante dans le stockage local. */
+    _writeCam3d() {
+        clearTimeout(this._cam3dSaveTimer);
+        this._cam3dSaveTimer = null;
+        const key = this._cam3dStorageKey();
+        if (!key) return;
+        try {
+            window.localStorage?.setItem(key, JSON.stringify({ ...this._cam3d, view: this._view3d }));
+        } catch {
+            // Stockage indisponible ou saturé : la vue ne sera simplement pas mémorisée.
+        }
     }
 
     /**
