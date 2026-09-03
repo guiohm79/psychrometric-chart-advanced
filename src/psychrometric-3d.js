@@ -553,7 +553,7 @@ export function drawScene3D(ctx, opts) {
     const {
         width, height, bounds, points = [], palette, camera,
         metric = 'pmv', comfortRange, comfortOpacity = 0.28,
-        showEnthalpy = true, showPointLabels = true, minimal = false,
+        showEnthalpy = true, showPointLabels = true, showPlane = true, minimal = false,
         axisFont = 11, tempStep = 5,
         comfortLabel = 'CONFORT', chipText = () => '', formatTempAxis = (t) => `${t}`,
     } = opts;
@@ -607,11 +607,16 @@ export function drawScene3D(ctx, opts) {
         [SCENE.halfWidth * 1.08, 0, SCENE.halfDepth * 1.12],
         [-SCENE.halfWidth * 1.08, 0, SCENE.halfDepth * 1.12],
     ];
-    fillPath3(ctx, project, plane, palette.dark ? 'rgba(127, 127, 127, 0.08)' : 'rgba(127, 127, 127, 0.16)');
+    // Le socle peut être masqué : la scène flotte alors sur le fond de la carte,
+    // sans le quadrilatère qui l'encadre. Le plan reste utilisé pour le cadrage —
+    // seul son dessin disparaît, la caméra ne bouge pas.
+    if (showPlane) {
+        fillPath3(ctx, project, plane, palette.dark ? 'rgba(127, 127, 127, 0.08)' : 'rgba(127, 127, 127, 0.16)');
 
-    ctx.strokeStyle = withAlpha(palette.grid, palette.dark ? 0.8 : 1);
-    ctx.lineWidth = 1;
-    strokePath3(ctx, project, plane.concat([plane[0]]));
+        ctx.strokeStyle = withAlpha(palette.grid, palette.dark ? 0.8 : 1);
+        ctx.lineWidth = 1;
+        strokePath3(ctx, project, plane.concat([plane[0]]));
+    }
 
     // --- Grille -------------------------------------------------------------
     const gridY = 0.004;
