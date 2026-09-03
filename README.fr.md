@@ -160,7 +160,7 @@ themeMode: auto
 theme: modern               # modern, classic, compact, mono (relevé technique)
 chartMode: 2d               # 2d (classique) ou 3d (perspective)
 heightMetric: pmv           # en 3d : pmv, enthalpy ou flat
-show3dPlane: true          # en 3d : socle gris et cadre sous la scène
+show3dPlane: false         # en 3d : socle gris et cadre sous la scène (masqué par défaut)
 displayMode: custom
 showEnthalpy: true
 showLegend: false

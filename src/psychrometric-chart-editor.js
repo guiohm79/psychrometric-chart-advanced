@@ -858,7 +858,9 @@ export class PsychrometricChartEditor extends LitElement {
             showChart: config.showChart !== false,
             chartMode: config.chartMode ?? '2d',
             heightMetric: config.heightMetric ?? 'pmv',
-            show3dPlane: config.show3dPlane !== false,
+            // Le socle n'est plus dessiné que si l'option vaut explicitement true
+            // (voir la carte) : une case cochée par défaut annoncerait un socle absent.
+            show3dPlane: config.show3dPlane === true,
             // `chartHeight` n'a volontairement pas de défaut : le champ vide signifie
             // « le graphique suit la place disponible », qui est le comportement normal.
             chartAspectRatio: config.chartAspectRatio ?? 1.33,
