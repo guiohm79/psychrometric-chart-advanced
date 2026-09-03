@@ -1270,7 +1270,7 @@ function drawScene3D(ctx, opts) {
     const {
         width, height, bounds, points = [], palette, camera,
         metric = 'pmv', comfortRange, comfortOpacity = 0.28,
-        showEnthalpy = true, showPointLabels = true, minimal = false,
+        showEnthalpy = true, showPointLabels = true, showPlane = true, minimal = false,
         axisFont = 11, tempStep = 5,
         comfortLabel = 'CONFORT', chipText = () => '', formatTempAxis = (t) => `${t}`,
     } = opts;
@@ -1324,11 +1324,16 @@ function drawScene3D(ctx, opts) {
         [SCENE.halfWidth * 1.08, 0, SCENE.halfDepth * 1.12],
         [-10 * 1.08, 0, SCENE.halfDepth * 1.12],
     ];
-    fillPath3(ctx, project, plane, palette.dark ? 'rgba(127, 127, 127, 0.08)' : 'rgba(127, 127, 127, 0.16)');
+    // Le socle peut être masqué : la scène flotte alors sur le fond de la carte,
+    // sans le quadrilatère qui l'encadre. Le plan reste utilisé pour le cadrage —
+    // seul son dessin disparaît, la caméra ne bouge pas.
+    if (showPlane) {
+        fillPath3(ctx, project, plane, palette.dark ? 'rgba(127, 127, 127, 0.08)' : 'rgba(127, 127, 127, 0.16)');
 
-    ctx.strokeStyle = withAlpha(palette.grid, palette.dark ? 0.8 : 1);
-    ctx.lineWidth = 1;
-    strokePath3(ctx, project, plane.concat([plane[0]]));
+        ctx.strokeStyle = withAlpha(palette.grid, palette.dark ? 0.8 : 1);
+        ctx.lineWidth = 1;
+        strokePath3(ctx, project, plane.concat([plane[0]]));
+    }
 
     // --- Grille -------------------------------------------------------------
     const gridY = 0.004;
@@ -1715,6 +1720,8 @@ const editorTranslations = {
         chartMode3d: "3D (perspective)",
         heightMetric: "Grandeur portée par la hauteur",
         heightMetricHelp: "Ce que représente l'altitude d'un capteur en 3D. L'indice PMV monte avec l'écart au confort, dans le chaud comme dans le froid.",
+        show3dPlane: "Afficher le socle 3D",
+        show3dPlaneHelp: "Le plan gris et son cadre sous le diagramme. Décoché, la scène flotte sur le fond de la carte.",
         metricPmv: "Indice PMV",
         metricEnthalpy: "Enthalpie",
         metricFlat: "Aucune (plat)",
@@ -1822,6 +1829,8 @@ const editorTranslations = {
         chartMode3d: "3D (perspective)",
         heightMetric: "Metric carried by height",
         heightMetricHelp: "What a sensor's altitude represents in 3D. The PMV index rises with the distance from comfort, both hot and cold.",
+        show3dPlane: "Show the 3D base plane",
+        show3dPlaneHelp: "The grey plane and its frame under the chart. Unchecked, the scene floats on the card background.",
         metricPmv: "PMV index",
         metricEnthalpy: "Enthalpy",
         metricFlat: "None (flat)",
@@ -1929,6 +1938,8 @@ const editorTranslations = {
         chartMode3d: "3D (perspectiva)",
         heightMetric: "Magnitud representada por la altura",
         heightMetricHelp: "Lo que representa la altitud de un sensor en 3D. El índice PMV sube con la distancia al confort, tanto en calor como en frío.",
+        show3dPlane: "Mostrar la base 3D",
+        show3dPlaneHelp: "El plano gris y su marco bajo el diagrama. Sin marcar, la escena flota sobre el fondo de la tarjeta.",
         metricPmv: "Índice PMV",
         metricEnthalpy: "Entalpía",
         metricFlat: "Ninguna (plano)",
@@ -2036,6 +2047,8 @@ const editorTranslations = {
         chartMode3d: "3D (Perspektive)",
         heightMetric: "Von der Höhe getragene Größe",
         heightMetricHelp: "Was die Höhe eines Sensors in 3D darstellt. Der PMV-Index steigt mit dem Abstand zum Komfort, bei Hitze wie bei Kälte.",
+        show3dPlane: "3D-Grundfläche anzeigen",
+        show3dPlaneHelp: "Die graue Fläche und ihr Rahmen unter dem Diagramm. Abgewählt schwebt die Szene auf dem Kartenhintergrund.",
         metricPmv: "PMV-Index",
         metricEnthalpy: "Enthalpie",
         metricFlat: "Keine (flach)",
@@ -2323,6 +2336,7 @@ class PsychrometricChartEditor extends i {
                             },
                         },
                     },
+                    { name: 'show3dPlane', selector: { boolean: {} } },
                 ] : []),
                 // Taille du graphique.
                 {
@@ -2437,6 +2451,7 @@ class PsychrometricChartEditor extends i {
             showChart: config.showChart !== false,
             chartMode: config.chartMode ?? '2d',
             heightMetric: config.heightMetric ?? 'pmv',
+            show3dPlane: config.show3dPlane !== false,
             // `chartHeight` n'a volontairement pas de défaut : le champ vide signifie
             // « le graphique suit la place disponible », qui est le comportement normal.
             chartAspectRatio: config.chartAspectRatio ?? 1.33,
@@ -5061,6 +5076,7 @@ class PsychrometricChartEnhanced extends i {
             comfortOpacity: PsychrometricCalculations.colorToAlpha(palette.comfort),
             showEnthalpy: this.config.showEnthalpy !== false,
             showPointLabels: this.config.showPointLabels !== false,
+            showPlane: this.config.show3dPlane !== false,
             comfortLabel: this.t('comfortZone'),
             // Le nom seul, comme les étiquettes du mode 2D : y ajouter température et
             // humidité donnait des vignettes si larges qu'à six capteurs elles recouvraient

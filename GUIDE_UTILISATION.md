@@ -159,6 +159,7 @@ displayMode: detailed       # minimal, custom, detailed
 # Projection du graphique
 chartMode: 2d               # 2d (classique) ou 3d (perspective, glisser pour pivoter)
 heightMetric: pmv           # en 3d, ce que porte la hauteur : pmv, enthalpy, flat
+show3dPlane: true           # en 3d : afficher le socle gris et son cadre
 
 # Calculs
 massFlowRate: 0.5          # Débit massique pour calculs (kg/s)
