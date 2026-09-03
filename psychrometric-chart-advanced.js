@@ -2451,7 +2451,9 @@ class PsychrometricChartEditor extends i {
             showChart: config.showChart !== false,
             chartMode: config.chartMode ?? '2d',
             heightMetric: config.heightMetric ?? 'pmv',
-            show3dPlane: config.show3dPlane !== false,
+            // Le socle n'est plus dessiné que si l'option vaut explicitement true
+            // (voir la carte) : une case cochée par défaut annoncerait un socle absent.
+            show3dPlane: config.show3dPlane === true,
             // `chartHeight` n'a volontairement pas de défaut : le champ vide signifie
             // « le graphique suit la place disponible », qui est le comportement normal.
             chartAspectRatio: config.chartAspectRatio ?? 1.33,
@@ -5076,7 +5078,7 @@ class PsychrometricChartEnhanced extends i {
             comfortOpacity: PsychrometricCalculations.colorToAlpha(palette.comfort),
             showEnthalpy: this.config.showEnthalpy !== false,
             showPointLabels: this.config.showPointLabels !== false,
-            showPlane: this.config.show3dPlane !== false,
+            showPlane: this.config.show3dPlane !== true,
             comfortLabel: this.t('comfortZone'),
             // Le nom seul, comme les étiquettes du mode 2D : y ajouter température et
             // humidité donnait des vignettes si larges qu'à six capteurs elles recouvraient
