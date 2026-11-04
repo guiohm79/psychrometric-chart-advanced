@@ -4,6 +4,7 @@ import {
     SCENE, PITCH_MIN, PITCH_MAX, FOV,
     sub, dot, cross, normalize,
     orbitEye, viewBasis, makeProjector, fitDistance,
+    ORBIT_HEIGHT, clampPan, cameraPose, groundPointAt, anchoredZoom,
     sortByDepth, layoutLabels, overlaps,
     waterContentGkg, makeScales, maxWaterContent, sensorHeight, enthalpyRange, withAlpha,
 } from '../src/psychrometric-3d.js';
@@ -282,4 +283,107 @@ test('les vues prédéfinies restent dans les bornes d\'inclinaison', () => {
     for (const [name, view] of Object.entries({ '3d': { pitch: 1.0 }, top: { pitch: PITCH_MIN } })) {
         assert.ok(view.pitch >= PITCH_MIN && view.pitch <= PITCH_MAX, `vue ${name} exploitable`);
     }
+});
+
+// ========================================
+// GESTES : DÉPLACEMENT ET ZOOM ANCRÉ
+// ========================================
+
+/** Coins du plan, comme ceux que cadre drawScene3D. */
+const FIT_POINTS = [
+    [-SCENE.halfWidth, 0, -SCENE.halfDepth], [SCENE.halfWidth, 0, -SCENE.halfDepth],
+    [-SCENE.halfWidth, 0, SCENE.halfDepth], [SCENE.halfWidth, 0, SCENE.halfDepth],
+];
+/** Viewport d'un téléphone en portrait. */
+const PHONE = { fitPoints: FIT_POINTS, width: 360, height: 270 };
+/** Caméras couvrant vue de dessus, vue par défaut et vue rasante. */
+const CAMERAS = [
+    { yaw: 0, pitch: PITCH_MIN, zoom: 1, panX: 0, panZ: 0 },
+    { yaw: 0.6, pitch: 0.8, zoom: 1, panX: 0, panZ: 0 },
+    { yaw: -2.1, pitch: 1.3, zoom: 0.6, panX: 3, panZ: -2 },
+];
+
+test('clampPan borne le déplacement au plan et neutralise le non-fini', () => {
+    assert.deepEqual(clampPan(2, -3), { panX: 2, panZ: -3 });
+    assert.deepEqual(clampPan(100, -100), { panX: SCENE.halfWidth, panZ: -SCENE.halfDepth });
+    assert.deepEqual(clampPan(NaN, undefined), { panX: 0, panZ: 0 });
+});
+
+test('cameraPose vise le centre sans déplacement et garde l\'échelle quand on se déplace', () => {
+    const camera = CAMERAS[1];
+    const pose = cameraPose(camera, PHONE);
+    assert.deepEqual(pose.target, [0, ORBIT_HEIGHT, 0]);
+    const fit = fitDistance(FIT_POINTS, { target: [0, ORBIT_HEIGHT, 0], ...camera, width: 360, height: 270 });
+    near(pose.distance, fit, 1e-9, 'distance de cadrage à zoom 1');
+
+    // Un déplacement ne doit pas zoomer : la distance ne dépend que du zoom.
+    const moved = cameraPose({ ...camera, panX: 5, panZ: -4 }, PHONE);
+    near(moved.distance, pose.distance, 1e-9, 'distance inchangée par le déplacement');
+    assert.deepEqual(moved.target, [5, ORBIT_HEIGHT, -4]);
+    near(cameraPose({ ...camera, zoom: 0.5 }, PHONE).distance, fit * 0.5, 1e-9, 'zoom multiplicatif');
+});
+
+test('groundPointAt inverse la projection sur le plan', () => {
+    for (const camera of CAMERAS) {
+        const { project } = cameraPose(camera, PHONE);
+        for (const point of [[0, 0, 0], [-7, 0, 4], [8, 0, -5]]) {
+            const screen = project(point);
+            const back = groundPointAt(project, screen.x, screen.y);
+            assert.ok(back, `point retrouvé (pitch ${camera.pitch})`);
+            for (let i = 0; i < 3; i++) near(back[i], point[i], 1e-6, `composante ${i}, pitch ${camera.pitch}`);
+        }
+    }
+});
+
+test('groundPointAt renonce au-dessus de l\'horizon et au loin', () => {
+    // Vue rasante : le haut de l'image regarde le ciel.
+    const { project, distance } = cameraPose({ yaw: 0, pitch: PITCH_MAX, zoom: 1 }, PHONE);
+    assert.equal(groundPointAt(project, 180, 0), null, 'rayon montant');
+    const center = groundPointAt(project, 180, 135);
+    assert.ok(center, 'le centre de l\'image touche le plan');
+    assert.equal(groundPointAt(project, 180, 135, { maxDistance: distance * 0.1 }), null, 'trop loin');
+});
+
+test('anchoredZoom garde sous le pointeur le point qu\'il visait', () => {
+    for (const camera of CAMERAS) {
+        for (const zoom of [camera.zoom * 0.5, camera.zoom * 1.6]) {
+            for (const at of [{ x: 60, y: 200 }, { x: 300, y: 150 }]) {
+                const before = groundPointAt(cameraPose(camera, PHONE).project, at.x, at.y);
+                const next = anchoredZoom(camera, { ...PHONE, zoom, from: at, to: at });
+                near(next.zoom, zoom, 1e-12, 'zoom appliqué');
+                assert.equal(next.yaw, camera.yaw, 'orientation conservée');
+                const after = groundPointAt(cameraPose(next, PHONE).project, at.x, at.y);
+                for (const i of [0, 2]) {
+                    near(after[i], before[i], 1e-6, `ancrage ${i}, pitch ${camera.pitch}, zoom ${zoom}`);
+                }
+            }
+        }
+    }
+});
+
+test('anchoredZoom à zoom constant fait glisser le diagramme sous les doigts', () => {
+    const camera = CAMERAS[1];
+    const from = { x: 180, y: 135 };
+    const to = { x: 230, y: 170 };
+    const grabbed = groundPointAt(cameraPose(camera, PHONE).project, from.x, from.y);
+    const next = anchoredZoom(camera, { ...PHONE, zoom: camera.zoom, from, to });
+    const screen = cameraPose(next, PHONE).project(grabbed);
+    near(screen.x, to.x, 1e-6, 'le point saisi suit le doigt en x');
+    near(screen.y, to.y, 1e-6, 'le point saisi suit le doigt en y');
+    assert.ok(Math.hypot(next.panX, next.panZ) > 0, 'la cible a bougé');
+});
+
+test('anchoredZoom ne perd jamais le plan et zoome seul hors du plan', () => {
+    const camera = CAMERAS[1];
+    let next = camera;
+    // Cent glissements dans le même sens : la cible bute au bord du plan.
+    for (let i = 0; i < 100; i++) {
+        next = anchoredZoom(next, { ...PHONE, zoom: 1, from: { x: 300, y: 135 }, to: { x: 60, y: 135 } });
+    }
+    assert.ok(Math.abs(next.panX) <= SCENE.halfWidth && Math.abs(next.panZ) <= SCENE.halfDepth, 'cible bornée');
+
+    // Ancrage dans le ciel d'une vue rasante : zoom appliqué, aucun déplacement.
+    const grazing = { yaw: 0, pitch: PITCH_MAX, zoom: 1, panX: 1, panZ: 2 };
+    const sky = anchoredZoom(grazing, { ...PHONE, zoom: 0.5, from: { x: 180, y: 0 }, to: { x: 180, y: 0 } });
+    assert.deepEqual(sky, { ...grazing, zoom: 0.5 });
 });
