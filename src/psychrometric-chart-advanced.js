@@ -846,7 +846,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskVeryHigh: 'Very high',
                 moldRiskCritical: 'Critical',
                 view3dLabel: '3D view',
-                viewTop: 'Top view',
+                viewTop: '2D view',
             },
             es: {
                 noPointsConfigured: '¡No hay puntos o entidades configuradas en la tarjeta!',
@@ -905,7 +905,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskVeryHigh: 'Muy alto',
                 moldRiskCritical: 'Crítico',
                 view3dLabel: 'Vista 3D',
-                viewTop: 'Vista superior',
+                viewTop: 'Vista 2D',
             },
             de: {
                 noPointsConfigured: 'Keine Punkte oder Entitäten in der Karte konfiguriert!',
@@ -964,7 +964,7 @@ class PsychrometricChartEnhanced extends LitElement {
                 moldRiskVeryHigh: 'Sehr hoch',
                 moldRiskCritical: 'Kritisch',
                 view3dLabel: '3D-Ansicht',
-                viewTop: 'Draufsicht'
+                viewTop: '2D-Ansicht'
             }
         };
     }
