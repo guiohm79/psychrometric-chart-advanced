@@ -3751,7 +3751,7 @@ class PsychrometricChartEnhanced extends i {
                 moldRiskVeryHigh: 'Très élevé',
                 moldRiskCritical: 'Critique',
                 view3dLabel: 'Vue 3D',
-                viewTop: 'Vue de dessus',
+                viewTop: 'Vue 2D',
             },
             en: {
                 noPointsConfigured: 'No points or entities configured in the card!',
