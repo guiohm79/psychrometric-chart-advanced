@@ -178,6 +178,9 @@ export function makeProjector({ eye, target, width, height, fov = FOV }) {
     // le projecteur reste un objet unique, sans risque de désaccord entre les deux.
     project.focal = focal;
     project.basis = { right, up, forward };
+    // L'œil et le centre servent à l'opération inverse (`groundPointAt`).
+    project.eye = eye;
+    project.center = [centerX, centerY];
     return project;
 }
 
@@ -229,6 +232,110 @@ export function fitDistance(points, { target, yaw, pitch, width, height, fov = F
         if (Math.abs(ratio - 1) < 0.005) break;
     }
     return distance;
+}
+
+/** Altitude du point visé par la caméra, en unités de scène. */
+export const ORBIT_HEIGHT = 1;
+
+/**
+ * Borne le déplacement de la cible d'orbite à l'empreinte du plan.
+ *
+ * Sans borne, quelques glissements à deux doigts suffiraient à perdre le diagramme
+ * hors champ, sans aucun repère pour le retrouver.
+ * @param {number} panX - Décalage demandé selon X, en unités de scène
+ * @param {number} panZ - Décalage demandé selon Z, en unités de scène
+ * @returns {{panX: number, panZ: number}} Décalage borné (0 s'il n'est pas fini)
+ */
+export function clampPan(panX, panZ) {
+    const clamp = (value, limit) =>
+        (Number.isFinite(value) ? Math.min(limit, Math.max(-limit, value)) : 0);
+    return { panX: clamp(panX, SCENE.halfWidth), panZ: clamp(panZ, SCENE.halfDepth) };
+}
+
+/**
+ * Pose complète de la caméra : cible, distance, œil et projecteur.
+ *
+ * Source unique partagée par le dessin et par les gestes : le zoom ancré sous les
+ * doigts doit projeter exactement comme le dernier dessin, sinon le point visé
+ * glisserait. Le cadrage automatique se calcule autour du centre du plan et non de
+ * la cible déplacée : un simple déplacement changerait sinon aussi l'échelle.
+ * @param {Object} camera - Caméra {yaw, pitch, zoom, panX, panZ}
+ * @param {Object} view - Viewport
+ * @param {number[][]} view.fitPoints - Points à faire tenir à zoom 1
+ * @param {number} view.width - Largeur du viewport
+ * @param {number} view.height - Hauteur du viewport
+ * @returns {{target: number[], distance: number, eye: number[], project: function}} Pose
+ */
+export function cameraPose(camera, { fitPoints, width, height }) {
+    const { yaw, pitch } = camera;
+    const fit = fitDistance(fitPoints, { target: [0, ORBIT_HEIGHT, 0], yaw, pitch, width, height });
+    const distance = fit * (camera.zoom || 1);
+    const { panX, panZ } = clampPan(camera.panX ?? 0, camera.panZ ?? 0);
+    const target = [panX, ORBIT_HEIGHT, panZ];
+    const eye = orbitEye(target, yaw, pitch, distance);
+    return { target, distance, eye, project: makeProjector({ eye, target, width, height }) };
+}
+
+/**
+ * Point du plan horizontal situé sous un pixel de l'écran.
+ *
+ * Opération inverse de la projection, par intersection du rayon de visée avec le
+ * plan Y = planeY.
+ * @param {function} project - Projecteur issu de makeProjector
+ * @param {number} x - Abscisse écran, en pixels CSS
+ * @param {number} y - Ordonnée écran, en pixels CSS
+ * @param {Object} [options] - Options
+ * @param {number} [options.planeY] - Altitude du plan visé
+ * @param {number} [options.maxDistance] - Distance au-delà de laquelle on renonce :
+ *     près de l'horizon, un pixel couvre une étendue démesurée du plan
+ * @returns {number[]|null} Point [x, y, z], ou null si le rayon manque le plan
+ */
+export function groundPointAt(project, x, y, { planeY = 0, maxDistance = Infinity } = {}) {
+    const { eye, focal, center, basis: { right, up, forward } } = project;
+    const u = (x - center[0]) / focal;
+    const v = (center[1] - y) / focal;
+    const ray = [0, 1, 2].map(i => forward[i] + right[i] * u + up[i] * v);
+    // Un rayon horizontal ou montant ne rencontre jamais le plan.
+    if (ray[1] >= -1e-9) return null;
+    const t = (planeY - eye[1]) / ray[1];
+    if (!(t > 0) || t * Math.hypot(...ray) > maxDistance) return null;
+    return [eye[0] + ray[0] * t, planeY, eye[2] + ray[2] * t];
+}
+
+/**
+ * Zoom ancré : applique un zoom en gardant sous `to` le point du plan qui était
+ * sous `from`.
+ *
+ * C'est le geste des cartes géographiques : pincer zoome vers les doigts au lieu du
+ * centre de la scène, et les faire glisser ensemble déplace le diagramme. `from`
+ * égal à `to` donne un zoom pur autour du pointeur (molette), un zoom inchangé un
+ * déplacement pur. La rotation pivote ensuite autour de ce qui est au centre de
+ * l'écran, et non plus du centre du plan resté hors champ.
+ * @param {Object} camera - Caméra {yaw, pitch, zoom, panX, panZ}
+ * @param {Object} options - Paramètres du geste
+ * @param {number[][]} options.fitPoints - Points de cadrage du dernier dessin
+ * @param {number} options.width - Largeur du viewport
+ * @param {number} options.height - Hauteur du viewport
+ * @param {number} options.zoom - Nouveau zoom, déjà borné par l'appelant
+ * @param {{x: number, y: number}} options.from - Pixel d'ancrage avant le geste
+ * @param {{x: number, y: number}} options.to - Pixel d'ancrage après le geste
+ * @returns {Object} Nouvelle caméra (l'entrée n'est pas modifiée)
+ */
+export function anchoredZoom(camera, { fitPoints, width, height, zoom, from, to }) {
+    const view = { fitPoints, width, height };
+    const before = cameraPose(camera, view);
+    const next = { ...camera, zoom };
+    const after = cameraPose(next, view);
+    const a = groundPointAt(before.project, from.x, from.y, { maxDistance: before.distance * 4 });
+    const b = groundPointAt(after.project, to.x, to.y, { maxDistance: after.distance * 4 });
+    // Ancrage hors du plan (au-dessus de l'horizon) : zoom seul, sans déplacement.
+    if (!a || !b) return next;
+    // Translater œil et cible de a − b ramène sous `to` le point a : la projection
+    // est invariante par translation, et a − b est horizontal.
+    return {
+        ...next,
+        ...clampPan(before.target[0] + a[0] - b[0], before.target[2] + a[2] - b[2]),
+    };
 }
 
 // ========================================
@@ -580,12 +687,7 @@ export function drawScene3D(ctx, opts) {
     });
     const fitPoints = corners.concat(sensorScene.map(s => [s.pos[0], s.pos[1] + 1, s.pos[2]]));
 
-    const target = [0, 1, 0];
-    const distance = fitDistance(fitPoints, {
-        target, yaw: camera.yaw, pitch: camera.pitch, width, height,
-    }) * (camera.zoom || 1);
-    const eye = orbitEye(target, camera.yaw, camera.pitch, distance);
-    const project = makeProjector({ eye, target, width, height });
+    const { project } = cameraPose(camera, { fitPoints, width, height });
 
     // Étiquettes collectées pendant le dessin, posées en dernier pour qu'aucune
     // courbe tracée après ne vienne les barrer.
@@ -874,5 +976,7 @@ export function drawScene3D(ctx, opts) {
         occupied.push(drawChip(ctx, label.text, screen.x, screen.y, label));
     }
 
-    return { sensors: hitTargets };
+    // Les points de cadrage sont rendus pour que les gestes reconstruisent exactement
+    // la caméra de ce dessin (voir `cameraPose`).
+    return { sensors: hitTargets, fitPoints };
 }

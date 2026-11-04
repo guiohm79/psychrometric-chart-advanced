@@ -121,6 +121,8 @@ test('drawScene3D dessine sans produire de coordonnée non finie', () => {
 
     assert.ok(ctx.calls.length > 100, 'la scène a bien été tracée');
     assert.equal(result.sensors.length, POINTS.length, 'un point de survol par capteur');
+    // Les gestes reconstruisent la caméra du dessin à partir de ces points.
+    assert.ok(result.fitPoints.length >= 4, 'points de cadrage rendus pour les gestes');
     for (const sensor of result.sensors) {
         assert.ok(Number.isFinite(sensor.x) && Number.isFinite(sensor.y), 'position écran exploitable');
         assert.ok(sensor.radius > 0, 'rayon de capture positif');

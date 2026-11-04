@@ -3,7 +3,7 @@ import {
     PsychrometricCalculations, LINE_STYLES, DEFAULT_LINE_STYLES,
     pickAxisStep, alignSeries, timeOutsideRange,
 } from "./psychrometric-helpers.js";
-import { drawScene3D, VIEWS, PITCH_MIN, PITCH_MAX } from "./psychrometric-3d.js";
+import { drawScene3D, anchoredZoom, clampPan, VIEWS, PITCH_MIN, PITCH_MAX } from "./psychrometric-3d.js";
 import "./psychrometric-chart-editor.js";
 
 /**
@@ -25,6 +25,15 @@ const DEFAULT_CHART_RATIO = 4 / 3;
  */
 const ZOOM3D_MIN = 0.35;
 const ZOOM3D_MAX = 2.5;
+
+/**
+ * Sensibilité de la rotation 3D, en radians par pixel CSS glissé, à zoom 1.
+ *
+ * 0,008 rad/px faisait pivoter la scène de 46° pour un glissement de 100 px, soit à
+ * peine le tiers d'un écran de téléphone : le moindre geste l'envoyait de travers.
+ */
+const ROTATE3D_YAW = 0.005;
+const ROTATE3D_PITCH = 0.004;
 
 /**
  * Préfixe des clés mémorisant la vue 3D dans le stockage local du navigateur.
@@ -696,12 +705,13 @@ class PsychrometricChartEnhanced extends LitElement {
         this._historyPlot = null;
         // Caméra du mode 3D. `zoom` multiplie la distance de cadrage automatique :
         // 1 correspond au cadrage qui fait tout tenir dans le canvas.
-        this._cam3d = { ...VIEWS['3d'], zoom: 1 };
+        // `panX`/`panZ` décalent la cible d'orbite sur le plan (déplacement à deux doigts).
+        this._cam3d = { ...VIEWS['3d'], zoom: 1, panX: 0, panZ: 0 };
         this._view3d = '3d';
         this._plot3d = null;
         this._drag3d = null;
         // Pointeurs tactiles actifs, pour distinguer rotation (un doigt) et
-        // pincement (deux doigts) — le zoom n'a aucun autre geste sur mobile.
+        // pincement-déplacement (deux doigts) — le zoom n'a aucun autre geste sur mobile.
         this._pointers3d = new Map();
         this._pinch3d = null;
         // Écriture différée de la vue 3D dans le stockage local (voir `_persistCam3d`).
@@ -2262,7 +2272,9 @@ class PsychrometricChartEnhanced extends LitElement {
      * @param {string} view - '3d' ou 'top'
      */
     _setView3d(view) {
-        this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1 };
+        // Les boutons de vue servent aussi de retour au cadrage complet : ils
+        // annulent le zoom et le déplacement, seul moyen de retrouver une scène perdue.
+        this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1, panX: 0, panZ: 0 };
         this._view3d = VIEWS[view] ? view : '3d';
         this._hoveredPoint = null;
         this._persistCam3d();
@@ -2292,7 +2304,7 @@ class PsychrometricChartEnhanced extends LitElement {
             // cours, sinon le déplacement du premier doigt ferait tourner la scène
             // pendant qu'on zoome.
             this._drag3d = null;
-            this._pinch3d = { distance: this._pinchDistance(), zoom: this._cam3d.zoom };
+            this._pinch3d = this._pinchState();
             return;
         }
         this._pinch3d = null;
@@ -2301,13 +2313,28 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
-     * Écart entre les deux premiers pointeurs actifs, en pixels.
-     * @returns {number} Distance, ou 0 s'il y a moins de deux pointeurs
+     * Écart et milieu des deux premiers pointeurs actifs.
+     * @returns {{distance: number, center: {x: number, y: number}}|null} Écart en
+     *     pixels et milieu dans le repère du canvas, ou null sous deux pointeurs
      */
-    _pinchDistance() {
+    _pinchState() {
         const [a, b] = [...this._pointers3d.values()];
-        if (!a || !b) return 0;
-        return Math.hypot(a.x - b.x, a.y - b.y);
+        if (!a || !b) return null;
+        return {
+            distance: Math.hypot(a.x - b.x, a.y - b.y),
+            center: this._canvasPoint((a.x + b.x) / 2, (a.y + b.y) / 2),
+        };
+    }
+
+    /**
+     * Convertit une position de la fenêtre dans le repère du canvas, en pixels CSS.
+     * @param {number} clientX - Abscisse dans la fenêtre
+     * @param {number} clientY - Ordonnée dans la fenêtre
+     * @returns {{x: number, y: number}} Position dans le canvas
+     */
+    _canvasPoint(clientX, clientY) {
+        const rect = this.shadowRoot.getElementById('psychroChart')?.getBoundingClientRect();
+        return rect ? { x: clientX - rect.left, y: clientY - rect.top } : { x: clientX, y: clientY };
     }
 
     /**
@@ -2322,15 +2349,20 @@ class PsychrometricChartEnhanced extends LitElement {
             this._pointers3d.set(e.pointerId, { x: e.clientX, y: e.clientY });
         }
 
-        // Pincement : l'écartement des doigts pilote la distance de caméra. C'est le
-        // seul geste de zoom tactile — la molette n'existe pas sur mobile, et un
-        // curseur à l'écran mangerait la place du graphique.
+        // Deux doigts : l'écartement pilote la distance de caméra et le milieu fait
+        // glisser le diagramme, ancré sous les doigts. C'est le seul geste de zoom
+        // tactile — la molette n'existe pas sur mobile, et un curseur à l'écran
+        // mangerait la place du graphique. Zoomer vers le seul centre de la scène,
+        // comme avant, laissait hors champ tout ce qu'on cherchait à grossir.
         if (this._pinch3d) {
-            const distance = this._pinchDistance();
-            if (distance > 0 && this._pinch3d.distance > 0) {
+            const pinch = this._pinchState();
+            if (pinch && pinch.distance > 0 && this._pinch3d.distance > 0) {
                 // `zoom` multiplie la distance de cadrage : écarter les doigts
-                // rapproche la caméra, donc diminue le facteur.
-                this._setZoom3d(this._pinch3d.zoom * (this._pinch3d.distance / distance));
+                // rapproche la caméra, donc diminue le facteur. Le calcul est
+                // incrémental : arrivé en butée, resserrer les doigts dézoome aussitôt.
+                const zoom = this._cam3d.zoom * (this._pinch3d.distance / pinch.distance);
+                this._zoomPan3d(zoom, this._pinch3d.center, pinch.center);
+                this._pinch3d = pinch;
             }
             return;
         }
@@ -2345,10 +2377,15 @@ class PsychrometricChartEnhanced extends LitElement {
         this._drag3d.y = e.clientY;
         this._drag3d.moved += Math.abs(dx) + Math.abs(dy);
 
+        // Zoomée, la scène est plus proche : à angle égal, elle balaie l'écran d'autant
+        // plus vite. Ralentir la rotation dans la même proportion garde un déplacement
+        // constant sous le doigt, au lieu d'envoyer le diagramme hors champ.
+        const speed = Math.min(1, this._cam3d.zoom);
         // Mêmes conventions qu'OrbitControls : glisser vers la droite fait tourner la
         // scène vers la droite, glisser vers le bas relève la caméra vers la verticale.
-        this._cam3d.yaw -= dx * 0.008;
-        this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this._cam3d.pitch - dy * 0.006));
+        this._cam3d.yaw -= dx * ROTATE3D_YAW * speed;
+        this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN,
+            this._cam3d.pitch - dy * ROTATE3D_PITCH * speed));
         // L'infobulle pointerait une pastille qui a bougé sous le curseur.
         this._hoveredPoint = null;
         this._markFreeView3d();
@@ -2372,9 +2409,9 @@ class PsychrometricChartEnhanced extends LitElement {
         }
 
         if (this._pointers3d.size >= 2) {
-            // Un troisième doigt s'est levé : repartir de l'écart courant, sinon le
-            // zoom sauterait d'un coup au prochain mouvement.
-            this._pinch3d = { distance: this._pinchDistance(), zoom: this._cam3d.zoom };
+            // Un troisième doigt s'est levé : repartir de l'écart et du milieu courants,
+            // sinon zoom et déplacement sauteraient d'un coup au prochain mouvement.
+            this._pinch3d = this._pinchState();
             return;
         }
 
@@ -2396,16 +2433,30 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
-     * Applique un facteur de zoom borné et redessine.
+     * Applique un zoom borné, ancré sous le pointeur, et redessine.
      *
-     * Les bornes empêchent de traverser la scène ou de la réduire à un point : le
-     * cadrage automatique ne sert plus de garde-fou dès que l'utilisateur zoome.
+     * Le point du plan situé sous `from` avant le geste est ramené sous `to` (voir
+     * `anchoredZoom`). Les bornes empêchent de traverser la scène ou de la réduire à
+     * un point : le cadrage automatique ne sert plus de garde-fou dès qu'on zoome.
      * @param {number} zoom - Facteur multiplicatif de la distance de cadrage
+     * @param {{x: number, y: number}} from - Pixel d'ancrage avant le geste
+     * @param {{x: number, y: number}} to - Pixel d'ancrage après le geste
      */
-    _setZoom3d(zoom) {
+    _zoomPan3d(zoom, from, to) {
         const clamped = Math.min(ZOOM3D_MAX, Math.max(ZOOM3D_MIN, zoom));
-        if (clamped === this._cam3d.zoom) return;
-        this._cam3d.zoom = clamped;
+        const camera = this._cam3d;
+        const fitPoints = this._plot3d?.fitPoints;
+        // Sans dessin préalable, la géométrie d'ancrage est inconnue : zoom seul.
+        const next = fitPoints
+            ? anchoredZoom(camera, {
+                fitPoints, width: this._canvasWidth, height: this._canvasHeight,
+                zoom: clamped, from, to,
+            })
+            : { ...camera, zoom: clamped };
+        if (next.zoom === camera.zoom && next.panX === camera.panX && next.panZ === camera.panZ) return;
+        this._cam3d = next;
+        // L'infobulle pointerait une pastille qui a bougé sous le curseur.
+        this._hoveredPoint = null;
         this._markFreeView3d();
         this._persistCam3d();
         this._drawChart();
@@ -2459,10 +2510,13 @@ class PsychrometricChartEnhanced extends LitElement {
         // Les valeurs viennent du disque : les borner comme le font les gestes. Une
         // inclinaison hors bornes ferait passer la caméra sous le plan, ce qui casse
         // l'ordre de dessin par couches du mode 3D.
+        // Une vue enregistrée avant l'existence du déplacement n'a pas de `panX`/`panZ` :
+        // `clampPan` les ramène alors au centre.
         this._cam3d = {
             yaw,
             pitch: Math.min(PITCH_MAX, Math.max(PITCH_MIN, pitch)),
             zoom: Math.min(ZOOM3D_MAX, Math.max(ZOOM3D_MIN, zoom)),
+            ...clampPan(Number(stored.panX), Number(stored.panZ)),
         };
         this._view3d = VIEWS[stored.view] ? stored.view : 'free';
         // La géométrie mémorisée décrit l'ancienne caméra.
@@ -2502,13 +2556,14 @@ class PsychrometricChartEnhanced extends LitElement {
     }
 
     /**
-     * Zoom à la molette autour du cadrage automatique.
+     * Zoom à la molette, vers le point visé par le curseur.
      * @param {WheelEvent} e - Événement molette
      */
     _handleWheel(e) {
         // Sans cela, la molette ferait défiler le tableau de bord sous le graphique.
         e.preventDefault();
-        this._setZoom3d(this._cam3d.zoom * Math.exp(e.deltaY * 0.0012));
+        const at = this._canvasPoint(e.clientX, e.clientY);
+        this._zoomPan3d(this._cam3d.zoom * Math.exp(e.deltaY * 0.0012), at, at);
     }
     /**
      * Build the constant-wet-bulb lines as (temp, rh) samples.

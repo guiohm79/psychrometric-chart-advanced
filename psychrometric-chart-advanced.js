@@ -895,6 +895,9 @@ function makeProjector({ eye, target, width, height, fov = FOV }) {
     // le projecteur reste un objet unique, sans risque de désaccord entre les deux.
     project.focal = focal;
     project.basis = { right, up, forward };
+    // L'œil et le centre servent à l'opération inverse (`groundPointAt`).
+    project.eye = eye;
+    project.center = [centerX, centerY];
     return project;
 }
 
@@ -946,6 +949,110 @@ function fitDistance(points, { target, yaw, pitch, width, height, fov = FOV, fil
         if (Math.abs(ratio - 1) < 0.005) break;
     }
     return distance;
+}
+
+/** Altitude du point visé par la caméra, en unités de scène. */
+const ORBIT_HEIGHT = 1;
+
+/**
+ * Borne le déplacement de la cible d'orbite à l'empreinte du plan.
+ *
+ * Sans borne, quelques glissements à deux doigts suffiraient à perdre le diagramme
+ * hors champ, sans aucun repère pour le retrouver.
+ * @param {number} panX - Décalage demandé selon X, en unités de scène
+ * @param {number} panZ - Décalage demandé selon Z, en unités de scène
+ * @returns {{panX: number, panZ: number}} Décalage borné (0 s'il n'est pas fini)
+ */
+function clampPan(panX, panZ) {
+    const clamp = (value, limit) =>
+        (Number.isFinite(value) ? Math.min(limit, Math.max(-limit, value)) : 0);
+    return { panX: clamp(panX, SCENE.halfWidth), panZ: clamp(panZ, SCENE.halfDepth) };
+}
+
+/**
+ * Pose complète de la caméra : cible, distance, œil et projecteur.
+ *
+ * Source unique partagée par le dessin et par les gestes : le zoom ancré sous les
+ * doigts doit projeter exactement comme le dernier dessin, sinon le point visé
+ * glisserait. Le cadrage automatique se calcule autour du centre du plan et non de
+ * la cible déplacée : un simple déplacement changerait sinon aussi l'échelle.
+ * @param {Object} camera - Caméra {yaw, pitch, zoom, panX, panZ}
+ * @param {Object} view - Viewport
+ * @param {number[][]} view.fitPoints - Points à faire tenir à zoom 1
+ * @param {number} view.width - Largeur du viewport
+ * @param {number} view.height - Hauteur du viewport
+ * @returns {{target: number[], distance: number, eye: number[], project: function}} Pose
+ */
+function cameraPose(camera, { fitPoints, width, height }) {
+    const { yaw, pitch } = camera;
+    const fit = fitDistance(fitPoints, { target: [0, ORBIT_HEIGHT, 0], yaw, pitch, width, height });
+    const distance = fit * (camera.zoom || 1);
+    const { panX, panZ } = clampPan(camera.panX ?? 0, camera.panZ ?? 0);
+    const target = [panX, ORBIT_HEIGHT, panZ];
+    const eye = orbitEye(target, yaw, pitch, distance);
+    return { target, distance, eye, project: makeProjector({ eye, target, width, height }) };
+}
+
+/**
+ * Point du plan horizontal situé sous un pixel de l'écran.
+ *
+ * Opération inverse de la projection, par intersection du rayon de visée avec le
+ * plan Y = planeY.
+ * @param {function} project - Projecteur issu de makeProjector
+ * @param {number} x - Abscisse écran, en pixels CSS
+ * @param {number} y - Ordonnée écran, en pixels CSS
+ * @param {Object} [options] - Options
+ * @param {number} [options.planeY] - Altitude du plan visé
+ * @param {number} [options.maxDistance] - Distance au-delà de laquelle on renonce :
+ *     près de l'horizon, un pixel couvre une étendue démesurée du plan
+ * @returns {number[]|null} Point [x, y, z], ou null si le rayon manque le plan
+ */
+function groundPointAt(project, x, y, { planeY = 0, maxDistance = Infinity } = {}) {
+    const { eye, focal, center, basis: { right, up, forward } } = project;
+    const u = (x - center[0]) / focal;
+    const v = (center[1] - y) / focal;
+    const ray = [0, 1, 2].map(i => forward[i] + right[i] * u + up[i] * v);
+    // Un rayon horizontal ou montant ne rencontre jamais le plan.
+    if (ray[1] >= -1e-9) return null;
+    const t = (planeY - eye[1]) / ray[1];
+    if (!(t > 0) || t * Math.hypot(...ray) > maxDistance) return null;
+    return [eye[0] + ray[0] * t, planeY, eye[2] + ray[2] * t];
+}
+
+/**
+ * Zoom ancré : applique un zoom en gardant sous `to` le point du plan qui était
+ * sous `from`.
+ *
+ * C'est le geste des cartes géographiques : pincer zoome vers les doigts au lieu du
+ * centre de la scène, et les faire glisser ensemble déplace le diagramme. `from`
+ * égal à `to` donne un zoom pur autour du pointeur (molette), un zoom inchangé un
+ * déplacement pur. La rotation pivote ensuite autour de ce qui est au centre de
+ * l'écran, et non plus du centre du plan resté hors champ.
+ * @param {Object} camera - Caméra {yaw, pitch, zoom, panX, panZ}
+ * @param {Object} options - Paramètres du geste
+ * @param {number[][]} options.fitPoints - Points de cadrage du dernier dessin
+ * @param {number} options.width - Largeur du viewport
+ * @param {number} options.height - Hauteur du viewport
+ * @param {number} options.zoom - Nouveau zoom, déjà borné par l'appelant
+ * @param {{x: number, y: number}} options.from - Pixel d'ancrage avant le geste
+ * @param {{x: number, y: number}} options.to - Pixel d'ancrage après le geste
+ * @returns {Object} Nouvelle caméra (l'entrée n'est pas modifiée)
+ */
+function anchoredZoom(camera, { fitPoints, width, height, zoom, from, to }) {
+    const view = { fitPoints, width, height };
+    const before = cameraPose(camera, view);
+    const next = { ...camera, zoom };
+    const after = cameraPose(next, view);
+    const a = groundPointAt(before.project, from.x, from.y, { maxDistance: before.distance * 4 });
+    const b = groundPointAt(after.project, to.x, to.y, { maxDistance: after.distance * 4 });
+    // Ancrage hors du plan (au-dessus de l'horizon) : zoom seul, sans déplacement.
+    if (!a || !b) return next;
+    // Translater œil et cible de a − b ramène sous `to` le point a : la projection
+    // est invariante par translation, et a − b est horizontal.
+    return {
+        ...next,
+        ...clampPan(before.target[0] + a[0] - b[0], before.target[2] + a[2] - b[2]),
+    };
 }
 
 // ========================================
@@ -1297,12 +1404,7 @@ function drawScene3D(ctx, opts) {
     });
     const fitPoints = corners.concat(sensorScene.map(s => [s.pos[0], s.pos[1] + 1, s.pos[2]]));
 
-    const target = [0, 1, 0];
-    const distance = fitDistance(fitPoints, {
-        target, yaw: camera.yaw, pitch: camera.pitch, width, height,
-    }) * (camera.zoom || 1);
-    const eye = orbitEye(target, camera.yaw, camera.pitch, distance);
-    const project = makeProjector({ eye, target, width, height });
+    const { project } = cameraPose(camera, { fitPoints, width, height });
 
     // Étiquettes collectées pendant le dessin, posées en dernier pour qu'aucune
     // courbe tracée après ne vienne les barrer.
@@ -1591,7 +1693,9 @@ function drawScene3D(ctx, opts) {
         occupied.push(drawChip(ctx, label.text, screen.x, screen.y, label));
     }
 
-    return { sensors: hitTargets };
+    // Les points de cadrage sont rendus pour que les gestes reconstruisent exactement
+    // la caméra de ce dessin (voir `cameraPose`).
+    return { sensors: hitTargets, fitPoints };
 }
 
 /**
@@ -2887,6 +2991,15 @@ const ZOOM3D_MIN = 0.35;
 const ZOOM3D_MAX = 2.5;
 
 /**
+ * Sensibilité de la rotation 3D, en radians par pixel CSS glissé, à zoom 1.
+ *
+ * 0,008 rad/px faisait pivoter la scène de 46° pour un glissement de 100 px, soit à
+ * peine le tiers d'un écran de téléphone : le moindre geste l'envoyait de travers.
+ */
+const ROTATE3D_YAW = 0.005;
+const ROTATE3D_PITCH = 0.004;
+
+/**
  * Préfixe des clés mémorisant la vue 3D dans le stockage local du navigateur.
  *
  * Home Assistant reconstruit la carte à chaque ouverture du tableau de bord : sans
@@ -3556,12 +3669,13 @@ class PsychrometricChartEnhanced extends i {
         this._historyPlot = null;
         // Caméra du mode 3D. `zoom` multiplie la distance de cadrage automatique :
         // 1 correspond au cadrage qui fait tout tenir dans le canvas.
-        this._cam3d = { ...VIEWS['3d'], zoom: 1 };
+        // `panX`/`panZ` décalent la cible d'orbite sur le plan (déplacement à deux doigts).
+        this._cam3d = { ...VIEWS['3d'], zoom: 1, panX: 0, panZ: 0 };
         this._view3d = '3d';
         this._plot3d = null;
         this._drag3d = null;
         // Pointeurs tactiles actifs, pour distinguer rotation (un doigt) et
-        // pincement (deux doigts) — le zoom n'a aucun autre geste sur mobile.
+        // pincement-déplacement (deux doigts) — le zoom n'a aucun autre geste sur mobile.
         this._pointers3d = new Map();
         this._pinch3d = null;
         // Écriture différée de la vue 3D dans le stockage local (voir `_persistCam3d`).
@@ -5122,7 +5236,9 @@ class PsychrometricChartEnhanced extends i {
      * @param {string} view - '3d' ou 'top'
      */
     _setView3d(view) {
-        this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1 };
+        // Les boutons de vue servent aussi de retour au cadrage complet : ils
+        // annulent le zoom et le déplacement, seul moyen de retrouver une scène perdue.
+        this._cam3d = { ...(VIEWS[view] || VIEWS['3d']), zoom: 1, panX: 0, panZ: 0 };
         this._view3d = VIEWS[view] ? view : '3d';
         this._hoveredPoint = null;
         this._persistCam3d();
@@ -5152,7 +5268,7 @@ class PsychrometricChartEnhanced extends i {
             // cours, sinon le déplacement du premier doigt ferait tourner la scène
             // pendant qu'on zoome.
             this._drag3d = null;
-            this._pinch3d = { distance: this._pinchDistance(), zoom: this._cam3d.zoom };
+            this._pinch3d = this._pinchState();
             return;
         }
         this._pinch3d = null;
@@ -5161,13 +5277,28 @@ class PsychrometricChartEnhanced extends i {
     }
 
     /**
-     * Écart entre les deux premiers pointeurs actifs, en pixels.
-     * @returns {number} Distance, ou 0 s'il y a moins de deux pointeurs
+     * Écart et milieu des deux premiers pointeurs actifs.
+     * @returns {{distance: number, center: {x: number, y: number}}|null} Écart en
+     *     pixels et milieu dans le repère du canvas, ou null sous deux pointeurs
      */
-    _pinchDistance() {
+    _pinchState() {
         const [a, b] = [...this._pointers3d.values()];
-        if (!a || !b) return 0;
-        return Math.hypot(a.x - b.x, a.y - b.y);
+        if (!a || !b) return null;
+        return {
+            distance: Math.hypot(a.x - b.x, a.y - b.y),
+            center: this._canvasPoint((a.x + b.x) / 2, (a.y + b.y) / 2),
+        };
+    }
+
+    /**
+     * Convertit une position de la fenêtre dans le repère du canvas, en pixels CSS.
+     * @param {number} clientX - Abscisse dans la fenêtre
+     * @param {number} clientY - Ordonnée dans la fenêtre
+     * @returns {{x: number, y: number}} Position dans le canvas
+     */
+    _canvasPoint(clientX, clientY) {
+        const rect = this.shadowRoot.getElementById('psychroChart')?.getBoundingClientRect();
+        return rect ? { x: clientX - rect.left, y: clientY - rect.top } : { x: clientX, y: clientY };
     }
 
     /**
@@ -5182,15 +5313,20 @@ class PsychrometricChartEnhanced extends i {
             this._pointers3d.set(e.pointerId, { x: e.clientX, y: e.clientY });
         }
 
-        // Pincement : l'écartement des doigts pilote la distance de caméra. C'est le
-        // seul geste de zoom tactile — la molette n'existe pas sur mobile, et un
-        // curseur à l'écran mangerait la place du graphique.
+        // Deux doigts : l'écartement pilote la distance de caméra et le milieu fait
+        // glisser le diagramme, ancré sous les doigts. C'est le seul geste de zoom
+        // tactile — la molette n'existe pas sur mobile, et un curseur à l'écran
+        // mangerait la place du graphique. Zoomer vers le seul centre de la scène,
+        // comme avant, laissait hors champ tout ce qu'on cherchait à grossir.
         if (this._pinch3d) {
-            const distance = this._pinchDistance();
-            if (distance > 0 && this._pinch3d.distance > 0) {
+            const pinch = this._pinchState();
+            if (pinch && pinch.distance > 0 && this._pinch3d.distance > 0) {
                 // `zoom` multiplie la distance de cadrage : écarter les doigts
-                // rapproche la caméra, donc diminue le facteur.
-                this._setZoom3d(this._pinch3d.zoom * (this._pinch3d.distance / distance));
+                // rapproche la caméra, donc diminue le facteur. Le calcul est
+                // incrémental : arrivé en butée, resserrer les doigts dézoome aussitôt.
+                const zoom = this._cam3d.zoom * (this._pinch3d.distance / pinch.distance);
+                this._zoomPan3d(zoom, this._pinch3d.center, pinch.center);
+                this._pinch3d = pinch;
             }
             return;
         }
@@ -5205,10 +5341,15 @@ class PsychrometricChartEnhanced extends i {
         this._drag3d.y = e.clientY;
         this._drag3d.moved += Math.abs(dx) + Math.abs(dy);
 
+        // Zoomée, la scène est plus proche : à angle égal, elle balaie l'écran d'autant
+        // plus vite. Ralentir la rotation dans la même proportion garde un déplacement
+        // constant sous le doigt, au lieu d'envoyer le diagramme hors champ.
+        const speed = Math.min(1, this._cam3d.zoom);
         // Mêmes conventions qu'OrbitControls : glisser vers la droite fait tourner la
         // scène vers la droite, glisser vers le bas relève la caméra vers la verticale.
-        this._cam3d.yaw -= dx * 0.008;
-        this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this._cam3d.pitch - dy * 0.006));
+        this._cam3d.yaw -= dx * ROTATE3D_YAW * speed;
+        this._cam3d.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN,
+            this._cam3d.pitch - dy * ROTATE3D_PITCH * speed));
         // L'infobulle pointerait une pastille qui a bougé sous le curseur.
         this._hoveredPoint = null;
         this._markFreeView3d();
@@ -5232,9 +5373,9 @@ class PsychrometricChartEnhanced extends i {
         }
 
         if (this._pointers3d.size >= 2) {
-            // Un troisième doigt s'est levé : repartir de l'écart courant, sinon le
-            // zoom sauterait d'un coup au prochain mouvement.
-            this._pinch3d = { distance: this._pinchDistance(), zoom: this._cam3d.zoom };
+            // Un troisième doigt s'est levé : repartir de l'écart et du milieu courants,
+            // sinon zoom et déplacement sauteraient d'un coup au prochain mouvement.
+            this._pinch3d = this._pinchState();
             return;
         }
 
@@ -5256,16 +5397,30 @@ class PsychrometricChartEnhanced extends i {
     }
 
     /**
-     * Applique un facteur de zoom borné et redessine.
+     * Applique un zoom borné, ancré sous le pointeur, et redessine.
      *
-     * Les bornes empêchent de traverser la scène ou de la réduire à un point : le
-     * cadrage automatique ne sert plus de garde-fou dès que l'utilisateur zoome.
+     * Le point du plan situé sous `from` avant le geste est ramené sous `to` (voir
+     * `anchoredZoom`). Les bornes empêchent de traverser la scène ou de la réduire à
+     * un point : le cadrage automatique ne sert plus de garde-fou dès qu'on zoome.
      * @param {number} zoom - Facteur multiplicatif de la distance de cadrage
+     * @param {{x: number, y: number}} from - Pixel d'ancrage avant le geste
+     * @param {{x: number, y: number}} to - Pixel d'ancrage après le geste
      */
-    _setZoom3d(zoom) {
+    _zoomPan3d(zoom, from, to) {
         const clamped = Math.min(ZOOM3D_MAX, Math.max(ZOOM3D_MIN, zoom));
-        if (clamped === this._cam3d.zoom) return;
-        this._cam3d.zoom = clamped;
+        const camera = this._cam3d;
+        const fitPoints = this._plot3d?.fitPoints;
+        // Sans dessin préalable, la géométrie d'ancrage est inconnue : zoom seul.
+        const next = fitPoints
+            ? anchoredZoom(camera, {
+                fitPoints, width: this._canvasWidth, height: this._canvasHeight,
+                zoom: clamped, from, to,
+            })
+            : { ...camera, zoom: clamped };
+        if (next.zoom === camera.zoom && next.panX === camera.panX && next.panZ === camera.panZ) return;
+        this._cam3d = next;
+        // L'infobulle pointerait une pastille qui a bougé sous le curseur.
+        this._hoveredPoint = null;
         this._markFreeView3d();
         this._persistCam3d();
         this._drawChart();
@@ -5319,10 +5474,13 @@ class PsychrometricChartEnhanced extends i {
         // Les valeurs viennent du disque : les borner comme le font les gestes. Une
         // inclinaison hors bornes ferait passer la caméra sous le plan, ce qui casse
         // l'ordre de dessin par couches du mode 3D.
+        // Une vue enregistrée avant l'existence du déplacement n'a pas de `panX`/`panZ` :
+        // `clampPan` les ramène alors au centre.
         this._cam3d = {
             yaw,
             pitch: Math.min(PITCH_MAX, Math.max(PITCH_MIN, pitch)),
             zoom: Math.min(ZOOM3D_MAX, Math.max(ZOOM3D_MIN, zoom)),
+            ...clampPan(Number(stored.panX), Number(stored.panZ)),
         };
         this._view3d = VIEWS[stored.view] ? stored.view : 'free';
         // La géométrie mémorisée décrit l'ancienne caméra.
@@ -5362,13 +5520,14 @@ class PsychrometricChartEnhanced extends i {
     }
 
     /**
-     * Zoom à la molette autour du cadrage automatique.
+     * Zoom à la molette, vers le point visé par le curseur.
      * @param {WheelEvent} e - Événement molette
      */
     _handleWheel(e) {
         // Sans cela, la molette ferait défiler le tableau de bord sous le graphique.
         e.preventDefault();
-        this._setZoom3d(this._cam3d.zoom * Math.exp(e.deltaY * 0.0012));
+        const at = this._canvasPoint(e.clientX, e.clientY);
+        this._zoomPan3d(this._cam3d.zoom * Math.exp(e.deltaY * 0.0012), at, at);
     }
     /**
      * Build the constant-wet-bulb lines as (temp, rh) samples.
